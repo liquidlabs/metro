@@ -1,0 +1,348 @@
+/*
+ * Copyright (C) 2024 Zac Sweers
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package dev.zacsweers.lattice.transformers
+
+import dev.zacsweers.lattice.LatticeOrigin
+import dev.zacsweers.lattice.ir.createIrBuilder
+import dev.zacsweers.lattice.ir.irConstructorBody
+import dev.zacsweers.lattice.ir.irInvoke
+import dev.zacsweers.lattice.ir.irTemporary
+import dev.zacsweers.lattice.ir.isAnnotatedWithAny
+import dev.zacsweers.lattice.joinSimpleNames
+import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
+import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
+import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
+import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.ir.IrStatement
+import org.jetbrains.kotlin.ir.builders.declarations.addConstructor
+import org.jetbrains.kotlin.ir.builders.declarations.addField
+import org.jetbrains.kotlin.ir.builders.declarations.addFunction
+import org.jetbrains.kotlin.ir.builders.declarations.addGetter
+import org.jetbrains.kotlin.ir.builders.declarations.addProperty
+import org.jetbrains.kotlin.ir.builders.declarations.addTypeParameter
+import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
+import org.jetbrains.kotlin.ir.builders.declarations.buildClass
+import org.jetbrains.kotlin.ir.builders.declarations.buildValueParameter
+import org.jetbrains.kotlin.ir.builders.irBlockBody
+import org.jetbrains.kotlin.ir.builders.irCall
+import org.jetbrains.kotlin.ir.builders.irDelegatingConstructorCall
+import org.jetbrains.kotlin.ir.builders.irExprBody
+import org.jetbrains.kotlin.ir.builders.irGet
+import org.jetbrains.kotlin.ir.builders.irGetField
+import org.jetbrains.kotlin.ir.builders.irReturn
+import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrConstructor
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
+import org.jetbrains.kotlin.ir.declarations.IrField
+import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
+import org.jetbrains.kotlin.ir.declarations.addMember
+import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
+import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
+import org.jetbrains.kotlin.ir.types.defaultType
+import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
+import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.util.classIdOrFail
+import org.jetbrains.kotlin.ir.util.constructors
+import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
+import org.jetbrains.kotlin.ir.util.defaultType
+import org.jetbrains.kotlin.ir.util.file
+import org.jetbrains.kotlin.ir.util.primaryConstructor
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.Name
+
+internal class InjectConstructorTransformer(context: LatticeTransformerContext) :
+  IrElementTransformerVoidWithContext(), LatticeTransformerContext by context {
+
+  @OptIn(UnsafeDuringIrConstructionAPI::class)
+  override fun visitClassNew(declaration: IrClass): IrStatement {
+    log("Reading <$declaration>")
+
+    // Check for inject annotation on the class or primary constructor
+    // TODO FIR error if primary constructor is missing but class annotated with inject
+    val primaryConstructor =
+      declaration.primaryConstructor ?: return super.visitClassNew(declaration)
+    val isInjectable =
+      declaration.isAnnotatedWithAny(symbols.injectAnnotations) ||
+        primaryConstructor.isAnnotatedWithAny(symbols.injectAnnotations)
+
+    // TODO FIR check for multiple inject constructors or annotations
+    // TODO FIR check constructor visibility
+
+    if (isInjectable) {
+      val typeParams = declaration.typeParameters
+      val constructorParameters =
+        primaryConstructor.valueParameters.mapNotNull { valueParameter ->
+          valueParameter.toConstructorParameter(symbols, valueParameter.name)
+        }
+      generateFactoryClass(
+        declaration,
+        declaration.classIdOrFail,
+        primaryConstructor,
+        typeParams,
+        constructorParameters,
+      )
+    }
+    return super.visitClassNew(declaration)
+  }
+
+  @OptIn(UnsafeDuringIrConstructionAPI::class)
+  private fun generateFactoryClass(
+    declaration: IrClass,
+    injectedClassId: ClassId,
+    targetConstructor: IrConstructor,
+    typeParameters: List<IrTypeParameter>,
+    constructorParameters: List<ConstructorParameter>,
+    // TODO
+    //    memberInjectParameters: List<MemberInjectParameter>,
+  ) {
+    val generatedClassName = injectedClassId.joinSimpleNames(suffix = "_Factory")
+
+    val allParameters = constructorParameters // + memberInjectParameters
+    val canGenerateAnObject = allParameters.isEmpty() && typeParameters.isEmpty()
+
+    val factoryCls =
+      pluginContext.irFactory
+        .buildClass {
+          name = generatedClassName.relativeClassName.shortName()
+          modality = Modality.FINAL
+          kind = if (canGenerateAnObject) ClassKind.OBJECT else ClassKind.CLASS
+          visibility = DescriptorVisibilities.PUBLIC
+        }
+        .apply { origin = LatticeOrigin }
+
+    val typeParameterIrTypes = typeParameters.map { it.defaultType }
+    for ((i, typeVariable) in typeParameters.withIndex()) {
+      factoryCls.addTypeParameter {
+        name = typeVariable.name
+        variance = typeVariable.variance
+        superTypes += typeVariable.superTypes
+        index = i
+      }
+    }
+
+    val factoryReceiver =
+      buildValueParameter(factoryCls) {
+        name = Name.special("<this>")
+        type =
+          IrSimpleTypeImpl(
+            classifier = factoryCls.symbol,
+            hasQuestionMark = false,
+            arguments = emptyList(),
+            annotations = emptyList(),
+          )
+        origin = IrDeclarationOrigin.INSTANCE_RECEIVER
+      }
+
+    factoryCls.thisReceiver = factoryReceiver
+    factoryCls.superTypes = listOf(symbols.latticeFactory.typeWith(declaration.defaultType))
+
+    val factoryClassParameterized = factoryCls.typeWith(typeParameterIrTypes)
+    val targetTypeParameterized = declaration.typeWith(typeParameterIrTypes)
+
+    val ctor =
+      factoryCls
+        .addConstructor {
+          isPrimary = true
+          returnType = factoryCls.defaultType
+        }
+        .apply {
+          parent = factoryCls
+          body =
+            irConstructorBody(pluginContext) {
+              it +=
+                irDelegatingConstructorCall(context.irBuiltIns.anyClass.owner.constructors.single())
+            }
+        }
+
+    /*
+     * Add a constructor parameter + field for every parameter. This should be the provider type.
+     *
+     * TODO example snippet
+     */
+    val parametersToFields = mutableMapOf<Parameter, IrField>()
+    for (parameter in allParameters) {
+      val irParameter =
+        ctor.addValueParameter {
+          name = parameter.name
+          type = parameter.providerTypeName
+        }
+      val irField =
+        factoryCls
+          .addField {
+            name = irParameter.name
+            type = irParameter.type
+            visibility = DescriptorVisibilities.PRIVATE
+            isFinal = true
+          }
+          .apply {
+            initializer =
+              pluginContext.createIrBuilder(symbol).run { irExprBody(irGet(irParameter)) }
+          }
+      parametersToFields[parameter] = irField
+      // TODO add private property? Does it matter?
+    }
+
+    // Implement the `value` property
+    // This invokes newInstance() with all the
+    val classToGenerateCreatorsIn =
+      if (canGenerateAnObject) {
+        factoryCls
+      } else {
+        pluginContext.irFactory
+          .buildClass {
+            this.name = Name.identifier("Companion")
+            this.modality = Modality.FINAL
+            this.kind = ClassKind.OBJECT
+            this.visibility = DescriptorVisibilities.PUBLIC
+            this.isCompanion = true
+          }
+          .also { companionObject ->
+            factoryCls.addMember(companionObject)
+            companionObject.origin = LatticeOrigin
+            companionObject.parent = factoryCls
+            companionObject.createImplicitParameterDeclarationWithWrappedDescriptor()
+            companionObject
+              .addConstructor {
+                isPrimary = true
+                returnType = companionObject.defaultType
+              }
+              .apply {
+                parent = companionObject
+                body =
+                  irConstructorBody(pluginContext) {
+                    it +=
+                      irDelegatingConstructorCall(
+                        context.irBuiltIns.anyClass.owner.constructors.single()
+                      )
+                  }
+              }
+          }
+      }
+    val newInstanceFunction =
+      classToGenerateCreatorsIn
+        .addFunction("newInstance", targetTypeParameterized, isStatic = true)
+        .apply {
+          this.typeParameters = typeParameters
+          this.origin = LatticeOrigin
+          this.visibility = DescriptorVisibilities.PUBLIC
+          markJvmStatic()
+          for ((index, parameter) in allParameters.withIndex()) {
+            addValueParameter {
+              name = parameter.name
+              type = parameter.typeName
+              this.index = index
+            }
+          }
+          body =
+            pluginContext.createIrBuilder(symbol).run {
+              irExprBody(
+                // TODO members injector goes here
+                IrConstructorCallImpl.fromSymbolOwner(
+                    targetConstructor.returnType,
+                    targetConstructor.symbol,
+                  )
+                  .apply {
+                    for ((index, parameter) in valueParameters.withIndex()) {
+                      putValueArgument(index, irGet(parameter))
+                    }
+                  }
+              )
+            }
+        }
+
+    factoryCls
+      .addProperty {
+        name = symbols.providerValueProperty.owner.name
+        origin = LatticeOrigin
+      }
+      .apply {
+        parent = factoryCls
+        overriddenSymbols += symbols.providerValueProperty
+        addGetter {
+            // TODO what goes here?
+            returnType = targetTypeParameterized
+            origin = LatticeOrigin
+          }
+          .apply {
+            this.dispatchReceiverParameter = factoryReceiver
+            this.overriddenSymbols += symbols.providerValuePropertyGetter
+            body =
+              DeclarationIrBuilder(pluginContext, symbol).irBlockBody {
+                val instance =
+                  irTemporary(
+                    irInvoke(
+                      callee = newInstanceFunction.symbol,
+                      args =
+                        allParameters
+                          .map { parameter ->
+                            // When calling value getter on Provider<T>, make sure the dispatch
+                            // receiver
+                            // is the Provider instance itself
+                            val providerInstance =
+                              irGetField(
+                                irGet(factoryReceiver),
+                                parametersToFields.getValue(parameter),
+                              )
+                            irInvoke(
+                              dispatchReceiver = providerInstance,
+                              callee = symbols.providerValuePropertyGetter,
+                              typeHint = parameter.typeName,
+                            )
+                          }
+                          .toTypedArray(),
+                    )
+                  )
+                // TODO members injector goes here
+                +irReturn(irGet(instance))
+              }
+          }
+      }
+
+    // Implement a create()
+    classToGenerateCreatorsIn
+      .addFunction("create", factoryClassParameterized, isStatic = true)
+      .apply {
+        this.typeParameters = typeParameters
+        this.origin = LatticeOrigin
+        this.visibility = DescriptorVisibilities.PUBLIC
+        markJvmStatic()
+        for ((index, parameter) in allParameters.withIndex()) {
+          addValueParameter {
+            name = parameter.name
+            type = parameter.providerTypeName
+            this.index = index
+          }
+        }
+        body =
+          pluginContext.createIrBuilder(symbol).run {
+            irExprBody(
+              irCall(ctor.symbol).apply {
+                for ((index, _) in allParameters.withIndex()) {
+                  putValueArgument(index, irGet(valueParameters[index]))
+                }
+              }
+            )
+          }
+      }
+      .symbol
+
+    factoryCls.dumpToLatticeLog()
+
+    factoryCls.parent = declaration.file
+    declaration.declarations.add(factoryCls)
+  }
+}

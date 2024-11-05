@@ -14,10 +14,16 @@
  * limitations under the License.
  */
 plugins {
-  kotlin("jvm")
-  id("org.jetbrains.dokka")
-  id("com.vanniktech.maven.publish")
-  id("com.google.devtools.ksp")
+  alias(libs.plugins.kotlin.jvm)
+  alias(libs.plugins.dokka)
+  alias(libs.plugins.mavenPublish)
+  alias(libs.plugins.ksp)
+}
+
+kotlin {
+  compilerOptions {
+    optIn.add("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
+  }
 }
 
 dependencies {
@@ -26,6 +32,7 @@ dependencies {
   implementation(libs.autoService)
   ksp(libs.autoService.ksp)
 
+  testImplementation(project(":runtime"))
   testImplementation(libs.kotlin.reflect)
   testImplementation(libs.kotlin.stdlib)
   testImplementation(libs.kotlin.compilerEmbeddable)
