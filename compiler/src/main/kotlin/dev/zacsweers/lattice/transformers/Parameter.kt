@@ -16,9 +16,9 @@
 package dev.zacsweers.lattice.transformers
 
 import dev.zacsweers.lattice.LatticeSymbols
+import dev.zacsweers.lattice.expectAs
 import dev.zacsweers.lattice.ir.annotationsIn
 import dev.zacsweers.lattice.ir.constArgumentOfTypeAt
-import dev.zacsweers.lattice.expectAs
 import dev.zacsweers.lattice.ir.rawTypeOrNull
 import kotlin.collections.count
 import kotlin.collections.sumOf

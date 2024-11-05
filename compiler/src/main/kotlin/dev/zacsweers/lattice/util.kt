@@ -30,4 +30,6 @@ internal inline fun <reified T : Any> Any.expectAs(): T {
   return this
 }
 
-internal fun String.capitalizeUS() = replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString() }
+internal fun String.capitalizeUS() = replaceFirstChar {
+  if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString()
+}

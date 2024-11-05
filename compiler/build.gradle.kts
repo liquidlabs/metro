@@ -21,9 +21,7 @@ plugins {
 }
 
 kotlin {
-  compilerOptions {
-    optIn.add("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
-  }
+  compilerOptions { optIn.add("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi") }
 }
 
 dependencies {

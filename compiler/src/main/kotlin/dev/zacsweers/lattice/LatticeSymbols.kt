@@ -16,28 +16,15 @@
 package dev.zacsweers.lattice
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.backend.jvm.ir.propertyIfAccessor
-import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.ir.builders.declarations.addDefaultGetter
-import org.jetbrains.kotlin.ir.builders.declarations.addGetter
-import org.jetbrains.kotlin.ir.builders.declarations.addProperty
-import org.jetbrains.kotlin.ir.builders.declarations.addTypeParameter
-import org.jetbrains.kotlin.ir.builders.declarations.buildClass
-import org.jetbrains.kotlin.ir.builders.declarations.buildField
 import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
-import org.jetbrains.kotlin.ir.declarations.IrProperty
-import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.createEmptyExternalPackageFragment
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.classIdOrFail
-import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
-import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.getPropertyGetter
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -61,11 +48,15 @@ internal class LatticeSymbols(
   private val stdlibJvm: IrPackageFragment by lazy { createPackage("kotlin.jvm") }
 
   val latticeInject: IrClassSymbol by lazy {
-    pluginContext.referenceClass(ClassId(latticeAnnotations.packageFqName, Name.identifier("Inject")))!!
+    pluginContext.referenceClass(
+      ClassId(latticeAnnotations.packageFqName, Name.identifier("Inject"))
+    )!!
   }
 
   val latticeProvider: IrClassSymbol by lazy {
-    pluginContext.referenceClass(ClassId(latticeRuntime.packageFqName, Name.identifier("Provider")))!!
+    pluginContext.referenceClass(
+      ClassId(latticeRuntime.packageFqName, Name.identifier("Provider"))
+    )!!
   }
   val providerValuePropertyGetter: IrSimpleFunctionSymbol by lazy {
     latticeProvider.getPropertyGetter("value")!!
@@ -75,7 +66,9 @@ internal class LatticeSymbols(
   }
 
   val latticeFactory: IrClassSymbol by lazy {
-    pluginContext.referenceClass(ClassId(latticeRuntimeInternal.packageFqName, Name.identifier("Factory")))!!
+    pluginContext.referenceClass(
+      ClassId(latticeRuntimeInternal.packageFqName, Name.identifier("Factory"))
+    )!!
   }
 
   val stdlibLazy: IrClassSymbol by lazy {

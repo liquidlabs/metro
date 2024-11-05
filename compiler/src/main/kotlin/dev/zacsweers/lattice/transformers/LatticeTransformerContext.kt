@@ -15,8 +15,8 @@
  */
 package dev.zacsweers.lattice.transformers
 
-import dev.zacsweers.lattice.LatticeSymbols
 import dev.zacsweers.lattice.LOG_PREFIX
+import dev.zacsweers.lattice.LatticeSymbols
 import dev.zacsweers.lattice.ir.addAnnotation
 import dev.zacsweers.lattice.ir.irType
 import dev.zacsweers.lattice.ir.locationIn
@@ -74,10 +74,7 @@ internal interface LatticeTransformerContext {
   @OptIn(UnsafeDuringIrConstructionAPI::class)
   fun IrSimpleFunction.markJvmStatic() {
     if (pluginContext.platform.isJvm()) {
-      addAnnotation(
-        symbols.jvmStatic.typeWith(),
-        symbols.jvmStatic.constructors.single()
-      )
+      addAnnotation(symbols.jvmStatic.typeWith(), symbols.jvmStatic.constructors.single())
     }
   }
 

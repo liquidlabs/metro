@@ -16,12 +16,8 @@
 package dev.zacsweers.lattice.ir
 
 import dev.zacsweers.lattice.LatticeOrigin
-import dev.zacsweers.lattice.LatticeSymbols
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
-import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
-import org.jetbrains.kotlin.backend.jvm.ir.JvmIrBuilder
-import org.jetbrains.kotlin.backend.jvm.ir.createJvmIrBuilder
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocationWithRange
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.descriptors.Modality
@@ -50,7 +46,6 @@ import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
-import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
@@ -62,10 +57,8 @@ import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.IrTypeArgument
 import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.types.createType
-import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.SYNTHETIC_OFFSET
 import org.jetbrains.kotlin.ir.util.classId
-import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.copyTo
 import org.jetbrains.kotlin.ir.util.file
 import org.jetbrains.kotlin.ir.util.hasAnnotation
@@ -177,22 +170,25 @@ internal fun IrBuilderWithScope.irInvoke(
 internal fun IrClass.addOverride(
   context: IrPluginContext,
   method: IrSimpleFunction,
-  buildBody: DeclarationIrBuilder.(List<IrValueParameter>) -> IrExpression) =
+  buildBody: DeclarationIrBuilder.(List<IrValueParameter>) -> IrExpression,
+) =
   addFunction {
-    setSourceRange(this@addOverride)
-    name = method.name
-    returnType = method.returnType
-    visibility = method.visibility
-    modality = Modality.OPEN
-    origin = LatticeOrigin
-  }.apply {
-    overriddenSymbols += method.symbol
-    dispatchReceiverParameter = thisReceiver!!.copyTo(this)
-    valueParameters = method.valueParameters.map { it.copyTo(this) }
-    body = context.createIrBuilder(symbol).run {
-      irExprBody(buildBody(listOf(dispatchReceiverParameter!!) + valueParameters))
+      setSourceRange(this@addOverride)
+      name = method.name
+      returnType = method.returnType
+      visibility = method.visibility
+      modality = Modality.OPEN
+      origin = LatticeOrigin
     }
-  }
+    .apply {
+      overriddenSymbols += method.symbol
+      dispatchReceiverParameter = thisReceiver!!.copyTo(this)
+      valueParameters = method.valueParameters.map { it.copyTo(this) }
+      body =
+        context.createIrBuilder(symbol).run {
+          irExprBody(buildBody(listOf(dispatchReceiverParameter!!) + valueParameters))
+        }
+    }
 
 internal fun <T : IrElement> IrStatementsBuilder<T>.irTemporary(
   value: IrExpression? = null,
@@ -201,12 +197,15 @@ internal fun <T : IrElement> IrStatementsBuilder<T>.irTemporary(
   isMutable: Boolean = false,
   origin: IrDeclarationOrigin = IrDeclarationOrigin.IR_TEMPORARY_VARIABLE,
 ): IrVariable {
-  val temporary = scope.createTemporaryVariableDeclaration(
-    irType, nameHint, isMutable,
-    startOffset = startOffset,
-    endOffset = endOffset,
-    origin = origin,
-  )
+  val temporary =
+    scope.createTemporaryVariableDeclaration(
+      irType,
+      nameHint,
+      isMutable,
+      startOffset = startOffset,
+      endOffset = endOffset,
+      origin = origin,
+    )
   value?.let { temporary.initializer = it }
   +temporary
   return temporary
