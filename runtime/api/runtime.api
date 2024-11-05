@@ -1,0 +1,58 @@
+public abstract interface annotation class dev/zacsweers/lattice/Binds : java/lang/annotation/Annotation {
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/Component : java/lang/annotation/Annotation {
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/Component$Factory : java/lang/annotation/Annotation {
+}
+
+public abstract interface class dev/zacsweers/lattice/Provider {
+	public abstract fun getValue ()Ljava/lang/Object;
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/Provides : java/lang/annotation/Annotation {
+}
+
+public abstract class dev/zacsweers/lattice/annotations/AppScope {
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/annotations/ForScope : java/lang/annotation/Annotation {
+	public abstract fun scope ()Ljava/lang/Class;
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/annotations/Inject : java/lang/annotation/Annotation {
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/annotations/Named : java/lang/annotation/Annotation {
+	public abstract fun name ()Ljava/lang/String;
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/annotations/Qualifier : java/lang/annotation/Annotation {
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/annotations/Scope : java/lang/annotation/Annotation {
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/annotations/SingleIn : java/lang/annotation/Annotation {
+	public abstract fun scope ()Ljava/lang/Class;
+}
+
+public abstract interface annotation class dev/zacsweers/lattice/annotations/Singleton : java/lang/annotation/Annotation {
+}
+
+public final class dev/zacsweers/lattice/internal/DoubleCheck : dev/zacsweers/lattice/Provider, kotlin/Lazy {
+	public static final field Companion Ldev/zacsweers/lattice/internal/DoubleCheck$Companion;
+	public synthetic fun <init> (Ldev/zacsweers/lattice/Provider;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun getValue ()Ljava/lang/Object;
+	public fun isInitialized ()Z
+}
+
+public final class dev/zacsweers/lattice/internal/DoubleCheck$Companion {
+	public final fun lazy (Ldev/zacsweers/lattice/Provider;)Lkotlin/Lazy;
+	public final fun provider (Ldev/zacsweers/lattice/Provider;)Ldev/zacsweers/lattice/Provider;
+}
+
+public abstract interface class dev/zacsweers/lattice/internal/Factory : dev/zacsweers/lattice/Provider {
+}
+

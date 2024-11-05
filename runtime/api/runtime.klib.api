@@ -1,0 +1,83 @@
+// Klib ABI Dump
+// Targets: [androidNativeArm32, androidNativeArm64, androidNativeX64, androidNativeX86, iosArm64, iosSimulatorArm64, iosX64, js, linuxArm64, linuxX64, macosArm64, macosX64, mingwX64, tvosArm64, tvosSimulatorArm64, tvosX64, wasmJs, watchosArm32, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64, watchosX64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <dev.zacsweers.lattice:runtime>
+open annotation class dev.zacsweers.lattice.annotations/ForScope : kotlin/Annotation { // dev.zacsweers.lattice.annotations/ForScope|null[0]
+    constructor <init>(kotlin.reflect/KClass<*>) // dev.zacsweers.lattice.annotations/ForScope.<init>|<init>(kotlin.reflect.KClass<*>){}[0]
+
+    final val scope // dev.zacsweers.lattice.annotations/ForScope.scope|{}scope[0]
+        final fun <get-scope>(): kotlin.reflect/KClass<*> // dev.zacsweers.lattice.annotations/ForScope.scope.<get-scope>|<get-scope>(){}[0]
+}
+
+open annotation class dev.zacsweers.lattice.annotations/Inject : kotlin/Annotation { // dev.zacsweers.lattice.annotations/Inject|null[0]
+    constructor <init>() // dev.zacsweers.lattice.annotations/Inject.<init>|<init>(){}[0]
+}
+
+open annotation class dev.zacsweers.lattice.annotations/Named : kotlin/Annotation { // dev.zacsweers.lattice.annotations/Named|null[0]
+    constructor <init>(kotlin/String) // dev.zacsweers.lattice.annotations/Named.<init>|<init>(kotlin.String){}[0]
+
+    final val name // dev.zacsweers.lattice.annotations/Named.name|{}name[0]
+        final fun <get-name>(): kotlin/String // dev.zacsweers.lattice.annotations/Named.name.<get-name>|<get-name>(){}[0]
+}
+
+open annotation class dev.zacsweers.lattice.annotations/Qualifier : kotlin/Annotation { // dev.zacsweers.lattice.annotations/Qualifier|null[0]
+    constructor <init>() // dev.zacsweers.lattice.annotations/Qualifier.<init>|<init>(){}[0]
+}
+
+open annotation class dev.zacsweers.lattice.annotations/Scope : kotlin/Annotation { // dev.zacsweers.lattice.annotations/Scope|null[0]
+    constructor <init>() // dev.zacsweers.lattice.annotations/Scope.<init>|<init>(){}[0]
+}
+
+open annotation class dev.zacsweers.lattice.annotations/SingleIn : kotlin/Annotation { // dev.zacsweers.lattice.annotations/SingleIn|null[0]
+    constructor <init>(kotlin.reflect/KClass<*>) // dev.zacsweers.lattice.annotations/SingleIn.<init>|<init>(kotlin.reflect.KClass<*>){}[0]
+
+    final val scope // dev.zacsweers.lattice.annotations/SingleIn.scope|{}scope[0]
+        final fun <get-scope>(): kotlin.reflect/KClass<*> // dev.zacsweers.lattice.annotations/SingleIn.scope.<get-scope>|<get-scope>(){}[0]
+}
+
+open annotation class dev.zacsweers.lattice.annotations/Singleton : kotlin/Annotation { // dev.zacsweers.lattice.annotations/Singleton|null[0]
+    constructor <init>() // dev.zacsweers.lattice.annotations/Singleton.<init>|<init>(){}[0]
+}
+
+open annotation class dev.zacsweers.lattice/Binds : kotlin/Annotation { // dev.zacsweers.lattice/Binds|null[0]
+    constructor <init>() // dev.zacsweers.lattice/Binds.<init>|<init>(){}[0]
+}
+
+open annotation class dev.zacsweers.lattice/Component : kotlin/Annotation { // dev.zacsweers.lattice/Component|null[0]
+    constructor <init>() // dev.zacsweers.lattice/Component.<init>|<init>(){}[0]
+
+    open annotation class Factory : kotlin/Annotation { // dev.zacsweers.lattice/Component.Factory|null[0]
+        constructor <init>() // dev.zacsweers.lattice/Component.Factory.<init>|<init>(){}[0]
+    }
+}
+
+open annotation class dev.zacsweers.lattice/Provides : kotlin/Annotation { // dev.zacsweers.lattice/Provides|null[0]
+    constructor <init>() // dev.zacsweers.lattice/Provides.<init>|<init>(){}[0]
+}
+
+abstract interface <#A: kotlin/Any> dev.zacsweers.lattice.internal/Factory : dev.zacsweers.lattice/Provider<#A> // dev.zacsweers.lattice.internal/Factory|null[0]
+
+abstract interface <#A: kotlin/Any> dev.zacsweers.lattice/Provider { // dev.zacsweers.lattice/Provider|null[0]
+    abstract val value // dev.zacsweers.lattice/Provider.value|{}value[0]
+        abstract fun <get-value>(): #A // dev.zacsweers.lattice/Provider.value.<get-value>|<get-value>(){}[0]
+}
+
+abstract class dev.zacsweers.lattice.annotations/AppScope // dev.zacsweers.lattice.annotations/AppScope|null[0]
+
+final class <#A: kotlin/Any> dev.zacsweers.lattice.internal/DoubleCheck : dev.zacsweers.lattice/Provider<#A>, kotlin/Lazy<#A> { // dev.zacsweers.lattice.internal/DoubleCheck|null[0]
+    final val value // dev.zacsweers.lattice.internal/DoubleCheck.value|{}value[0]
+        final fun <get-value>(): #A // dev.zacsweers.lattice.internal/DoubleCheck.value.<get-value>|<get-value>(){}[0]
+
+    final fun isInitialized(): kotlin/Boolean // dev.zacsweers.lattice.internal/DoubleCheck.isInitialized|isInitialized(){}[0]
+
+    final object Companion { // dev.zacsweers.lattice.internal/DoubleCheck.Companion|null[0]
+        final fun <#A2: dev.zacsweers.lattice/Provider<#B2>, #B2: kotlin/Any> lazy(#A2): kotlin/Lazy<#B2> // dev.zacsweers.lattice.internal/DoubleCheck.Companion.lazy|lazy(0:0){0§<dev.zacsweers.lattice.Provider<0:1>>;1§<kotlin.Any>}[0]
+        final fun <#A2: dev.zacsweers.lattice/Provider<#B2>, #B2: kotlin/Any> provider(#A2): dev.zacsweers.lattice/Provider<#B2> // dev.zacsweers.lattice.internal/DoubleCheck.Companion.provider|provider(0:0){0§<dev.zacsweers.lattice.Provider<0:1>>;1§<kotlin.Any>}[0]
+    }
+}
+
+final inline fun <#A: reified kotlin/Any> dev.zacsweers.lattice/createComponentFactory(): #A // dev.zacsweers.lattice/createComponentFactory|createComponentFactory(){0§<kotlin.Any>}[0]
