@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import com.diffplug.gradle.spotless.SpotlessExtension
+import com.diffplug.gradle.spotless.SpotlessExtensionPredeclare
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import kotlinx.validation.ExperimentalBCVApi
 import org.jetbrains.dokka.gradle.DokkaTask
@@ -51,36 +53,48 @@ apiValidation {
   }
 }
 
-spotless {
-  format("misc") {
-    target("*.gradle", "*.md", ".gitignore")
-    trimTrailingWhitespace()
-    indentWithSpaces(2)
-    endWithNewline()
+allprojects {
+  apply(plugin = "com.diffplug.spotless")
+  val spotlessFormatters: SpotlessExtension.() -> Unit = {
+    format("misc") {
+      target("*.gradle", "*.md", ".gitignore")
+      trimTrailingWhitespace()
+      indentWithSpaces(2)
+      endWithNewline()
+    }
+    kotlin {
+      target("**/*.kt")
+      ktfmt(libs.versions.ktfmt.get()).googleStyle()
+      trimTrailingWhitespace()
+      endWithNewline()
+      targetExclude("**/spotless.kt")
+    }
+    kotlinGradle {
+      target("**/*.kts", "*.kts")
+      ktfmt(libs.versions.ktfmt.get()).googleStyle()
+      trimTrailingWhitespace()
+      endWithNewline()
+      licenseHeaderFile(
+        rootProject.file("spotless/spotless.kt"),
+        "(import|plugins|buildscript|dependencies|pluginManagement|dependencyResolutionManagement)",
+      )
+    }
+    // Apply license formatting separately for kotlin files so we can prevent it from overwriting
+    // copied files
+    format("license") {
+      licenseHeaderFile(rootProject.file("spotless/spotless.kt"), "(package|@file:)")
+      target("src/**/*.kt")
+      targetExclude("**/DoubleCheck.kt")
+    }
   }
-  kotlin {
-    target("**/*.kt")
-    ktfmt(libs.versions.ktfmt.get()).googleStyle()
-    trimTrailingWhitespace()
-    endWithNewline()
-    targetExclude("**/spotless.kt")
+  configure<SpotlessExtension> {
+    spotlessFormatters()
+    if (project.rootProject == project) {
+      predeclareDeps()
+    }
   }
-  kotlinGradle {
-    target("**/*.kts", "*.kts")
-    ktfmt(libs.versions.ktfmt.get()).googleStyle()
-    trimTrailingWhitespace()
-    endWithNewline()
-    licenseHeaderFile(
-      rootProject.file("spotless/spotless.kt"),
-      "(import|plugins|buildscript|dependencies|pluginManagement|dependencyResolutionManagement)",
-    )
-  }
-  // Apply license formatting separately for kotlin files so we can prevent it from overwriting
-  // copied files
-  format("license") {
-    licenseHeaderFile(rootProject.file("spotless/spotless.kt"), "(package|@file:)")
-    target("src/**/*.kt")
-    targetExclude("**/DoubleCheck.kt")
+  if (project.rootProject == project) {
+    configure<SpotlessExtensionPredeclare> { spotlessFormatters() }
   }
 }
 
