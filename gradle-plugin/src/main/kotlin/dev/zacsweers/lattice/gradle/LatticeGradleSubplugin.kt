@@ -31,7 +31,11 @@ public class LatticeGradleSubplugin : KotlinCompilerPluginSupportPlugin {
   override fun getCompilerPluginId(): String = "dev.zacsweers.lattice.compiler"
 
   override fun getPluginArtifact(): SubpluginArtifact =
-    SubpluginArtifact(groupId = "dev.zacsweers.lattice", artifactId = "compiler", version = VERSION)
+    SubpluginArtifact(
+      groupId = "dev.zacsweers.lattice",
+      artifactId = "compiler",
+      version = BuildConfig.VERSION,
+    )
 
   override fun isApplicable(kotlinCompilation: KotlinCompilation<*>): Boolean = true
 
@@ -43,7 +47,7 @@ public class LatticeGradleSubplugin : KotlinCompilerPluginSupportPlugin {
 
     project.dependencies.add(
       kotlinCompilation.implementationConfigurationName,
-      "dev.zacsweers.lattice:runtime:$VERSION",
+      "dev.zacsweers.lattice:runtime:${BuildConfig.VERSION}",
     )
 
     val enabled = extension.enabled.get()

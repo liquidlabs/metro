@@ -16,12 +16,14 @@
 package dev.zacsweers.lattice.compiler.transformers
 
 import com.google.common.truth.Truth.assertThat
-import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.SourceFile.Companion.kotlin
+import dev.zacsweers.lattice.compiler.ExampleClass
 import dev.zacsweers.lattice.compiler.LatticeCompilerTest
-import dev.zacsweers.lattice.internal.Factory
-import java.util.concurrent.Callable
-import org.junit.Ignore
+import dev.zacsweers.lattice.compiler.assertCallableFactory
+import dev.zacsweers.lattice.compiler.assertNoArgCallableFactory
+import dev.zacsweers.lattice.compiler.generatedFactoryClass
+import dev.zacsweers.lattice.compiler.invokeCreate
+import dev.zacsweers.lattice.compiler.invokeNewInstance
 import org.junit.Test
 
 class InjectConstructorTransformerTest : LatticeCompilerTest() {
@@ -31,7 +33,7 @@ class InjectConstructorTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "TestClass.kt",
+          "ExampleClass.kt",
           """
             package test
 
@@ -50,13 +52,12 @@ class InjectConstructorTransformerTest : LatticeCompilerTest() {
     result.assertCallableFactory("Hello, world!")
   }
 
-  @Ignore("Not supported yet")
   @Test
   fun simpleGeneric() {
     val result =
       compile(
         kotlin(
-          "TestClass.kt",
+          "ExampleClass.kt",
           """
             package test
 
@@ -74,33 +75,67 @@ class InjectConstructorTransformerTest : LatticeCompilerTest() {
       )
     result.assertCallableFactory("Hello, world!")
   }
-}
 
-fun JvmCompilationResult.assertCallableFactory(value: String) {
-  val factory = ExampleClass.generatedFactoryClass()
-  val callable = factory.invokeNewInstanceAs<Callable<String>>(value)
-  assertThat(callable.call()).isEqualTo(value)
-}
+  @Test
+  fun `class annotated with inject`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleClass.kt",
+          """
+            package test
 
-val JvmCompilationResult.ExampleClass: Class<*>
-  get() {
-    return classLoader.loadClass("test.ExampleClass")
+            import dev.zacsweers.lattice.annotations.Inject
+            import java.util.concurrent.Callable
+
+            @Inject
+            class ExampleClass(private val value: String) : Callable<String> {
+              override fun call(): String = value
+            }
+
+          """
+            .trimIndent(),
+        ),
+        debug = true,
+      )
+    result.assertCallableFactory("Hello, world!")
   }
 
-fun Class<*>.generatedFactoryClass(): Class<Factory<*>> {
-  @Suppress("UNCHECKED_CAST")
-  return classLoader.loadClass(name + "_Factory") as Class<Factory<*>>
-}
+  @Test
+  fun `class annotated with inject and no constructor or params`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleClass.kt",
+          """
+            package test
 
-fun Class<Factory<*>>.invokeNewInstance(vararg args: Any): Any {
-  return declaredMethods.single { it.name == "newInstance" }.invoke(null, *args)
-}
+            import dev.zacsweers.lattice.annotations.Inject
+            import java.util.concurrent.Callable
 
-fun <T> Class<Factory<*>>.invokeNewInstanceAs(vararg args: Any): T {
-  @Suppress("UNCHECKED_CAST")
-  return invokeNewInstance(*args) as T
-}
+            @Inject
+            class ExampleClass : Callable<String> {
+              override fun call(): String = "Hello, world!"
+            }
 
-fun Class<Factory<*>>.invokeCreate(vararg args: Any): Factory<*> {
-  return declaredMethods.single { it.name == "create" }.invoke(null, *args) as Factory<*>
+          """
+            .trimIndent(),
+        ),
+        debug = true,
+      )
+
+    val factoryClass = result.ExampleClass.generatedFactoryClass()
+
+    // Assert that the factory class is a singleton since there are no args
+    val factory1 = factoryClass.invokeCreate()
+    val factory2 = factoryClass.invokeCreate()
+    assertThat(factory1).isSameInstanceAs(factory2)
+
+    // Assert that newInstance still returns new instances
+    assertThat(factoryClass.invokeNewInstance())
+      .isNotSameInstanceAs(factoryClass.invokeNewInstance())
+
+    // Last smoke test on functionality
+    result.assertNoArgCallableFactory("Hello, world!")
+  }
 }
