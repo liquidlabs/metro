@@ -22,6 +22,7 @@ import dev.zacsweers.lattice.annotations.Inject
 import dev.zacsweers.lattice.annotations.Singleton
 import java.nio.file.FileSystem
 import java.nio.file.FileSystems
+import java.nio.file.spi.FileSystemProvider
 
 @Singleton
 @Component
@@ -31,17 +32,7 @@ abstract class ExampleComponent(protected val fileSystemComponent: FileSystemCom
 
   abstract fun example2(): Example2
 
-  abstract fun <T> example3(): Example3<T>
-
   abstract fun example4(): Example4
-
-  abstract fun <T> example5(): Example5<T>
-
-  abstract fun <T> example6(): Example6<T>
-
-  abstract fun <T> example7(): Example7<T>
-
-  abstract fun <T> example8(): Example8<T>
 
   @Component.Factory
   fun interface Factory {
@@ -52,6 +43,10 @@ abstract class ExampleComponent(protected val fileSystemComponent: FileSystemCom
 @Component
 interface FileSystemComponent {
   @Singleton @Provides fun provideFileSystem(): FileSystem = FileSystems.getDefault()
+
+  @Singleton
+  @Provides
+  fun provideFileSystemProvider(fs: FileSystem): FileSystemProvider = fs.provider()
 }
 
 @Singleton class Example1 @Inject constructor(fs: FileSystem)
