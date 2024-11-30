@@ -18,8 +18,9 @@ package dev.zacsweers.lattice
 import java.util.Locale
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
+import org.jetbrains.kotlin.name.Name
 
-internal const val LOG_PREFIX = "*** LATTICE (IR):"
+internal const val LOG_PREFIX = "[LATTICE]"
 
 internal fun <T> unsafeLazy(initializer: () -> T) = lazy(LazyThreadSafetyMode.NONE, initializer)
 
@@ -30,6 +31,43 @@ internal inline fun <reified T : Any> Any.expectAs(): T {
   return this
 }
 
+internal fun Name.capitalizeUS(): Name {
+  val newName =
+    asString().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString() }
+  return if (isSpecial) {
+    Name.special(newName)
+  } else {
+    Name.identifier(newName)
+  }
+}
+
 internal fun String.capitalizeUS() = replaceFirstChar {
   if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString()
+}
+
+internal fun String.decapitalizeUS() = replaceFirstChar { it.lowercase(Locale.US) }
+
+internal fun <T, R> Iterable<T>.mapToSet(mapper: (T) -> R): Set<R> {
+  return mapTo(mutableSetOf(), mapper)
+}
+
+internal inline fun <T, Buffer : Appendable> Buffer.appendIterableWith(
+  iterable: Iterable<T>,
+  prefix: String,
+  postfix: String,
+  separator: String,
+  renderItem: Buffer.(T) -> Unit,
+) {
+  append(prefix)
+  var isFirst = true
+  for (item in iterable) {
+    if (!isFirst) append(separator)
+    renderItem(item)
+    isFirst = false
+  }
+  append(postfix)
+}
+
+internal inline fun <T> T.letIf(condition: Boolean, block: (T) -> T): T {
+  return if (condition) block(this) else this
 }

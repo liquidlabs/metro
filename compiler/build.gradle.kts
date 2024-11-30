@@ -21,8 +21,13 @@ plugins {
 }
 
 kotlin {
-  compilerOptions { optIn.add("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi") }
+  compilerOptions {
+    optIn.addAll("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
+    freeCompilerArgs.addAll("-Xjvm-default=all")
+  }
 }
+
+tasks.test { maxParallelForks = Runtime.getRuntime().availableProcessors() * 2 }
 
 dependencies {
   compileOnly(libs.kotlin.compilerEmbeddable)

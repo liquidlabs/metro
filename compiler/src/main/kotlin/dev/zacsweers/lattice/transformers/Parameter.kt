@@ -17,31 +17,40 @@ package dev.zacsweers.lattice.transformers
 
 import dev.zacsweers.lattice.LatticeSymbols
 import dev.zacsweers.lattice.expectAs
+import dev.zacsweers.lattice.ir.IrAnnotation
 import dev.zacsweers.lattice.ir.annotationsIn
 import dev.zacsweers.lattice.ir.constArgumentOfTypeAt
 import dev.zacsweers.lattice.ir.rawTypeOrNull
+import dev.zacsweers.lattice.transformers.Parameter.Kind
 import kotlin.collections.count
 import kotlin.collections.sumOf
+import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrConstructor
+import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
 import org.jetbrains.kotlin.ir.declarations.IrTypeParametersContainer
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classOrFail
 import org.jetbrains.kotlin.ir.types.typeOrFail
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.classId
+import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.ir.util.remapTypeParameters
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.name.Name
 
 internal sealed interface Parameter {
+  val kind: Kind
   val name: Name
   val originalName: Name
-  val typeName: IrType
-  val providerTypeName: IrType
-  val lazyTypeName: IrType
+  val type: IrType
+  val providerType: IrType
+  val lazyType: IrType
   val isWrappedInProvider: Boolean
   val isWrappedInLazy: Boolean
   val isLazyWrappedInProvider: Boolean
@@ -49,6 +58,8 @@ internal sealed interface Parameter {
   val assistedIdentifier: Name
   val assistedParameterKey: AssistedParameterKey
   val symbols: LatticeSymbols
+  val typeKey: TypeKey
+  val isComponentInstance: Boolean
 
   // @Assisted parameters are equal, if the type and the identifier match. This subclass makes
   // diffing the parameters easier.
@@ -57,14 +68,21 @@ internal sealed interface Parameter {
     private val assistedIdentifier: Name,
   )
 
-  val originalTypeName: IrType
+  val originalType: IrType
     get() =
       when {
-        isLazyWrappedInProvider -> lazyTypeName.wrapInProvider(symbols.latticeProvider)
-        isWrappedInProvider -> providerTypeName
-        isWrappedInLazy -> lazyTypeName
-        else -> typeName
+        isLazyWrappedInProvider -> lazyType.wrapInProvider(symbols.latticeProvider)
+        isWrappedInProvider -> providerType
+        isWrappedInLazy -> lazyType
+        else -> type
       }
+
+  enum class Kind {
+    INSTANCE,
+    EXTENSION_RECEIVER,
+    VALUE,
+    //    CONTEXT_PARAMETER, // Coming soon
+  }
 }
 
 /**
@@ -90,20 +108,26 @@ internal fun Name.uniqueParameterName(vararg superParameters: List<Parameter>): 
 }
 
 internal data class ConstructorParameter(
+  override val kind: Kind,
   override val name: Name,
+  val typeMetadata: TypeMetadata,
   override val originalName: Name,
-  override val typeName: IrType,
-  override val providerTypeName: IrType,
-  override val lazyTypeName: IrType,
-  override val isWrappedInProvider: Boolean,
-  override val isWrappedInLazy: Boolean,
-  override val isLazyWrappedInProvider: Boolean,
+  override val providerType: IrType,
+  override val lazyType: IrType,
   override val isAssisted: Boolean,
   override val assistedIdentifier: Name,
   override val assistedParameterKey: Parameter.AssistedParameterKey =
-    Parameter.AssistedParameterKey(typeName, assistedIdentifier),
+    Parameter.AssistedParameterKey(typeMetadata.typeKey.type, assistedIdentifier),
   override val symbols: LatticeSymbols,
-) : Parameter
+  override val isComponentInstance: Boolean,
+  val bindingStackEntry: BindingStackEntry,
+) : Parameter {
+  override val typeKey: TypeKey = typeMetadata.typeKey
+  override val type: IrType = typeMetadata.typeKey.type
+  override val isWrappedInProvider: Boolean = typeMetadata.isWrappedInProvider
+  override val isWrappedInLazy: Boolean = typeMetadata.isWrappedInLazy
+  override val isLazyWrappedInProvider: Boolean = typeMetadata.isLazyWrappedInProvider
+}
 
 internal fun IrType.wrapInProvider(providerType: IrType): IrType {
   return wrapInProvider(providerType.classOrFail)
@@ -125,56 +149,176 @@ private fun IrType.wrapIn(target: IrClassSymbol): IrType {
   return target.typeWith(this)
 }
 
+internal data class Parameters(
+  val instance: Parameter?,
+  val extensionReceiver: Parameter?,
+  val valueParameters: List<Parameter>,
+) {
+  val nonInstanceParameters: List<Parameter> = buildList {
+    extensionReceiver?.let(::add)
+    addAll(valueParameters)
+  }
+  val allParameters: List<Parameter> = buildList {
+    instance?.let(::add)
+    addAll(nonInstanceParameters)
+  }
+
+  companion object {
+    val EMPTY = Parameters(null, null, emptyList())
+  }
+}
+
+internal fun IrFunction.parameters(
+  context: LatticeTransformerContext,
+  parentClass: IrClass? = parentClassOrNull,
+  originClass: IrTypeParametersContainer? = null,
+): Parameters {
+  val mapper =
+    if (this is IrConstructor && originClass != null && parentClass != null) {
+      val typeParameters = parentClass.typeParameters
+      val srcToDstParameterMap: Map<IrTypeParameter, IrTypeParameter> =
+        originClass.typeParameters.zip(typeParameters).associate { (src, target) -> src to target }
+      // Returning this inline breaks kotlinc for some reason
+      val innerMapper: ((IrType) -> IrType) = { type ->
+        type.remapTypeParameters(originClass, parentClass, srcToDstParameterMap)
+      }
+      innerMapper
+    } else {
+      null
+    }
+
+  return Parameters(
+    instance =
+      dispatchReceiverParameter?.toConstructorParameter(
+        context,
+        Kind.INSTANCE,
+        typeParameterRemapper = mapper,
+      ),
+    extensionReceiver =
+      extensionReceiverParameter?.toConstructorParameter(
+        context,
+        Kind.EXTENSION_RECEIVER,
+        typeParameterRemapper = mapper,
+      ),
+    valueParameters = valueParameters.mapToConstructorParameters(context, mapper),
+  )
+}
+
+internal fun List<IrValueParameter>.mapToConstructorParameters(
+  context: LatticeTransformerContext,
+  typeParameterRemapper: ((IrType) -> IrType)? = null,
+): List<ConstructorParameter> {
+  return map { valueParameter ->
+    valueParameter.toConstructorParameter(
+      context,
+      Kind.VALUE,
+      valueParameter.name,
+      typeParameterRemapper,
+    )
+  }
+}
+
+internal data class TypeMetadata(
+  val typeKey: TypeKey,
+  val isWrappedInProvider: Boolean,
+  val isWrappedInLazy: Boolean,
+  val isLazyWrappedInProvider: Boolean,
+) {
+  // TODO cache these in ComponentTransformer or shared transformer data
+  companion object {
+    @OptIn(UnsafeDuringIrConstructionAPI::class)
+    fun from(
+      context: LatticeTransformerContext,
+      function: IrSimpleFunction,
+      type: IrType = function.returnType,
+    ): TypeMetadata =
+      type.asTypeMetadata(
+        context,
+        with(context) {
+          function.correspondingPropertySymbol?.owner?.qualifierAnnotation()
+            ?: function.qualifierAnnotation()
+        },
+      )
+
+    fun from(
+      context: LatticeTransformerContext,
+      parameter: IrValueParameter,
+      type: IrType = parameter.type,
+    ): TypeMetadata =
+      type.asTypeMetadata(context, with(context) { parameter.qualifierAnnotation() })
+  }
+}
+
+internal fun IrType.asTypeMetadata(
+  context: LatticeTransformerContext,
+  qualifierAnnotation: IrAnnotation?,
+): TypeMetadata {
+  check(this is IrSimpleType) { "Unrecognized IrType '${javaClass}': ${render()}" }
+
+  val declaredType = this
+  val rawTypeClass = declaredType.rawTypeOrNull()
+  val rawType = rawTypeClass?.classId
+
+  val isWrappedInProvider = rawType in context.symbols.providerTypes
+  val isWrappedInLazy = rawType in context.symbols.lazyTypes
+  val isLazyWrappedInProvider =
+    isWrappedInProvider &&
+      declaredType.arguments[0].typeOrFail.rawTypeOrNull()?.classId in context.symbols.lazyTypes
+
+  val type =
+    when {
+      isLazyWrappedInProvider ->
+        declaredType.arguments
+          .single()
+          .typeOrFail
+          .expectAs<IrSimpleType>()
+          .arguments
+          .single()
+          .typeOrFail
+      isWrappedInProvider || isWrappedInLazy -> declaredType.arguments.single().typeOrFail
+      else -> declaredType
+    }
+  val typeKey = TypeKey(type, qualifierAnnotation)
+  return TypeMetadata(
+    typeKey = typeKey,
+    isWrappedInProvider = isWrappedInProvider,
+    isWrappedInLazy = isWrappedInLazy,
+    isLazyWrappedInProvider = isLazyWrappedInProvider,
+  )
+}
+
 internal fun IrValueParameter.toConstructorParameter(
-  symbols: LatticeSymbols,
-  uniqueName: Name,
-  sourceTypeParametersContainer: IrTypeParametersContainer,
-  destinationTypeParametersContainer: IrTypeParametersContainer,
-  srcToDstParameterMap: Map<IrTypeParameter, IrTypeParameter>,
+  context: LatticeTransformerContext,
+  kind: Kind = Kind.VALUE,
+  uniqueName: Name = this.name,
+  typeParameterRemapper: ((IrType) -> IrType)? = null,
 ): ConstructorParameter {
   // Remap type parameters in underlying types to the new target container. This is important for
   // type mangling
-  val type =
-    type.remapTypeParameters(
-      sourceTypeParametersContainer,
-      destinationTypeParametersContainer,
-      srcToDstParameterMap,
-    )
-  check(type is IrSimpleType) { "Unrecognized parameter type '${type.javaClass}': ${render()}" }
-  val rawTypeClass = type.rawTypeOrNull()
-  val rawType = rawTypeClass?.classId
-
-  val isWrappedInProvider = rawType in symbols.providerTypes
-  val isWrappedInLazy = rawType in symbols.lazyTypes
-  val isLazyWrappedInProvider =
-    isWrappedInProvider &&
-      type.arguments[0].typeOrFail.rawTypeOrNull()?.classId in symbols.lazyTypes
-
-  val typeName =
-    when {
-      isLazyWrappedInProvider ->
-        type.arguments.single().typeOrFail.expectAs<IrSimpleType>().arguments.single().typeOrFail
-      isWrappedInProvider || isWrappedInLazy -> type.arguments.single().typeOrFail
-      else -> type
-    }
+  val declaredType =
+    typeParameterRemapper?.invoke(this@toConstructorParameter.type)
+      ?: this@toConstructorParameter.type
+  val typeMetadata = declaredType.asTypeMetadata(context, with(context) { qualifierAnnotation() })
 
   // TODO FIR better error message
-  val assistedAnnotation = annotationsIn(symbols.assistedAnnotations).singleOrNull()
+  val assistedAnnotation = annotationsIn(context.symbols.assistedAnnotations).singleOrNull()
 
   val assistedIdentifier =
     Name.identifier(assistedAnnotation?.constArgumentOfTypeAt<String>(0).orEmpty())
 
+  val ownerFunction = this.parent as IrFunction // TODO is this safe
+
   return ConstructorParameter(
+    kind = kind,
     name = uniqueName,
     originalName = name,
-    typeName = typeName,
-    providerTypeName = typeName.wrapInProvider(symbols.latticeProvider),
-    lazyTypeName = typeName.wrapInLazy(symbols),
-    isWrappedInProvider = isWrappedInProvider,
-    isWrappedInLazy = isWrappedInLazy,
-    isLazyWrappedInProvider = isLazyWrappedInProvider,
+    typeMetadata = typeMetadata,
+    providerType = typeMetadata.typeKey.type.wrapInProvider(context.symbols.latticeProvider),
+    lazyType = typeMetadata.typeKey.type.wrapInLazy(context.symbols),
     isAssisted = assistedAnnotation != null,
     assistedIdentifier = assistedIdentifier,
-    symbols = symbols,
+    symbols = context.symbols,
+    isComponentInstance = false,
+    bindingStackEntry = BindingStackEntry.injectedAt(typeMetadata.typeKey, ownerFunction, this),
   )
 }

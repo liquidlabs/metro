@@ -44,7 +44,7 @@ plugins {
 }
 
 apiValidation {
-  ignoredProjects += listOf("compiler", "sample")
+  ignoredProjects += listOf("compiler", "sample", "integration-tests")
   @OptIn(ExperimentalBCVApi::class)
   klib {
     // This is only really possible to run on macOS
@@ -84,7 +84,7 @@ allprojects {
     format("license") {
       licenseHeaderFile(rootProject.file("spotless/spotless.kt"), "(package|@file:)")
       target("src/**/*.kt")
-      targetExclude("**/DoubleCheck.kt", "**/ProviderOfLazy.kt")
+      targetExclude("**/DoubleCheck.kt", "**/InstanceFactory.kt", "**/ProviderOfLazy.kt")
     }
   }
   configure<SpotlessExtension> {

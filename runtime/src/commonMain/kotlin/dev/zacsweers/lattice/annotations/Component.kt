@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice
+package dev.zacsweers.lattice.annotations
 
-@Target(AnnotationTarget.CLASS)
+@Target(AnnotationTarget.CLASS, AnnotationTarget.VALUE_PARAMETER)
 public annotation class Component {
   @Target(AnnotationTarget.CLASS) public annotation class Factory
 }

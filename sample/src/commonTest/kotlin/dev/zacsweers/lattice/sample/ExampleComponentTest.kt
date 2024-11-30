@@ -13,7 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice
+package dev.zacsweers.lattice.sample
 
-@Target(AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY_GETTER, AnnotationTarget.PROPERTY)
-public annotation class Provides
+import dev.zacsweers.lattice.createComponentFactory
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+class ExampleComponentTest {
+  @Test
+  fun simplePipeline() {
+    val component = createComponentFactory<ExampleComponent.Factory>().create("Hello, world!")
+    val example1 = component.example1()
+    assertEquals("Hello, world!", example1.text)
+  }
+}

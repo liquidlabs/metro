@@ -13,27 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pluginManagement {
-  repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal()
-  }
-}
+package dev.zacsweers.lattice.annotations
 
-dependencyResolutionManagement {
-  repositories {
-    google()
-    mavenCentral()
-  }
-}
-
-rootProject.name = "lattice"
-
-include(":compiler", "integration-tests", ":runtime", ":sample")
-
-includeBuild("gradle-plugin") {
-  dependencySubstitution {
-    substitute(module("dev.zacsweers.lattice:gradle-plugin")).using(project(":"))
-  }
-}
+@Target(AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY_GETTER, AnnotationTarget.PROPERTY)
+public annotation class Provides

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Zac Sweers
+ * Copyright (C) 2024 Zac Sweers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice.ir
+package dev.zacsweers.lattice
 
-import dev.zacsweers.lattice.transformers.InjectConstructorTransformer
-import dev.zacsweers.lattice.transformers.LatticeTransformerContext
+import org.jetbrains.kotlin.codegen.CompilationException
 
-internal fun latticeIrTransformers(
-  context: LatticeTransformerContext
-): Sequence<InjectConstructorTransformer> = sequenceOf(InjectConstructorTransformer(context))
+/** An exception that signals to end processing but assumes all errors have been reported prior. */
+internal class ExitProcessingException : CompilationException("Ignored", null, null)
+
+internal fun exitProcessing(): Nothing = throw ExitProcessingException()

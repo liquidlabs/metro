@@ -38,11 +38,21 @@ kotlin {
   // @OptIn(ExperimentalWasmDsl::class) wasmJs { browser() }
   sourceSets {
     commonMain { dependencies { implementation(project(":runtime")) } }
-    commonTest { dependencies { implementation(libs.kotlin.test) } }
+    commonTest {
+      dependencies {
+        implementation(libs.okio)
+        implementation(libs.okio.fakefilesystem)
+        implementation(libs.kotlin.test)
+      }
+    }
   }
 }
 
 lattice { debug.set(false) }
+
+tasks.withType<Test>().configureEach {
+  maxParallelForks = Runtime.getRuntime().availableProcessors() * 2
+}
 
 configurations.configureEach {
   resolutionStrategy.dependencySubstitution {
