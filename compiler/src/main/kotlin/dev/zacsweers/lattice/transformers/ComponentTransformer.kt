@@ -40,6 +40,7 @@ import org.jetbrains.kotlin.ir.builders.declarations.addField
 import org.jetbrains.kotlin.ir.builders.declarations.addFunction
 import org.jetbrains.kotlin.ir.builders.declarations.addGetter
 import org.jetbrains.kotlin.ir.builders.declarations.addProperty
+import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildClass
 import org.jetbrains.kotlin.ir.builders.irCall
 import org.jetbrains.kotlin.ir.builders.irCallConstructor
@@ -62,6 +63,7 @@ import org.jetbrains.kotlin.ir.util.addChild
 import org.jetbrains.kotlin.ir.util.addSimpleDelegatingConstructor
 import org.jetbrains.kotlin.ir.util.classIdOrFail
 import org.jetbrains.kotlin.ir.util.companionObject
+import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.copyTo
 import org.jetbrains.kotlin.ir.util.copyTypeParameters
 import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
@@ -74,7 +76,6 @@ import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.nestedClasses
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.primaryConstructor
-import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
@@ -96,6 +97,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
 
   @OptIn(UnsafeDuringIrConstructionAPI::class)
   override fun visitCall(expression: IrCall, data: ComponentData): IrElement {
+    // TODO add createComponent() intrinsic
     // Covers replacing createComponentFactory() compiler intrinsics with calls to the real
     // component factory
     val callee = expression.symbol.owner
@@ -151,6 +153,16 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
       return it
     }
 
+    componentDeclaration.constructors.forEach { constructor ->
+      if (constructor.valueParameters.isNotEmpty()) {
+        // TODO dagger doesn't appear to error for this case to model off of
+        constructor.reportError(
+          "Components cannot have constructors. Use @Component.Factory instead."
+        )
+        exitProcessing()
+      }
+    }
+
     // TODO not currently reading supertypes yet
     val scope = componentDeclaration.scopeAnnotation()
 
@@ -179,39 +191,19 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
 
     val creator =
       componentDeclaration.nestedClasses
-        .single { klass -> klass.isAnnotatedWithAny(symbols.componentFactoryAnnotations) }
-        .let { factory ->
-          val primaryConstructor = componentDeclaration.primaryConstructor
+        .singleOrNull { klass -> klass.isAnnotatedWithAny(symbols.componentFactoryAnnotations) }
+        ?.let { factory ->
+          val createFunction =
+            factory.functions.single { function ->
+              function.modality == Modality.ABSTRACT && function.body == null
+            }
           ComponentNode.Creator(
             factory,
-            factory.functions
-              .single { function ->
-                function.modality == Modality.ABSTRACT && function.body == null
-              }
-              .also {
-                if (primaryConstructor == null) {
-                  // No params to validate
-                  return@also
-                }
-                // TODO FIR error
-                val actualTypes = it.valueParameters.map { param -> param.type }
-                val expectedTypes = primaryConstructor.valueParameters.map { param -> param.type }
-                check(actualTypes == expectedTypes) {
-                  buildString {
-                    appendLine("Parameter mismatch from factory to primary constructor")
-                    val missingParameters = buildList {
-                      for (i in expectedTypes.indices) {
-                        if (i >= actualTypes.size || expectedTypes[i] != actualTypes[i]) {
-                          add(primaryConstructor.valueParameters[i])
-                        }
-                      }
-                    }
-                    appendLine(
-                      "Missing/mismatched parameters:\n${missingParameters.joinToString("\n") { "- ${it.name}: ${it.type.render()}" }}"
-                    )
-                  }
-                }
-              },
+            createFunction,
+            createFunction.parameters(this).also {
+              // TODO FIR error
+              // TODO don't allow extensions
+            },
           )
         }
 
@@ -264,6 +256,11 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
         Binding.Provided(function, typeKey, function.parameters(this), function.scopeAnnotation()),
         bindingStack,
       )
+    }
+
+    // Add instance parameters
+    component.creator?.parameters?.valueParameters.orEmpty().forEach {
+      graph.addBinding(it.typeKey, Binding.BoundInstance(it), bindingStack)
     }
 
     // Add bindings from component dependencies
@@ -323,52 +320,56 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
         componentImpl.parent = this
         addMember(componentImpl)
 
-        val factoryClass =
-          pluginContext.irFactory
-            .buildClass { name = LatticeSymbols.Names.Factory }
-            .apply {
-              this.origin = LatticeOrigin
-              superTypes += node.creator.type.symbol.typeWith()
-              createImplicitParameterDeclarationWithWrappedDescriptor()
-              addSimpleDelegatingConstructor(
-                if (!node.creator.type.isInterface) {
-                  node.creator.type.primaryConstructor!!
-                } else {
-                  symbols.anyConstructor
-                },
-                pluginContext.irBuiltIns,
-                isPrimary = true,
-                origin = LatticeOrigin,
-              )
+        node.creator?.let { creator ->
+          val factoryClass =
+            pluginContext.irFactory
+              .buildClass { name = LatticeSymbols.Names.Factory }
+              .apply {
+                this.origin = LatticeOrigin
+                superTypes += node.creator.type.symbol.typeWith()
+                createImplicitParameterDeclarationWithWrappedDescriptor()
+                addSimpleDelegatingConstructor(
+                  if (!node.creator.type.isInterface) {
+                    node.creator.type.primaryConstructor!!
+                  } else {
+                    symbols.anyConstructor
+                  },
+                  pluginContext.irBuiltIns,
+                  isPrimary = true,
+                  origin = LatticeOrigin,
+                )
 
-              addOverride(node.creator.createFunction).apply {
-                body =
-                  pluginContext.createIrBuilder(symbol).run {
-                    irExprBody(
-                      irCall(componentImpl.primaryConstructor!!.symbol).apply {
-                        for (param in valueParameters) {
-                          putValueArgument(param.index, irGet(param))
+                addOverride(node.creator.createFunction).apply {
+                  body =
+                    pluginContext.createIrBuilder(symbol).run {
+                      irExprBody(
+                        irCall(componentImpl.primaryConstructor!!.symbol).apply {
+                          for (param in valueParameters) {
+                            putValueArgument(param.index, irGet(param))
+                          }
                         }
-                      }
-                    )
-                  }
+                      )
+                    }
+                }
               }
+
+          factoryClass.parent = this
+          addMember(factoryClass)
+
+          pluginContext.irFactory.addCompanionObject(symbols, parent = this) {
+            addFunction("factory", factoryClass.typeWith(), isStatic = true).apply {
+              this.copyTypeParameters(typeParameters)
+              this.dispatchReceiverParameter = thisReceiver?.copyTo(this)
+              this.origin = LatticeOrigin
+              this.visibility = DescriptorVisibilities.PUBLIC
+              markJvmStatic()
+              body =
+                pluginContext.createIrBuilder(symbol).run {
+                  irExprBody(
+                    irCallConstructor(factoryClass.primaryConstructor!!.symbol, emptyList())
+                  )
+                }
             }
-
-        factoryClass.parent = this
-        addMember(factoryClass)
-
-        pluginContext.irFactory.addCompanionObject(symbols, parent = this) {
-          addFunction("factory", factoryClass.typeWith(), isStatic = true).apply {
-            this.copyTypeParameters(typeParameters)
-            this.dispatchReceiverParameter = thisReceiver?.copyTo(this)
-            this.origin = LatticeOrigin
-            this.visibility = DescriptorVisibilities.PUBLIC
-            markJvmStatic()
-            body =
-              pluginContext.createIrBuilder(symbol).run {
-                irExprBody(irCallConstructor(factoryClass.primaryConstructor!!.symbol, emptyList()))
-              }
           }
         }
       }
@@ -384,17 +385,55 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
         origin = LatticeOrigin
 
         createImplicitParameterDeclarationWithWrappedDescriptor()
-        addSimpleDelegatingConstructor(
-          node.sourceComponent.primaryConstructor ?: symbols.anyConstructor,
-          pluginContext.irBuiltIns,
-          isPrimary = true,
-          origin = LatticeOrigin,
-        )
+        val ctor =
+          addSimpleDelegatingConstructor(
+            node.sourceComponent.primaryConstructor ?: symbols.anyConstructor,
+            pluginContext.irBuiltIns,
+            isPrimary = true,
+            origin = LatticeOrigin,
+          )
+
+        // Add fields for providers. May include both scoped and unscoped providers as well as bound
+        // instances
+        val providerFields = mutableMapOf<TypeKey, IrField>()
+
+        node.creator?.let { creator ->
+          for (param in creator.parameters.valueParameters) {
+            val isBindsInstance = param.isBindsInstance
+            val isComponentDep = !isBindsInstance
+            val irParam = ctor.addValueParameter(param.name.asString(), param.type)
+
+            if (isBindsInstance) {
+              providerFields[param.typeKey] =
+                addField(
+                    fieldName = "${param.name}Instance",
+                    fieldType = symbols.latticeProvider.typeWith(param.type),
+                    fieldVisibility = DescriptorVisibilities.PRIVATE,
+                  )
+                  .apply {
+                    isFinal = true
+                    initializer =
+                      pluginContext.createIrBuilder(symbol).run {
+                        // InstanceFactory.create(...)
+                        irExprBody(
+                          irInvoke(
+                            dispatchReceiver = irGetObject(symbols.instanceFactoryCompanionObject),
+                            callee = symbols.instanceFactoryCreate,
+                            args = listOf(irGet(irParam)),
+                            typeHint = param.type.wrapInProvider(symbols.latticeFactory),
+                          )
+                        )
+                      }
+                  }
+            } else {
+              // TODO
+            }
+          }
+        }
 
         val componentTypeKey = TypeKey(node.sourceComponent.typeWith())
 
         // Add fields for this component and other instance params
-        // TODO reevaluate later if this is necessary
         val instanceFields = mutableMapOf<TypeKey, IrField>()
         val thisReceiverParameter = thisReceiver!!
         val thisComponentField =
@@ -439,9 +478,6 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
               else -> a.compareTo(b)
             }
           }
-
-        // Add fields for providers. May include both scoped and unscoped providers
-        val providerFields = mutableMapOf<TypeKey, IrField>()
 
         // Create fields in dependency-order
         initOrder.forEach { key ->
@@ -676,6 +712,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
               is Binding.Provided -> {
                 BindingStackEntry.injectedAt(typeKey, function, function.valueParameters[i])
               }
+              is Binding.BoundInstance -> TODO()
               is Binding.ComponentDependency -> TODO()
             }
           bindingStack.push(entry)
@@ -823,6 +860,10 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
           callee = createFunction,
           args = args,
         )
+      }
+
+      is Binding.BoundInstance -> {
+        error("Should never happen, this should get handled in the providerFields above.")
       }
 
       is Binding.ComponentDependency -> {

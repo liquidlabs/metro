@@ -33,11 +33,15 @@ internal data class ComponentNode(
   // TODO this should eventually expand to cover inject(...) calls too once we have member injection
   val exposedTypes: Map<IrSimpleFunction, TypeMetadata>,
   val isExternal: Boolean,
-  val creator: Creator,
+  val creator: Creator?,
 ) {
   val isInterface: Boolean = sourceComponent.kind == ClassKind.INTERFACE
 
-  data class Creator(val type: IrClass, val createFunction: IrSimpleFunction)
+  data class Creator(
+    val type: IrClass,
+    val createFunction: IrSimpleFunction,
+    val parameters: Parameters,
+  )
 
   data class ComponentDependency(
     val type: IrClass,
