@@ -16,6 +16,7 @@
 package dev.zacsweers.lattice.test.integration
 
 import dev.zacsweers.lattice.Provider
+import dev.zacsweers.lattice.annotations.BindsInstance
 import dev.zacsweers.lattice.annotations.Component
 import dev.zacsweers.lattice.annotations.Inject
 import dev.zacsweers.lattice.annotations.Named
@@ -140,6 +141,169 @@ class ComponentProcessingTest {
     assertEquals(5, providedLazyValue2.value)
   }
 
+  @Test
+  fun `simple component dependencies`() {
+    val stringComponent = createComponentFactory<StringComponent.Factory>().create("Hello, world!")
+
+    val component =
+      createComponentFactory<ComponentWithDependencies.Factory>().create(stringComponent)
+
+    assertEquals("Hello, world!", component.value())
+  }
+
+  @Component
+  interface ComponentWithDependencies {
+
+    fun value(): CharSequence
+
+    @Provides fun provideValue(string: String): CharSequence = string
+
+    @Component.Factory
+    fun interface Factory {
+      fun create(stringComponent: StringComponent): ComponentWithDependencies
+    }
+  }
+
+  @Test
+  fun `component factories can inherit abstract functions from base types`() {
+    val component =
+      createComponentFactory<ComponentWithInheritingAbstractFunction.Factory>()
+        .create("Hello, world!")
+
+    assertEquals("Hello, world!", component.value)
+  }
+
+  interface BaseFactory<T> {
+    fun create(@BindsInstance value: String): T
+  }
+
+  @Component
+  interface ComponentWithInheritingAbstractFunction {
+    val value: String
+
+    @Component.Factory interface Factory : BaseFactory<ComponentWithInheritingAbstractFunction>
+  }
+
+  @Test
+  fun `component factories should merge overlapping interfaces`() {
+    val value =
+      createComponentFactory<ComponentCreatorWithMergeableInterfaces.Factory>().create(3).value
+
+    assertEquals(value, 3)
+  }
+
+  @Component
+  interface ComponentCreatorWithMergeableInterfaces {
+    val value: Int
+
+    interface BaseFactory1<T> {
+      fun create(@BindsInstance value: Int): T
+    }
+
+    interface BaseFactory2<T> {
+      fun create(@BindsInstance value: Int): T
+    }
+
+    @Component.Factory
+    interface Factory :
+      BaseFactory1<ComponentCreatorWithMergeableInterfaces>,
+      BaseFactory2<ComponentCreatorWithMergeableInterfaces>
+  }
+
+  @Test
+  fun `component factories should merge overlapping interfaces where only the abstract override has the bindsinstance`() {
+    val value =
+      createComponentFactory<
+          ComponentCreatorWithMergeableInterfacesWhereOnlyTheOverrideHasTheBindsInstance.Factory
+        >()
+        .create(3)
+        .value
+
+    assertEquals(value, 3)
+  }
+
+  // Also covers overrides with different return types
+  @Component
+  interface ComponentCreatorWithMergeableInterfacesWhereOnlyTheOverrideHasTheBindsInstance {
+    val value: Int
+
+    interface BaseFactory1<T> {
+      fun create(value: Int): T
+    }
+
+    interface BaseFactory2<T> {
+      fun create(value: Int): T
+    }
+
+    @Component.Factory
+    interface Factory :
+      BaseFactory1<ComponentCreatorWithMergeableInterfacesWhereOnlyTheOverrideHasTheBindsInstance>,
+      BaseFactory2<ComponentCreatorWithMergeableInterfacesWhereOnlyTheOverrideHasTheBindsInstance> {
+      override fun create(
+        @BindsInstance value: Int
+      ): ComponentCreatorWithMergeableInterfacesWhereOnlyTheOverrideHasTheBindsInstance
+    }
+  }
+
+  @Test
+  fun `component factories should understand partially-implemented supertypes`() {
+    val factory =
+      createComponentFactory<ComponentCreatorWithIntermediateOverriddenDefaultFunctions.Factory>()
+    val value1 = factory.create1().value
+
+    assertEquals(value1, 0)
+
+    val value2 = factory.create2(3).value
+
+    assertEquals(value2, 3)
+  }
+
+  @Component
+  interface ComponentCreatorWithIntermediateOverriddenDefaultFunctions {
+    val value: Int
+
+    interface BaseFactory1<T> {
+      fun create1(): T
+    }
+
+    interface BaseFactory2<T> : BaseFactory1<T> {
+      override fun create1(): T = create2(0)
+
+      fun create2(@BindsInstance value: Int): T
+    }
+
+    @Component.Factory
+    interface Factory : BaseFactory2<ComponentCreatorWithIntermediateOverriddenDefaultFunctions>
+  }
+
+  @Test
+  fun `bindsinstance params with same types but different qualifiers are ok`() {
+    val factory =
+      createComponentFactory<ComponentWithDifferentBindsInstanceTypeQualifiers.Factory>()
+    val component = factory.create(1, 2, 3)
+
+    assertEquals(component.value1, 1)
+    assertEquals(component.value2, 2)
+    assertEquals(component.value3, 3)
+  }
+
+  @Component
+  interface ComponentWithDifferentBindsInstanceTypeQualifiers {
+
+    val value1: Int
+    @Named("value2") val value2: Int
+    @Named("value3") val value3: Int
+
+    @Component.Factory
+    fun interface Factory {
+      fun create(
+        @BindsInstance value1: Int,
+        @BindsInstance @Named("value2") value2: Int,
+        @BindsInstance @Named("value3") value3: Int,
+      ): ComponentWithDifferentBindsInstanceTypeQualifiers
+    }
+  }
+
   @Inject
   @Singleton
   class Cache(
@@ -154,4 +318,15 @@ class ComponentProcessingTest {
   @Inject @Singleton class ApiClient(val httpClient: Lazy<HttpClient>)
 
   @Inject class Repository(val apiClient: ApiClient)
+
+  @Component
+  interface StringComponent {
+
+    val string: String
+
+    @Component.Factory
+    fun interface Factory {
+      fun create(@BindsInstance string: String): StringComponent
+    }
+  }
 }

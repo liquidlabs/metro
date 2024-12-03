@@ -21,6 +21,7 @@ import com.tschuchort.compiletesting.SourceFile.Companion.kotlin
 import dev.zacsweers.lattice.Provider
 import dev.zacsweers.lattice.compiler.ExampleComponent
 import dev.zacsweers.lattice.compiler.LatticeCompilerTest
+import dev.zacsweers.lattice.compiler.assertContainsAll
 import dev.zacsweers.lattice.compiler.callComponentAccessor
 import dev.zacsweers.lattice.compiler.callComponentAccessorProperty
 import dev.zacsweers.lattice.compiler.createComponentViaFactory
@@ -1032,6 +1033,7 @@ class ComponentTransformerTest : LatticeCompilerTest() {
 
             import dev.zacsweers.lattice.annotations.Component
             import dev.zacsweers.lattice.annotations.Provides
+            import dev.zacsweers.lattice.annotations.BindsInstance
 
             @Component
             abstract class ExampleComponent(
@@ -1043,7 +1045,7 @@ class ComponentTransformerTest : LatticeCompilerTest() {
 
               @Component.Factory
               fun interface Factory {
-                fun create(text: String): ExampleComponent
+                fun create(@BindsInstance text: String): ExampleComponent
               }
             }
 
@@ -1056,10 +1058,482 @@ class ComponentTransformerTest : LatticeCompilerTest() {
     assertThat(result.messages)
       .contains(
         """
-          ExampleComponent.kt:7:32 Components cannot have constructors. Use @Component.Factory instead.
+          ExampleComponent.kt:8:32 Components cannot have constructors. Use @Component.Factory instead.
         """
           .trimIndent()
       )
+  }
+
+  @Test
+  fun `self referencing component dependency cycle should fail`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.Provides
+
+            @Component
+            interface CharSequenceComponent {
+
+              fun value(): CharSequence
+
+              @Provides
+              fun provideValue(string: String): CharSequence = string
+
+              @Component.Factory
+              fun interface Factory {
+                fun create(component: CharSequenceComponent): CharSequenceComponent
+              }
+            }
+
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContains(
+      """
+        ExampleComponent.kt:6:1 [Lattice/ComponentDependencyCycle] Component dependency cycle detected! The below component depends on itself.
+            test.CharSequenceComponent is requested at
+                [test.CharSequenceComponent] test.CharSequenceComponent.Factory.create()
+      """
+        .trimIndent()
+    )
+  }
+
+  @Test
+  fun `component dependency cycles should fail across multiple components`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.Provides
+
+            @Component
+            interface CharSequenceComponent {
+
+              fun value(): CharSequence
+
+              @Provides
+              fun provideValue(string: String): CharSequence = string
+
+              @Component.Factory
+              fun interface Factory {
+                fun create(stringComponent: StringComponent): CharSequenceComponent
+              }
+            }
+
+            @Component
+            interface StringComponent {
+
+              val string: String
+
+              @Provides
+              fun provideValue(charSequence: CharSequence): String = charSequence.toString()
+
+              @Component.Factory
+              fun interface Factory {
+                fun create(charSequenceComponent: CharSequenceComponent): StringComponent
+              }
+            }
+
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContains(
+      """
+        ExampleComponent.kt:6:1 [Lattice/ComponentDependencyCycle] Component dependency cycle detected!
+            test.StringComponent is requested at
+                [test.CharSequenceComponent] test.StringComponent.Factory.create()
+            test.CharSequenceComponent is requested at
+                [test.CharSequenceComponent] test.CharSequenceComponent.Factory.create()
+      """
+        .trimIndent()
+    )
+  }
+
+  @Test
+  fun `component creators must be abstract classes or interfaces`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+
+            // Ok
+            @Component
+            interface ComponentWithAbstractClass {
+              @Component.Factory
+              abstract class Factory {
+                abstract fun create(): ComponentWithAbstractClass
+              }
+            }
+
+            // Ok
+            @Component
+            interface ComponentWithInterface {
+              @Component.Factory
+              interface Factory {
+                fun create(): ComponentWithInterface
+              }
+            }
+
+            // Ok
+            @Component
+            interface ComponentWithFunInterface {
+              @Component.Factory
+              fun interface Factory {
+                fun create(): ComponentWithFunInterface
+              }
+            }
+
+            @Component
+            interface ComponentWithEnumFactory {
+              @Component.Factory
+              enum class Factory {
+                THIS_IS_JUST_WRONG
+              }
+            }
+
+            @Component
+            interface ComponentWithOpenFactory {
+              @Component.Factory
+              open class Factory {
+                fun create(): ComponentWithOpenFactory {
+                  TODO()
+                }
+              }
+            }
+
+            @Component
+            interface ComponentWithFinalFactory {
+              @Component.Factory
+              class Factory {
+                fun create(): ComponentWithFinalFactory {
+                  TODO()
+                }
+              }
+            }
+
+            @Component
+            interface ComponentWithSealedFactoryInterface {
+              @Component.Factory
+              sealed interface Factory {
+                fun create(): ComponentWithSealedFactoryInterface
+              }
+            }
+
+            @Component
+            interface ComponentWithSealedFactoryClass {
+              @Component.Factory
+              sealed class Factory {
+                abstract fun create(): ComponentWithSealedFactoryClass
+              }
+            }
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContainsAll(
+      "ExampleComponent.kt:35:14 Component creators should be non-sealed abstract classes or interfaces.",
+      "ExampleComponent.kt:43:14 Component creators should be non-sealed abstract classes or interfaces.",
+      "ExampleComponent.kt:53:9 Component creators should be non-sealed abstract classes or interfaces.",
+      "ExampleComponent.kt:63:20 Component creators should be non-sealed abstract classes or interfaces.",
+      "ExampleComponent.kt:71:16 Component creators should be non-sealed abstract classes or interfaces.",
+    )
+  }
+
+  @Test
+  fun `component creators cannot be local classes`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+
+            @Component
+            interface ComponentWithAbstractClass {
+
+              fun example() {
+                @Component.Factory
+                abstract class Factory {
+                  fun create(): ComponentWithAbstractClass {
+                    TODO()
+                  }
+                }
+              }
+            }
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContains(
+      """
+        ExampleComponent.kt:10:20 Component creators cannot be local classes.
+      """
+        .trimIndent()
+    )
+  }
+
+  @Test
+  fun `component creators must be visible`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+
+            // Ok
+            @Component
+            abstract class ComponentWithImplicitPublicFactory {
+              @Component.Factory
+              interface Factory {
+                fun create(): ComponentWithImplicitPublicFactory
+              }
+            }
+
+            // Ok
+            @Component
+            abstract class ComponentWithPublicFactory {
+              @Component.Factory
+              public interface Factory {
+                fun create(): ComponentWithPublicFactory
+              }
+            }
+
+            // Ok
+            @Component
+            abstract class ComponentWithInternalFactory {
+              @Component.Factory
+              internal interface Factory {
+                fun create(): ComponentWithInternalFactory
+              }
+            }
+
+            @Component
+            abstract class ComponentWithProtectedFactory {
+              @Component.Factory
+              protected interface Factory {
+                fun create(): ComponentWithProtectedFactory
+              }
+            }
+
+            @Component
+            abstract class ComponentWithPrivateFactory {
+              @Component.Factory
+              private interface Factory {
+                fun create(): ComponentWithPrivateFactory
+              }
+            }
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContainsAll(
+      "ExampleComponent.kt:35:23 Component creators must be public or internal.",
+      "ExampleComponent.kt:43:21 Component creators must be public or internal.",
+    )
+  }
+
+  @Test
+  fun `component factories fails with no abstract functions`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+
+            @Component
+            interface ExampleComponent {
+              @Component.Factory
+              interface Factory {
+                fun create(): ExampleComponent {
+                  TODO()
+                }
+              }
+            }
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContains(
+      """
+        ExampleComponent.kt:8:13 Component.Factory types must have exactly one abstract function.
+      """
+        .trimIndent()
+    )
+  }
+
+  @Test
+  fun `component factories fails with more than one abstract function`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+
+            @Component
+            interface ExampleComponent {
+              @Component.Factory
+              interface Factory {
+                fun create(): ExampleComponent
+                fun create2(): ExampleComponent
+              }
+            }
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContainsAll(
+      "ExampleComponent.kt:9:9 Component.Factory types must have exactly one abstract function.",
+      "ExampleComponent.kt:10:9 Component.Factory types must have exactly one abstract function.",
+    )
+  }
+
+  @Test
+  fun `component factories cannot inherit multiple abstract functions`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+
+            interface BaseFactory1<T> {
+              fun create1(): T
+            }
+
+            interface BaseFactory2<T> : BaseFactory1<T> {
+              fun create2(): T
+            }
+
+            @Component
+            interface ExampleComponent {
+              @Component.Factory
+              interface Factory : BaseFactory2<ExampleComponent>
+            }
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContainsAll(
+      "ExampleComponent.kt:6:7 Component.Factory types must have exactly one abstract function.",
+      "ExampleComponent.kt:10:7 Component.Factory types must have exactly one abstract function.",
+    )
+  }
+
+  @Test
+  fun `component factories params must be unique - check bindsinstance`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.BindsInstance
+
+            @Component
+            interface ExampleComponent {
+              val value: Int
+
+              @Component.Factory
+              interface Factory {
+                fun create(@BindsInstance value: Int, @BindsInstance value2: Int): ExampleComponent
+              }
+            }
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContains(
+      "ExampleComponent.kt:12:58 Component.Factory abstract function parameters must be unique."
+    )
+  }
+
+  @Test
+  fun `component factories params must be unique - check component`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.BindsInstance
+
+            @Component
+            interface ExampleComponent {
+              val value: Int
+
+              @Component.Factory
+              interface Factory {
+                fun create(intComponent: IntComponent, intComponent2: IntComponent): ExampleComponent
+              }
+            }
+            @Component
+            interface IntComponent {
+              val value: Int
+
+              @Component.Factory
+              interface Factory {
+                fun create(@BindsInstance value: Int): IntComponent
+              }
+            }
+          """
+            .trimIndent(),
+        ),
+        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContains(
+      "ExampleComponent.kt:12:44 Component.Factory abstract function parameters must be unique."
+    )
   }
 
   // TODO
@@ -1067,6 +1541,5 @@ class ComponentTransformerTest : LatticeCompilerTest() {
   //  - break-the-chain deps
   //  - @get:Provides?
   //  - Binds examples
-  //  - Component deps
   //  - Inherited exposed types + deduping overrides?
 }
