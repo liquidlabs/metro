@@ -34,7 +34,6 @@ import dev.zacsweers.lattice.joinSimpleNames
 import dev.zacsweers.lattice.unsafeLazy
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
-import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
 import org.jetbrains.kotlin.ir.builders.declarations.addFunction
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
@@ -68,7 +67,6 @@ import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.name.SpecialNames
 
 internal class ProvidesTransformer(context: LatticeTransformerContext) :
   LatticeTransformerContext by context {
@@ -220,7 +218,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
             providerType = componentType,
             lazyType = componentType,
             isAssisted = false,
-            assistedIdentifier = SpecialNames.NO_NAME_PROVIDED,
+            assistedIdentifier = "",
             symbols = symbols,
             isComponentInstance = true,
             // TODO is this right/ever going to happen?
@@ -294,7 +292,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
       val typeKey = TypeMetadata.from(this, function).typeKey
       CallableReference(
         fqName = function.kotlinFqName,
-        isInternal = function.visibility == Visibilities.Internal,
+        isInternal = function.visibility == DescriptorVisibilities.INTERNAL,
         name = function.name,
         isProperty = false,
         parameters = function.parameters(this),
@@ -328,7 +326,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
       val parent = property.parentAsClass
       return CallableReference(
         fqName = fqName,
-        isInternal = property.visibility == Visibilities.Internal,
+        isInternal = property.visibility == DescriptorVisibilities.INTERNAL,
         name = property.name,
         isProperty = true,
         parameters = property.getter?.parameters(this) ?: Parameters.EMPTY,

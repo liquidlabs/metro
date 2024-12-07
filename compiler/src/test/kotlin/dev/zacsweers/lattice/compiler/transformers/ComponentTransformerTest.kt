@@ -1252,11 +1252,11 @@ class ComponentTransformerTest : LatticeCompilerTest() {
       )
 
     result.assertContainsAll(
-      "ExampleComponent.kt:35:14 Component creators should be non-sealed abstract classes or interfaces.",
-      "ExampleComponent.kt:43:14 Component creators should be non-sealed abstract classes or interfaces.",
-      "ExampleComponent.kt:53:9 Component creators should be non-sealed abstract classes or interfaces.",
-      "ExampleComponent.kt:63:20 Component creators should be non-sealed abstract classes or interfaces.",
-      "ExampleComponent.kt:71:16 Component creators should be non-sealed abstract classes or interfaces.",
+      "ExampleComponent.kt:35:14 Component factory classes should be non-sealed abstract classes or interfaces.",
+      "ExampleComponent.kt:43:14 Component factory classes should be non-sealed abstract classes or interfaces.",
+      "ExampleComponent.kt:53:9 Component factory classes should be non-sealed abstract classes or interfaces.",
+      "ExampleComponent.kt:63:20 Component factory classes should be non-sealed abstract classes or interfaces.",
+      "ExampleComponent.kt:71:16 Component factory classes should be non-sealed abstract classes or interfaces.",
     )
   }
 
@@ -1291,7 +1291,7 @@ class ComponentTransformerTest : LatticeCompilerTest() {
 
     result.assertContains(
       """
-        ExampleComponent.kt:10:20 Component creators cannot be local classes.
+        ExampleComponent.kt:10:20 Component factory classes cannot be local classes.
       """
         .trimIndent()
     )
@@ -1357,8 +1357,8 @@ class ComponentTransformerTest : LatticeCompilerTest() {
       )
 
     result.assertContainsAll(
-      "ExampleComponent.kt:35:23 Component creators must be public or internal.",
-      "ExampleComponent.kt:43:21 Component creators must be public or internal.",
+      "ExampleComponent.kt:35:23 Component factory must be public or internal.",
+      "ExampleComponent.kt:43:21 Component factory must be public or internal.",
     )
   }
 
@@ -1390,7 +1390,7 @@ class ComponentTransformerTest : LatticeCompilerTest() {
 
     result.assertContains(
       """
-        ExampleComponent.kt:8:13 Component.Factory types must have exactly one abstract function.
+        ExampleComponent.kt:8:13 @Component.Factory classes must have exactly one abstract function but found none.
       """
         .trimIndent()
     )
@@ -1422,8 +1422,8 @@ class ComponentTransformerTest : LatticeCompilerTest() {
       )
 
     result.assertContainsAll(
-      "ExampleComponent.kt:9:9 Component.Factory types must have exactly one abstract function.",
-      "ExampleComponent.kt:10:9 Component.Factory types must have exactly one abstract function.",
+      "ExampleComponent.kt:9:9 @Component.Factory classes must have exactly one abstract function but found 2.",
+      "ExampleComponent.kt:10:9 @Component.Factory classes must have exactly one abstract function but found 2.",
     )
   }
 
@@ -1458,8 +1458,8 @@ class ComponentTransformerTest : LatticeCompilerTest() {
       )
 
     result.assertContainsAll(
-      "ExampleComponent.kt:6:7 Component.Factory types must have exactly one abstract function.",
-      "ExampleComponent.kt:10:7 Component.Factory types must have exactly one abstract function.",
+      "ExampleComponent.kt:6:7 @Component.Factory classes must have exactly one abstract function but found 2.",
+      "ExampleComponent.kt:10:7 @Component.Factory classes must have exactly one abstract function but found 2.",
     )
   }
 
@@ -1529,6 +1529,48 @@ class ComponentTransformerTest : LatticeCompilerTest() {
             .trimIndent(),
         ),
         expectedExitCode = ExitCode.COMPILATION_ERROR,
+      )
+
+    result.assertContains(
+      "ExampleComponent.kt:12:44 Component.Factory abstract function parameters must be unique."
+    )
+  }
+
+  @Ignore("WIP")
+  @Test
+  fun `assisted inject types are handled`() {
+    val result =
+      compile(
+        kotlin(
+          "ExampleComponent.kt",
+          """
+            package test
+
+            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.BindsInstance
+            import dev.zacsweers.lattice.annotations.Provides
+            import dev.zacsweers.lattice.annotations.Assisted
+            import dev.zacsweers.lattice.annotations.AssistedInject
+            import dev.zacsweers.lattice.annotations.AssistedFactory
+
+            @Component
+            interface AssistedInjectComponentWithGenerics {
+              val factory: ExampleClass.Factory<*>
+
+              class ExampleClass<T> @AssistedInject constructor(
+                @Assisted val intValue: T
+              ) {
+
+                @AssistedFactory
+                fun interface Factory<T> {
+                  fun create(intValue: T): T
+                }
+              }
+            }
+          """
+            .trimIndent(),
+        ),
+        debug = true,
       )
 
     result.assertContains(

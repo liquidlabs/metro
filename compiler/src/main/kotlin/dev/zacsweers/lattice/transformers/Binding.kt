@@ -64,12 +64,25 @@ internal sealed interface Binding {
     }
   }
 
+  data class Assisted(
+    val type: IrClass,
+    val target: ConstructorInjected,
+    val function: IrSimpleFunction,
+    override val parameters: Parameters,
+    override val typeKey: TypeKey,
+  ) : Binding {
+    // Dependencies are handled by the target class
+    override val dependencies: Map<TypeKey, Parameter> = emptyMap()
+    override val nameHint: String = type.name.asString()
+    override val scope: IrAnnotation? = null
+  }
+
   data class BoundInstance(val parameter: Parameter) : Binding {
     override val typeKey: TypeKey = parameter.typeKey
-    override val parameters: Parameters = Parameters.EMPTY
     override val scope: IrAnnotation? = null
     override val nameHint: String = "${parameter.name.asString()}Instance"
     override val dependencies: Map<TypeKey, Parameter> = emptyMap()
+    override val parameters: Parameters = Parameters.EMPTY
   }
 
   data class ComponentDependency(

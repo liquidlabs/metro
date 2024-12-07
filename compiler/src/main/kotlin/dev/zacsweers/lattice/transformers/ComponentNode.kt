@@ -17,7 +17,6 @@ package dev.zacsweers.lattice.transformers
 
 import dev.zacsweers.lattice.ir.IrAnnotation
 import dev.zacsweers.lattice.ir.rawType
-import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
@@ -36,8 +35,6 @@ internal data class ComponentNode(
   val creator: Creator?,
   val typeKey: TypeKey,
 ) {
-  val isInterface: Boolean = sourceComponent.kind == ClassKind.INTERFACE
-
   data class Creator(
     val type: IrClass,
     val createFunction: IrSimpleFunction,

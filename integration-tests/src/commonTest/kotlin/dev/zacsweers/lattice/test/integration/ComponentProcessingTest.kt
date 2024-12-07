@@ -16,6 +16,9 @@
 package dev.zacsweers.lattice.test.integration
 
 import dev.zacsweers.lattice.Provider
+import dev.zacsweers.lattice.annotations.Assisted
+import dev.zacsweers.lattice.annotations.AssistedFactory
+import dev.zacsweers.lattice.annotations.AssistedInject
 import dev.zacsweers.lattice.annotations.BindsInstance
 import dev.zacsweers.lattice.annotations.Component
 import dev.zacsweers.lattice.annotations.Inject
@@ -301,6 +304,163 @@ class ComponentProcessingTest {
         @BindsInstance @Named("value2") value2: Int,
         @BindsInstance @Named("value3") value3: Int,
       ): ComponentWithDifferentBindsInstanceTypeQualifiers
+    }
+  }
+
+  @Test
+  fun `basic assisted injection`() {
+    val component =
+      createComponentFactory<AssistedInjectComponent.Factory>().create("Hello, world!")
+    val factory1 = component.factory
+    val exampleClass1 = factory1.create(3)
+    assertEquals("Hello, world!", exampleClass1.message)
+    assertEquals(3, exampleClass1.intValue)
+
+    val factory2 = component.factory2
+    val exampleClass2 = factory2.create(4)
+    assertEquals("Hello, world!", exampleClass2.message)
+    assertEquals(4, exampleClass2.intValue)
+  }
+
+  @Component
+  interface AssistedInjectComponent {
+    val factory: ExampleClass.Factory
+    val factory2: ExampleClass.Factory2
+
+    @Component.Factory
+    interface Factory {
+      fun create(@BindsInstance message: String): AssistedInjectComponent
+    }
+
+    class ExampleClass
+    @AssistedInject
+    constructor(@Assisted val intValue: Int, val message: String) {
+      @AssistedFactory
+      fun interface Factory {
+        fun create(intValue: Int): ExampleClass
+      }
+
+      // Multiple factories are allowed
+      @AssistedFactory
+      fun interface Factory2 {
+        fun create(intValue: Int): ExampleClass
+      }
+    }
+  }
+
+  @Test
+  fun `assisted injection with custom assisted keys`() {
+    val component = createComponent<AssistedInjectComponentWithCustomAssistedKeys>()
+    val factory = component.factory
+    val exampleClass = factory.create(2, 1)
+    assertEquals(1, exampleClass.intValue1)
+    assertEquals(2, exampleClass.intValue2)
+  }
+
+  @Component
+  interface AssistedInjectComponentWithCustomAssistedKeys {
+    val factory: ExampleClass.Factory
+
+    class ExampleClass
+    @AssistedInject
+    constructor(@Assisted("1") val intValue1: Int, @Assisted("2") val intValue2: Int) {
+      @AssistedFactory
+      fun interface Factory {
+        fun create(@Assisted("2") intValue2: Int, @Assisted("1") intValue1: Int): ExampleClass
+      }
+    }
+  }
+
+  @Test
+  fun `assisted injection with generic factory supertype`() {
+    val component = createComponent<AssistedInjectComponentWithGenericFactorySupertype>()
+    val factory = component.factory
+    val exampleClass = factory.create(2)
+    assertEquals(2, exampleClass.intValue)
+  }
+
+  @Component
+  interface AssistedInjectComponentWithGenericFactorySupertype {
+    val factory: ExampleClass.Factory
+
+    class ExampleClass @AssistedInject constructor(@Assisted val intValue: Int) {
+      fun interface BaseFactory<T> {
+        fun create(intValue: Int): T
+      }
+
+      @AssistedFactory
+      fun interface Factory : BaseFactory<ExampleClass> {
+        override fun create(intValue: Int): ExampleClass
+      }
+    }
+  }
+
+  @Test
+  fun `assisted injection - diamond inheritance`() {
+    val component = createComponent<AssistedInjectComponentDiamondInheritance>()
+    val factory = component.factory
+    val exampleClass = factory.create(2)
+    assertEquals(2, exampleClass.intValue)
+  }
+
+  @Component
+  interface AssistedInjectComponentDiamondInheritance {
+    val factory: ExampleClass.Factory
+
+    class ExampleClass @AssistedInject constructor(@Assisted val intValue: Int) {
+      fun interface GrandParentBaseFactory<T> {
+        fun create(intValue: Int): T
+      }
+
+      fun interface BaseFactory<T> : GrandParentBaseFactory<T> {
+        override fun create(intValue: Int): T
+      }
+
+      fun interface BaseFactory2<T> : GrandParentBaseFactory<T> {
+        override fun create(intValue: Int): T
+      }
+
+      @AssistedFactory
+      fun interface Factory : BaseFactory<ExampleClass>, BaseFactory2<ExampleClass>
+    }
+  }
+
+  @Test
+  fun `assisted injection - factories can be accessed via component dependencies`() {
+    val dependentComponent =
+      createComponent<ComponentUsingDepFromDependentComponent.DependentComponent>()
+    val component =
+      createComponentFactory<ComponentUsingDepFromDependentComponent.Factory>()
+        .create(dependentComponent)
+    val factory = component.factory
+    val exampleClass = factory.create(2)
+    assertEquals(2, exampleClass.intValue)
+    assertEquals("Hello, world!", exampleClass.message)
+  }
+
+  @Component
+  interface ComponentUsingDepFromDependentComponent {
+    val factory: ExampleClass.Factory
+
+    @Component.Factory
+    interface Factory {
+      fun create(dependentComponent: DependentComponent): ComponentUsingDepFromDependentComponent
+    }
+
+    class ExampleClass
+    @AssistedInject
+    constructor(@Assisted val intValue: Int, val message: String) {
+      @AssistedFactory
+      fun interface Factory {
+        fun create(intValue: Int): ExampleClass
+      }
+    }
+
+    @Component
+    interface DependentComponent {
+      val message: String
+
+      @Provides fun provideMessage(): String = "Hello, world!"
     }
   }
 

@@ -220,7 +220,6 @@ internal fun IrBuilderWithScope.irInvoke(
   return call
 }
 
-@OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun IrClass.addOverride(
   baseFunction: IrSimpleFunction,
   modality: Modality = Modality.FINAL,
@@ -238,7 +237,6 @@ internal fun IrClass.addOverride(
       copyValueParametersFrom(baseFunction)
     }
 
-@OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun IrClass.addOverride(
   baseFqName: FqName,
   simpleName: Name,
@@ -522,6 +520,7 @@ internal fun LatticeTransformerContext.assignConstructorParamsToFields(
   // This should be the provider type unless it's a special instance component type
   val parametersToFields = mutableMapOf<Parameter, IrField>()
   for (parameter in parameters) {
+    if (parameter.isAssisted) continue
     val irParameter =
       constructor.addValueParameter(parameter.name, parameter.providerType, LatticeOrigin)
     val irField =
@@ -561,6 +560,7 @@ internal fun IrClass.buildFactoryCreateFunction(
     this.visibility = DescriptorVisibilities.PUBLIC
     with(context) { markJvmStatic() }
     for (parameter in parameters) {
+      if (parameter.isAssisted) continue
       addValueParameter(parameter.name, parameter.providerType, LatticeOrigin)
     }
     dispatchReceiverParameter = this@buildFactoryCreateFunction.thisReceiver?.copyTo(this)
@@ -638,3 +638,49 @@ internal fun IrExpression.doubleCheck(
       args = listOf(this@doubleCheck),
     )
   }
+
+@OptIn(UnsafeDuringIrConstructionAPI::class)
+internal fun IrClass.allFunctions(pluginContext: IrPluginContext): Sequence<IrSimpleFunction> {
+  return sequence {
+    yieldAll(functions)
+    yieldAll(
+      getAllSuperTypes(pluginContext).mapNotNull(IrType::rawTypeOrNull).flatMap {
+        it.allFunctions(pluginContext)
+      }
+    )
+  }
+}
+
+internal fun IrClass.singleAbstractFunction(context: LatticeTransformerContext): IrSimpleFunction {
+  return abstractFunctions(context).single()
+}
+
+internal fun IrSimpleFunction.isAbstractAndVisible(): Boolean {
+  return modality == Modality.ABSTRACT &&
+    body == null &&
+    (visibility == DescriptorVisibilities.PUBLIC || visibility == DescriptorVisibilities.PROTECTED)
+}
+
+internal fun IrClass.abstractFunctions(context: LatticeTransformerContext): List<IrSimpleFunction> {
+  return allFunctions(context.pluginContext)
+    // Merge inherited functions with matching signatures
+    .groupBy {
+      // Don't include the return type because overrides may have different ones
+      it.computeJvmDescriptorIsh(context, includeReturnType = false)
+    }
+    .mapValues { (_, functions) ->
+      val (abstract, implemented) = functions.partition { it.isAbstractAndVisible() }
+      if (abstract.isEmpty()) {
+        // All implemented, nothing to do
+        null
+      } else if (implemented.isNotEmpty()) {
+        // If there's one implemented one, it's not abstract anymore in our materialized type
+        null
+      } else {
+        // Only need one for the rest of this
+        abstract[0]
+      }
+    }
+    .values
+    .filterNotNull()
+}

@@ -55,7 +55,7 @@ internal sealed interface Parameter {
   val isWrappedInLazy: Boolean
   val isLazyWrappedInProvider: Boolean
   val isAssisted: Boolean
-  val assistedIdentifier: Name
+  val assistedIdentifier: String
   val assistedParameterKey: AssistedParameterKey
   val symbols: LatticeSymbols
   val typeKey: TypeKey
@@ -64,10 +64,23 @@ internal sealed interface Parameter {
 
   // @Assisted parameters are equal, if the type and the identifier match. This subclass makes
   // diffing the parameters easier.
-  data class AssistedParameterKey(
-    private val typeName: IrType,
-    private val assistedIdentifier: Name,
-  )
+  data class AssistedParameterKey(val typeKey: TypeKey, val assistedIdentifier: String) {
+
+    companion object {
+      fun IrValueParameter.toAssistedParameterKey(
+        symbols: LatticeSymbols,
+        typeKey: TypeKey,
+      ): AssistedParameterKey {
+        return AssistedParameterKey(
+          typeKey,
+          annotationsIn(symbols.assistedAnnotations)
+            .singleOrNull()
+            ?.constArgumentOfTypeAt<String>(0)
+            .orEmpty(),
+        )
+      }
+    }
+  }
 
   val originalType: IrType
     get() =
@@ -116,9 +129,9 @@ internal data class ConstructorParameter(
   override val providerType: IrType,
   override val lazyType: IrType,
   override val isAssisted: Boolean,
-  override val assistedIdentifier: Name,
+  override val assistedIdentifier: String,
   override val assistedParameterKey: Parameter.AssistedParameterKey =
-    Parameter.AssistedParameterKey(typeMetadata.typeKey.type, assistedIdentifier),
+    Parameter.AssistedParameterKey(typeMetadata.typeKey, assistedIdentifier),
   override val symbols: LatticeSymbols,
   override val isComponentInstance: Boolean,
   val bindingStackEntry: BindingStackEntry,
@@ -302,14 +315,12 @@ internal fun IrValueParameter.toConstructorParameter(
       ?: this@toConstructorParameter.type
   val typeMetadata = declaredType.asTypeMetadata(context, with(context) { qualifierAnnotation() })
 
-  // TODO FIR better error message
   val assistedAnnotation = annotationsIn(context.symbols.assistedAnnotations).singleOrNull()
 
   val isBindsInstance =
     annotationsIn(context.symbols.bindsInstanceAnnotations).singleOrNull() != null
 
-  val assistedIdentifier =
-    Name.identifier(assistedAnnotation?.constArgumentOfTypeAt<String>(0).orEmpty())
+  val assistedIdentifier = assistedAnnotation?.constArgumentOfTypeAt<String>(0).orEmpty()
 
   val ownerFunction = this.parent as IrFunction // TODO is this safe
 
