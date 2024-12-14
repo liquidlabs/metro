@@ -25,12 +25,24 @@ import dev.zacsweers.lattice.annotations.Inject
 import dev.zacsweers.lattice.annotations.Named
 import dev.zacsweers.lattice.annotations.Provides
 import dev.zacsweers.lattice.annotations.Singleton
+import dev.zacsweers.lattice.annotations.multibindings.ClassKey
+import dev.zacsweers.lattice.annotations.multibindings.ElementsIntoSet
+import dev.zacsweers.lattice.annotations.multibindings.IntKey
+import dev.zacsweers.lattice.annotations.multibindings.IntoMap
+import dev.zacsweers.lattice.annotations.multibindings.IntoSet
+import dev.zacsweers.lattice.annotations.multibindings.LongKey
+import dev.zacsweers.lattice.annotations.multibindings.MapKey
+import dev.zacsweers.lattice.annotations.multibindings.Multibinds
+import dev.zacsweers.lattice.annotations.multibindings.StringKey
 import dev.zacsweers.lattice.createComponent
 import dev.zacsweers.lattice.createComponentFactory
+import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import okio.FileSystem
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
@@ -462,6 +474,361 @@ class ComponentProcessingTest {
 
       @Provides fun provideMessage(): String = "Hello, world!"
     }
+  }
+
+  @Test
+  fun `multibindings - simple int set with one value`() {
+    val component = createComponent<MultibindingComponentWithSingleIntSet>()
+    assertEquals(setOf(1), component.ints)
+
+    // Each call yields a new set instance
+    assertNotSame(component.ints, component.ints)
+
+    // Ensure we return immutable types
+    assertFailsWith<UnsupportedOperationException> { (component.ints as MutableSet<Int>).clear() }
+  }
+
+  @Component
+  interface MultibindingComponentWithSingleIntSet {
+    val ints: Set<Int>
+
+    @Provides @IntoSet fun provideInt1(): Int = 1
+  }
+
+  @Test
+  fun `multibindings - simple empty int set`() {
+    val component = createComponent<MultibindingComponentWithEmptySet>()
+    assertTrue(component.ints.isEmpty())
+
+    // Each call in this case is actually the same instance
+    assertSame(emptySet(), component.ints)
+  }
+
+  @Component
+  interface MultibindingComponentWithEmptySet {
+    @Multibinds val ints: Set<Int>
+  }
+
+  @Test
+  fun `multibindings - int set with multiple values`() {
+    val component = createComponent<MultibindingComponentWithIntSet>()
+    assertEquals(setOf(1, 2), component.ints)
+
+    // Each call yields a new set instance
+    assertNotSame(component.ints, component.ints)
+
+    // Ensure we return immutable types
+    assertFailsWith<UnsupportedOperationException> { (component.ints as MutableSet<Int>).clear() }
+  }
+
+  @Component
+  interface MultibindingComponentWithIntSet {
+    val ints: Set<Int>
+
+    @Provides @IntoSet fun provideInt1(): Int = 1
+
+    @Provides @IntoSet fun provideInt2(): Int = 2
+  }
+
+  @Test
+  fun `multibindings - int set with elements into set`() {
+    val component = createComponent<MultibindingComponentWithElementsIntoSet>()
+    assertEquals(setOf(1, 2, 3), component.ints)
+
+    // Each call yields a new set instance
+    assertNotSame(component.ints, component.ints)
+
+    // Ensure we return immutable types
+    assertFailsWith<UnsupportedOperationException> { (component.ints as MutableSet<Int>).clear() }
+  }
+
+  @Component
+  interface MultibindingComponentWithElementsIntoSet {
+    val ints: Set<Int>
+
+    @Provides @ElementsIntoSet fun provideInts(): Set<Int> = setOf(1, 2, 3)
+  }
+
+  @Test
+  fun `multibindings - int set with scoped elements into set`() {
+    val component = createComponent<MultibindingComponentWithScopedElementsIntoSet>()
+    assertEquals(setOf(0), component.ints)
+
+    // Subsequent calls have the same output
+    assertEquals(setOf(0), component.ints)
+
+    // Ensure we return immutable types
+    assertFailsWith<UnsupportedOperationException> { (component.ints as MutableSet<Int>).clear() }
+  }
+
+  @Singleton
+  @Component
+  abstract class MultibindingComponentWithScopedElementsIntoSet {
+    private var count = 0
+
+    abstract val ints: Set<Int>
+
+    @Provides @ElementsIntoSet @Singleton fun provideInts(): Set<Int> = buildSet { add(count++) }
+  }
+
+  @Test
+  fun `multibindings - int set with mix of scoped elements into set and individual providers`() {
+    val component =
+      createComponent<MultibindingComponentWithMixOfScopedElementsIntoSetAndIndividualProviders>()
+    assertEquals(setOf(2, 7, 10), component.ints)
+    assertEquals(setOf(4, 9, 10), component.ints)
+
+    // Ensure we return immutable types
+    assertFailsWith<UnsupportedOperationException> { (component.ints as MutableSet<Int>).clear() }
+  }
+
+  @Singleton
+  @Component
+  abstract class MultibindingComponentWithMixOfScopedElementsIntoSetAndIndividualProviders {
+    private var count = 10
+    private var unscopedCount = 1
+
+    abstract val ints: Set<Int>
+
+    @Provides @IntoSet fun provideInt1(): Int = 1 + unscopedCount++
+
+    @Provides @IntoSet fun provideInt5(): Int = 5 + unscopedCount++
+
+    @Provides @ElementsIntoSet @Singleton fun provideInts(): Set<Int> = buildSet { add(count++) }
+  }
+
+  @Test
+  fun `multibindings - set with scoped dependencies`() {
+    val component = createComponent<MultibindingComponentWithWithScopedSetDeps>()
+    assertEquals(setOf(0), component.ints)
+    assertEquals(setOf(0, 1), component.ints)
+    assertEquals(setOf(0, 2), component.ints)
+  }
+
+  @Singleton
+  @Component
+  abstract class MultibindingComponentWithWithScopedSetDeps {
+    private var scopedCount = 0
+    private var unscopedCount = 0
+
+    abstract val ints: Set<Int>
+
+    @Provides @Singleton @IntoSet fun provideScopedInt(): Int = scopedCount++
+
+    @Provides @IntoSet fun provideUnscopedInt(): Int = unscopedCount++
+  }
+
+  @Test
+  fun `multibindings - simple int map with one value`() {
+    val component = createComponent<MultibindingComponentWithSingleIntMap>()
+    assertEquals(mapOf(1 to 1), component.ints)
+
+    // Each call yields a new map instance
+    assertNotSame(component.ints, component.ints)
+
+    // Ensure we return immutable types
+    assertFailsWith<UnsupportedOperationException> {
+      (component.ints as MutableMap<Int, Int>).clear()
+    }
+  }
+
+  @Component
+  interface MultibindingComponentWithSingleIntMap {
+    val ints: Map<Int, Int>
+
+    @Provides @IntoMap @IntKey(1) fun provideInt1(): Int = 1
+  }
+
+  @Test
+  fun `multibindings - simple empty int map`() {
+    val component = createComponent<MultibindingComponentWithEmptyMap>()
+    assertTrue(component.ints.isEmpty())
+
+    // Each call in this case is actually the same instance
+    assertSame(emptyMap(), component.ints)
+  }
+
+  @Component
+  interface MultibindingComponentWithEmptyMap {
+    @Multibinds val ints: Map<Int, Int>
+  }
+
+  @Test
+  fun `multibindings - int map with multiple values`() {
+    val component = createComponent<MultibindingComponentWithIntMap>()
+    assertEquals(mapOf(1 to 1, 2 to 2), component.ints)
+
+    // Each call yields a new map instance
+    assertNotSame(component.ints, component.ints)
+
+    // Ensure we return immutable types
+    assertFailsWith<UnsupportedOperationException> {
+      (component.ints as MutableMap<Int, Int>).clear()
+    }
+  }
+
+  @Component
+  interface MultibindingComponentWithIntMap {
+    val ints: Map<Int, Int>
+
+    @Provides @IntoMap @IntKey(1) fun provideInt1(): Int = 1
+
+    @Provides @IntoMap @IntKey(2) fun provideInt2(): Int = 2
+  }
+
+  @Test
+  fun `multibindings - map with scoped dependencies`() {
+    val component = createComponent<MultibindingComponentWithWithScopedMapDeps>()
+    assertEquals(mapOf(1 to 0, 2 to 0), component.ints)
+    assertEquals(mapOf(1 to 0, 2 to 1), component.ints)
+    assertEquals(mapOf(1 to 0, 2 to 2), component.ints)
+  }
+
+  @Singleton
+  @Component
+  abstract class MultibindingComponentWithWithScopedMapDeps {
+    private var scopedCount = 0
+    private var unscopedCount = 0
+
+    abstract val ints: Map<Int, Int>
+
+    @Provides @Singleton @IntoMap @IntKey(1) fun provideScopedInt(): Int = scopedCount++
+
+    @Provides @IntoMap @IntKey(2) fun provideUnscopedInt(): Int = unscopedCount++
+  }
+
+  @Test
+  fun `multibindings - string map with multiple values`() {
+    val component = createComponent<MultibindingComponentWithStringMap>()
+    assertEquals(mapOf("1" to 1, "2" to 2), component.ints)
+
+    // Each call yields a new map instance
+    assertNotSame(component.ints, component.ints)
+
+    // Ensure we return immutable types
+    assertFailsWith<UnsupportedOperationException> {
+      (component.ints as MutableMap<String, Int>).clear()
+    }
+  }
+
+  @Component
+  interface MultibindingComponentWithStringMap {
+    val ints: Map<String, Int>
+
+    @Provides @IntoMap @StringKey("1") fun provideInt1(): Int = 1
+
+    @Provides @IntoMap @StringKey("2") fun provideInt2(): Int = 2
+  }
+
+  @Test
+  fun `multibindings - kclass map with multiple values`() {
+    val component = createComponent<MultibindingComponentWithKClassMap>()
+    assertEquals<Map<KClass<*>, Int>>(mapOf(Int::class to 1, Float::class to 2), component.ints)
+
+    // Each call yields a new map instance
+    assertNotSame(component.ints, component.ints)
+
+    // Ensure we return immutable types
+    assertFailsWith<UnsupportedOperationException> {
+      (component.ints as MutableMap<KClass<*>, Int>).clear()
+    }
+  }
+
+  @Singleton
+  @Component
+  interface MultibindingComponentWithKClassMap {
+    val ints: Map<KClass<*>, Int>
+
+    @Provides @IntoMap @ClassKey(Int::class) fun provideMapInt1() = 1
+
+    @Provides @IntoMap @Singleton @ClassKey(Float::class) fun provideMapInt2() = 2
+  }
+
+  @Test
+  fun `multibindings - misc other map key types`() {
+    val component = createComponent<MultibindingComponentWithMultipleOtherMapKeyTypes>()
+    assertEquals(mapOf(Seasoning.SPICY to 1, Seasoning.REGULAR to 2), component.seasoningAmounts)
+    assertEquals(mapOf(1L to 1, 2L to 2), component.longs)
+    assertEquals(mapOf("1" to 1, "2" to 2), component.strings)
+    assertEquals(
+      mapOf(
+        MultibindingComponentWithMultipleOtherMapKeyTypes.WrappedSeasoningKey(Seasoning.SPICY) to 1,
+        MultibindingComponentWithMultipleOtherMapKeyTypes.WrappedSeasoningKey(Seasoning.REGULAR) to
+          2,
+      ),
+      component.wrappedSeasoningAmounts,
+    )
+  }
+
+  @Component
+  interface MultibindingComponentWithMultipleOtherMapKeyTypes {
+    val seasoningAmounts: Map<Seasoning, Int>
+
+    @Provides @IntoMap @SeasoningKey(Seasoning.SPICY) fun provideSpicySeasoning() = 1
+
+    @Provides @IntoMap @SeasoningKey(Seasoning.REGULAR) fun provideRegularSeasoning() = 2
+
+    @MapKey annotation class SeasoningKey(val value: Seasoning)
+
+    val longs: Map<Long, Int>
+
+    @Provides @IntoMap @LongKey(1) fun provideLongKey1() = 1
+
+    @Provides @IntoMap @LongKey(2) fun provideLongKey2() = 2
+
+    val strings: Map<String, Int>
+
+    @Provides @IntoMap @StringKey("1") fun provideStringKey1() = 1
+
+    @Provides @IntoMap @StringKey("2") fun provideStringKey2() = 2
+
+    val wrappedSeasoningAmounts: Map<WrappedSeasoningKey, Int>
+
+    @Provides @IntoMap @WrappedSeasoningKey(Seasoning.SPICY) fun provideWrappedSpicySeasoning() = 1
+
+    @Provides
+    @IntoMap
+    @WrappedSeasoningKey(Seasoning.REGULAR)
+    fun provideWrappedRegularSeasoning() = 2
+
+    @MapKey(unwrapValue = false) annotation class WrappedSeasoningKey(val value: Seasoning)
+  }
+
+  @Test
+  fun `multibindings - map with different scoped provider values`() {
+    val component = createComponent<MultibindingComponentWithWithScopedMapProviderDeps>()
+
+    var unscopedCount = 0
+    fun validate(body: () -> Map<Int, Provider<Int>>) {
+      // Scoped int (key = 1) never increments no matter how many times we call the provider
+      assertEquals(mapOf(1 to 0, 2 to unscopedCount++), body().mapValues { it.value() })
+      assertEquals(mapOf(1 to 0, 2 to unscopedCount++), body().mapValues { it.value() })
+      assertEquals(mapOf(1 to 0, 2 to unscopedCount++), body().mapValues { it.value() })
+    }
+
+    validate(component::ints)
+    validate { component.providerInts() }
+    validate { component.lazyInts.value }
+  }
+
+  @Singleton
+  @Component
+  abstract class MultibindingComponentWithWithScopedMapProviderDeps {
+    private var scopedCount = 0
+    private var unscopedCount = 0
+
+    abstract val ints: Map<Int, Provider<Int>>
+    abstract val providerInts: Provider<Map<Int, Provider<Int>>>
+    abstract val lazyInts: Lazy<Map<Int, Provider<Int>>>
+
+    @Provides @Singleton @IntoMap @IntKey(1) fun provideScopedInt(): Int = scopedCount++
+
+    @Provides @IntoMap @IntKey(2) fun provideUnscopedInt(): Int = unscopedCount++
+  }
+
+  enum class Seasoning {
+    SPICY,
+    REGULAR,
   }
 
   @Inject

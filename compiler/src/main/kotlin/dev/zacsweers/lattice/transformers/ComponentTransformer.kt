@@ -19,12 +19,14 @@ import dev.zacsweers.lattice.LatticeOrigin
 import dev.zacsweers.lattice.LatticeSymbols
 import dev.zacsweers.lattice.decapitalizeUS
 import dev.zacsweers.lattice.exitProcessing
+import dev.zacsweers.lattice.ir.IrAnnotation
 import dev.zacsweers.lattice.ir.addCompanionObject
 import dev.zacsweers.lattice.ir.addOverride
 import dev.zacsweers.lattice.ir.allCallableMembers
 import dev.zacsweers.lattice.ir.createIrBuilder
 import dev.zacsweers.lattice.ir.doubleCheck
 import dev.zacsweers.lattice.ir.getAllSuperTypes
+import dev.zacsweers.lattice.ir.getSingleConstBooleanArgumentOrNull
 import dev.zacsweers.lattice.ir.irInvoke
 import dev.zacsweers.lattice.ir.irLambda
 import dev.zacsweers.lattice.ir.isAnnotatedWithAny
@@ -33,6 +35,7 @@ import dev.zacsweers.lattice.ir.rawTypeOrNull
 import dev.zacsweers.lattice.ir.singleAbstractFunction
 import dev.zacsweers.lattice.ir.typeAsProviderArgument
 import dev.zacsweers.lattice.letIf
+import org.jetbrains.kotlin.backend.jvm.codegen.AnnotationCodegen.Companion.annotationClass
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
@@ -51,7 +54,10 @@ import org.jetbrains.kotlin.ir.builders.irExprBody
 import org.jetbrains.kotlin.ir.builders.irGet
 import org.jetbrains.kotlin.ir.builders.irGetField
 import org.jetbrains.kotlin.ir.builders.irGetObject
+import org.jetbrains.kotlin.ir.builders.irInt
 import org.jetbrains.kotlin.ir.builders.irReturn
+import org.jetbrains.kotlin.ir.builders.parent
+import org.jetbrains.kotlin.ir.declarations.IrAnnotationContainer
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFunction
@@ -59,9 +65,16 @@ import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.declarations.addMember
 import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrClassReference
+import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
+import org.jetbrains.kotlin.ir.types.IrSimpleType
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classOrFail
+import org.jetbrains.kotlin.ir.types.starProjectedType
+import org.jetbrains.kotlin.ir.types.typeOrFail
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.addChild
 import org.jetbrains.kotlin.ir.util.addSimpleDelegatingConstructor
@@ -71,8 +84,10 @@ import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.copyTo
 import org.jetbrains.kotlin.ir.util.copyTypeParameters
 import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
+import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import org.jetbrains.kotlin.ir.util.getPackageFragment
 import org.jetbrains.kotlin.ir.util.getSimpleFunction
+import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.ir.util.isInterface
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.kotlinFqName
@@ -220,11 +235,19 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
       componentDeclaration
         .getAllSuperTypes(pluginContext, excludeSelf = false)
         .flatMap { it.classOrFail.owner.allCallableMembers() }
+        .filterNot { function ->
+          // Skip fake overrides. These are types that are inherited from a supertype but
+          // not actually user-implemented in the subtype
+          function.isFakeOverride ||
+            function.correspondingPropertySymbol?.owner?.isFakeOverride == true
+        }
         // TODO is this enough for properties like @get:Provides
         .filter { function -> function.isAnnotatedWithAny(symbols.providesAnnotations) }
         // TODO validate
-        .associateBy { TypeMetadata.from(this, it).typeKey }
+        .map { function -> ContextualTypeKey.from(this, function).typeKey to function }
+        .toList()
 
+    // TODO infer @Multibinds declarations from there
     val exposedTypes =
       componentDeclaration
         .allCallableMembers()
@@ -236,7 +259,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
             // TODO is this enough for properties like @get:Provides
             !function.isAnnotatedWithAny(symbols.providesAnnotations)
         }
-        .associateWith { function -> TypeMetadata.from(this, function) }
+        .associateWith { function -> ContextualTypeKey.from(this, function) }
 
     val creator =
       componentDeclaration.nestedClasses
@@ -303,17 +326,71 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     return latticeComponent
   }
 
+  @OptIn(UnsafeDuringIrConstructionAPI::class)
   private fun createBindingGraph(component: ComponentNode): BindingGraph {
     val graph = BindingGraph(this)
 
     // Add explicit bindings from @Provides methods
     val bindingStack = BindingStack(component.sourceComponent)
     component.providerFunctions.forEach { (typeKey, function) ->
-      graph.addBinding(
-        typeKey,
-        Binding.Provided(function, typeKey, function.parameters(this), function.scopeAnnotation()),
-        bindingStack,
-      )
+      // TODO these annotation searches are greedy. Need a single-pass lookup
+      val provider =
+        Binding.Provided(
+          providerFunction = function,
+          contextualTypeKey = ContextualTypeKey.from(this, function),
+          parameters = function.parameters(this),
+          scope = function.scopeAnnotation(),
+          // TODO FIR only one annotation is allowed
+          // TODO FIR no scopes on multibindings
+          // TODO FIR can't mix @Multibinds and @Provides
+          intoSet = function.isAnnotatedWithAny(symbols.latticeClassIds.intoSetAnnotations),
+          elementsIntoSet =
+            function.isAnnotatedWithAny(symbols.latticeClassIds.elementsIntoSetAnnotations),
+          intoMap = function.isAnnotatedWithAny(symbols.latticeClassIds.intoMapAnnotations),
+          mapKey =
+            function.annotations
+              .firstOrNull { annotation ->
+                val annotationClass = annotation.symbol.owner.parentAsClass
+                for (id in symbols.latticeClassIds.mapKeyAnnotations) {
+                  if (annotationClass.hasAnnotation(id)) return@firstOrNull true
+                }
+                false
+              }
+              ?.let(::IrAnnotation),
+        )
+
+      if (provider.isMultibindingProvider) {
+        val multibindingType =
+          when {
+            provider.intoSet -> {
+              pluginContext.irBuiltIns.setClass.typeWith(provider.typeKey.type)
+            }
+            // TODO Dagger only supports the target collection, but maybe we can loosen that?
+            provider.elementsIntoSet -> provider.typeKey.type
+            provider.intoMap && provider.mapKey != null -> {
+              // TODO this is probably not robust enough
+              val rawKeyType = provider.mapKey.ir
+              val unwrapValues = rawKeyType.shouldUnwrapMapKeyValues()
+              val keyType =
+                if (unwrapValues) {
+                  rawKeyType.annotationClass.primaryConstructor!!.valueParameters[0].type
+                } else {
+                  rawKeyType.type
+                }
+              pluginContext.irBuiltIns.mapClass.typeWith(
+                // MapKey is the key type
+                keyType,
+                // Return type is the value type
+                provider.typeKey.type,
+              )
+            }
+            else -> error("Not possible")
+          }
+        val multibindingTypeKey = provider.typeKey.copy(type = multibindingType)
+        graph.getOrCreateMultibinding(pluginContext, multibindingTypeKey).providers.add(provider)
+      } else {
+        graph.addBinding(typeKey, provider, bindingStack)
+      }
     }
 
     // Add instance parameters
@@ -321,15 +398,31 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
       graph.addBinding(it.typeKey, Binding.BoundInstance(it), bindingStack)
     }
 
+    // Add @Multibinding exposed types
+    component.exposedTypes.forEach { getter, contextualTypeKey ->
+      val annotationContainer: IrAnnotationContainer =
+        getter.correspondingPropertySymbol?.owner ?: getter
+      val isMultibindingDeclaration =
+        annotationContainer.isAnnotatedWithAny(symbols.latticeClassIds.multibindsAnnotations)
+
+      if (isMultibindingDeclaration) {
+        graph.addBinding(
+          contextualTypeKey.typeKey,
+          Binding.Multibinding.create(pluginContext, contextualTypeKey.typeKey),
+          bindingStack,
+        )
+      }
+    }
+
     // Add bindings from component dependencies
     component.dependencies.forEach { depNode ->
-      depNode.exposedTypes.forEach { (getter, typeMetadata) ->
+      depNode.exposedTypes.forEach { (getter, contextualTypeKey) ->
         graph.addBinding(
-          typeMetadata.typeKey,
+          contextualTypeKey.typeKey,
           Binding.ComponentDependency(
             component = depNode.sourceComponent,
             getter = getter,
-            typeKey = typeMetadata.typeKey,
+            typeKey = contextualTypeKey.typeKey,
           ),
           bindingStack,
         )
@@ -475,6 +568,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
         // Add fields for providers. May include both scoped and unscoped providers as well as bound
         // instances
         val providerFields = mutableMapOf<TypeKey, IrField>()
+        val multibindingProviderFields = mutableMapOf<Binding.Provided, IrField>()
         val componentTypesToCtorParams = mutableMapOf<TypeKey, IrValueParameter>()
 
         node.creator?.let { creator ->
@@ -509,8 +603,8 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
               // It's a component dep. Add all its exposed types as available keys and point them at
               // this constructor parameter for provider field initialization
               for (componentDep in node.allDependencies) {
-                for ((_, typeMetadata) in componentDep.exposedTypes) {
-                  componentTypesToCtorParams[typeMetadata.typeKey] = irParam
+                for ((_, contextualTypeKey) in componentDep.exposedTypes) {
+                  componentTypesToCtorParams[contextualTypeKey.typeKey] = irParam
                 }
               }
             }
@@ -550,24 +644,49 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
 
         // Compute safe initialization order
         val initOrder =
-          bindingDependencies.keys.sortedWith { a, b ->
-            when {
-              // If b depends on a, a should be initialized first
-              a in (bindingDependencies[b] ?: emptyMap()) -> -1
-              // If a depends on b, b should be initialized first
-              b in (bindingDependencies[a] ?: emptyMap()) -> 1
-              // Otherwise order doesn't matter, fall back to just type order for idempotence
-              else -> a.compareTo(b)
+          bindingDependencies.entries
+            .sortedWith { (a, _), (b, _) ->
+              when {
+                // If b depends on a, a should be initialized first
+                a in (bindingDependencies[b]?.dependencies.orEmpty()) -> -1
+                // If a depends on b, b should be initialized first
+                b in (bindingDependencies[a]?.dependencies.orEmpty()) -> 1
+                // Otherwise order doesn't matter, fall back to just type order for idempotence
+                else -> a.compareTo(b)
+              }
             }
-          }
+            .map { it.value }
+            .distinct()
+
+        val generationContext =
+          ComponentGenerationContext(
+            graph,
+            thisReceiverParameter,
+            instanceFields,
+            componentTypesToCtorParams,
+            providerFields,
+            multibindingProviderFields,
+            bindingStack,
+          )
 
         // Create fields in dependency-order
-        initOrder.forEach { key ->
-          val binding = graph.requireBinding(key)
-          providerFields[key] =
+        initOrder.forEach { binding ->
+          val key = binding.typeKey
+          // Since assisted injections don't implement Factory, we can't just type these as
+          // Provider<*> fields
+          val fieldType =
+            if (binding is Binding.ConstructorInjected && binding.isAssisted) {
+              injectConstructorTransformer
+                .getOrGenerateFactoryClass(binding.type, binding.injectedConstructor)
+                .typeWith() // TODO generic factories?
+            } else {
+              symbols.latticeProvider.typeWith(key.type)
+            }
+
+          val field =
             addField(
                 fieldName = binding.nameHint.decapitalizeUS() + "Provider",
-                fieldType = symbols.latticeProvider.typeWith(key.type),
+                fieldType = fieldType,
                 fieldVisibility = DescriptorVisibilities.PRIVATE,
               )
               .apply {
@@ -575,34 +694,30 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
                 initializer =
                   pluginContext.createIrBuilder(symbol).run {
                     val provider =
-                      generateBindingCode(
-                          binding,
-                          graph,
-                          thisReceiverParameter,
-                          instanceFields,
-                          componentTypesToCtorParams,
-                          providerFields,
-                          bindingStack,
-                        )
-                        .letIf(binding.scope != null) {
-                          // If it's scoped, wrap it in double-check
-                          // DoubleCheck.provider(<provider>)
-                          it.doubleCheck(this@run, symbols)
-                        }
+                      generateBindingCode(binding, generationContext).letIf(binding.scope != null) {
+                        // If it's scoped, wrap it in double-check
+                        // DoubleCheck.provider(<provider>)
+                        it.doubleCheck(this@run, symbols)
+                      }
                     irExprBody(provider)
                   }
               }
+          if (binding is Binding.Provided && binding.isMultibindingProvider) {
+            multibindingProviderFields[binding] = field
+          } else {
+            providerFields[key] = field
+          }
         }
 
         // Implement abstract getters for exposed types
         node.exposedTypes.entries
           // Stable sort. First the name then the type
           .sortedWith(
-            compareBy<Map.Entry<IrSimpleFunction, TypeMetadata>> { it.key.name }
+            compareBy<Map.Entry<IrSimpleFunction, ContextualTypeKey>> { it.key.name }
               .thenComparing { it.value.typeKey }
           )
-          .forEach { (function, typeMetadata) ->
-            val key = typeMetadata.typeKey
+          .forEach { (function, contextualTypeKey) ->
+            val key = contextualTypeKey.typeKey
             val property =
               function.correspondingPropertySymbol?.owner?.let { property ->
                 addProperty { name = property.name }
@@ -623,20 +738,17 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
               bindingStack.push(BindingStackEntry.requestedAt(key, function))
               body =
                 pluginContext.createIrBuilder(symbol).run {
-                  val providerReceiver =
-                    generateBindingCode(
-                      binding,
-                      graph,
-                      thisReceiverParameter,
-                      instanceFields,
-                      componentTypesToCtorParams,
-                      providerFields,
-                      bindingStack,
-                    )
+                  if (binding is Binding.Multibinding) {
+                    // It's not a provider in this case! Return the created collection directly
+                    // TODO if we have multiple exposed types pointing at the same type, implement
+                    //  one and make the rest call that one. Not multibinding specific. Maybe
+                    //  groupBy { typekey }?
+                  }
                   irExprBody(
                     typeAsProviderArgument(
-                      typeMetadata,
-                      providerReceiver,
+                      this@ComponentTransformer,
+                      contextualTypeKey,
+                      generateBindingCode(binding, generationContext, contextualTypeKey),
                       isAssisted = false,
                       isComponentInstance = false,
                       symbols,
@@ -653,17 +765,17 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     node: ComponentNode,
     graph: BindingGraph,
     bindingStack: BindingStack,
-  ): Map<TypeKey, Map<TypeKey, Parameter>> {
-    val bindingDependencies = mutableMapOf<TypeKey, Map<TypeKey, Parameter>>()
+  ): Map<TypeKey, Binding> {
+    val bindingDependencies = mutableMapOf<TypeKey, Binding>()
     // Track used unscoped bindings. We only need to generate a field if they're used more than
     // once
     val usedUnscopedBindings = mutableSetOf<TypeKey>()
     val visitedBindings = mutableSetOf<TypeKey>()
 
     // Initial pass from each root
-    node.exposedTypes.forEach { (accessor, typeMetadata) ->
-      val key = typeMetadata.typeKey
-      processBinding(
+    node.exposedTypes.forEach { (accessor, contextualTypeKey) ->
+      val key = contextualTypeKey.typeKey
+      findAndProcessBinding(
         key = key,
         stackEntry = BindingStackEntry.requestedAt(key, accessor),
         node = node,
@@ -677,13 +789,13 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     return bindingDependencies
   }
 
-  private fun processBinding(
+  private fun findAndProcessBinding(
     key: TypeKey,
     stackEntry: BindingStackEntry,
     node: ComponentNode,
     graph: BindingGraph,
     bindingStack: BindingStack,
-    bindingDependencies: MutableMap<TypeKey, Map<TypeKey, Parameter>>,
+    bindingDependencies: MutableMap<TypeKey, Binding>,
     usedUnscopedBindings: MutableSet<TypeKey>,
     visitedBindings: MutableSet<TypeKey>,
   ) {
@@ -691,75 +803,134 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     if (key in visitedBindings) {
       if (key in usedUnscopedBindings && key !in bindingDependencies) {
         // Only add unscoped binding provider fields if they're used more than once
-        bindingDependencies[key] = graph.requireBinding(key).dependencies
+        bindingDependencies[key] = graph.requireBinding(key)
       }
       return
     }
 
     bindingStack.withEntry(stackEntry) {
       val binding = graph.getOrCreateBinding(key, bindingStack)
-      val bindingScope = binding.scope
+      processBinding(
+        binding,
+        node,
+        graph,
+        bindingStack,
+        bindingDependencies,
+        usedUnscopedBindings,
+        visitedBindings,
+      )
+    }
+  }
 
-      // Check scoping compatibility
-      // TODO FIR error?
+  private fun processBinding(
+    binding: Binding,
+    node: ComponentNode,
+    graph: BindingGraph,
+    bindingStack: BindingStack,
+    bindingDependencies: MutableMap<TypeKey, Binding>,
+    usedUnscopedBindings: MutableSet<TypeKey>,
+    visitedBindings: MutableSet<TypeKey>,
+  ) {
+    val isMultibindingProvider = binding is Binding.Provided && binding.isMultibindingProvider
+    val key = binding.typeKey
+
+    // Skip if already visited
+    // TODO de-dupe with findAndProcessBinding
+    if (!isMultibindingProvider && key in visitedBindings) {
+      if (key in usedUnscopedBindings && key !in bindingDependencies) {
+        // Only add unscoped binding provider fields if they're used more than once
+        bindingDependencies[key] = graph.requireBinding(key)
+      }
+      return
+    }
+
+    val bindingScope = binding.scope
+
+    // Check scoping compatibility
+    // TODO FIR error?
+    if (bindingScope != null) {
+      if (node.scope == null || bindingScope != node.scope) {
+        // Error if an unscoped component references scoped bindings
+        val declarationToReport = node.sourceComponent
+        bindingStack.push(BindingStackEntry.simpleTypeRef(key))
+        val message = buildString {
+          append("[Lattice/IncompatiblyScopedBindings] ")
+          append(declarationToReport.kotlinFqName)
+          append(" (unscoped) may not reference scoped bindings:")
+          appendLine()
+          appendBindingStack(bindingStack)
+        }
+        declarationToReport.reportError(message)
+        exitProcessing()
+      }
+    }
+
+    visitedBindings += key
+
+    // Scoped and component bindings always need (provider) fields
+    if (bindingScope != null || binding is Binding.ComponentDependency) {
+      bindingDependencies[key] = binding
+    }
+
+    // For assisted bindings, we need provider fields for the assisted factory impl type
+    // The factory impl type depends on a provider of the assisted type
+    if (binding is Binding.Assisted) {
+      bindingDependencies[key] = binding.target
+      // TODO is this safe to end up as a provider field? Can someone create a
+      //  binding such that you have an assisted type on the DI graph that is
+      //  provided by a provider that depends on the assisted factory? I suspect
+      //  yes, so in that case we should probably track a separate field mapping
+      usedUnscopedBindings += binding.target.typeKey
+      // By definition, these parameters are not available on the graph
+      return
+    }
+
+    // For multibindings, we depend on anything the delegate providers depend on
+    if (binding is Binding.Multibinding) {
       if (bindingScope != null) {
-        if (node.scope == null || bindingScope != node.scope) {
-          // Error if an unscoped component references scoped bindings
-          val declarationToReport = node.sourceComponent
-          bindingStack.push(BindingStackEntry.simpleTypeRef(key))
-          val message = buildString {
-            append("[Lattice/IncompatiblyScopedBindings] ")
-            append(declarationToReport.kotlinFqName)
-            append(" (unscoped) may not reference scoped bindings:")
-            appendLine()
-            appendBindingStack(bindingStack)
-          }
-          declarationToReport.reportError(message)
-          exitProcessing()
+        // This is scoped so we want to keep an instance
+        // TODO are these allowed?
+        //  bindingDependencies[key] = buildMap {
+        //    for (provider in binding.providers) {
+        //      putAll(provider.dependencies)
+        //    }
+        //  }
+      } else {
+        // Process all providers deps, but don't need a specific dep for this one
+        for (provider in binding.providers) {
+          processBinding(
+            binding = provider,
+            node = node,
+            graph = graph,
+            bindingStack = bindingStack,
+            bindingDependencies = bindingDependencies,
+            usedUnscopedBindings = usedUnscopedBindings,
+            visitedBindings = visitedBindings,
+          )
         }
       }
+      return
+    }
 
-      visitedBindings += key
+    // Track dependencies before creating fields
+    if (bindingScope == null) {
+      usedUnscopedBindings += key
+    }
 
-      // Scoped and component bindings always need (provider) fields
-      if (bindingScope != null || binding is Binding.ComponentDependency) {
-        bindingDependencies[key] = binding.dependencies
-      }
-
-      // For assisted bindings, we need provider fields for the assisted impl type
-      // The impl type depends on a provider of the assisted type, which we may or
-      // may not create a field for reuse.
-      if (binding is Binding.Assisted) {
-        bindingDependencies[key] = binding.target.dependencies
-        // TODO is this safe to end up as a provider field? Can someone create a
-        //  binding such that you have an assisted type on the DI graph that is
-        //  provided by a provider that depends on the assisted factory? I suspect
-        //  yes, so in that case we should probably track a separate field mapping
-        usedUnscopedBindings += binding.target.typeKey
-        // By definition, these parameters are not available on the graph
-        return
-      }
-
-      // Track dependencies before creating fields
-      if (bindingScope == null) {
-        usedUnscopedBindings += key
-      }
-
-      // Recursively process dependencies
-      binding.parameters.nonInstanceParameters.forEach { param ->
-        val depKey = param.typeKey
-        // Recursive call to process dependency
-        processBinding(
-          key = depKey,
-          stackEntry = (param as ConstructorParameter).bindingStackEntry,
-          node = node,
-          graph = graph,
-          bindingStack = bindingStack,
-          bindingDependencies = bindingDependencies,
-          usedUnscopedBindings = usedUnscopedBindings,
-          visitedBindings = visitedBindings,
-        )
-      }
+    // Recursively process dependencies
+    binding.parameters.nonInstanceParameters.forEach { param ->
+      val depKey = param.typeKey
+      // Process binding dependencies
+      findAndProcessBinding(
+        key = depKey,
+        stackEntry = (param as ConstructorParameter).bindingStackEntry,
+        node = node,
+        graph = graph,
+        bindingStack = bindingStack,
+        bindingDependencies = bindingDependencies,
+        usedUnscopedBindings = usedUnscopedBindings,
+        visitedBindings = visitedBindings,
+      )
     }
   }
 
@@ -767,12 +938,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     targetParams: Parameters,
     function: IrFunction,
     binding: Binding,
-    graph: BindingGraph,
-    thisReceiver: IrValueParameter,
-    instanceFields: Map<TypeKey, IrField>,
-    componentTypesToCtorParams: Map<TypeKey, IrValueParameter>,
-    providerFields: Map<TypeKey, IrField>,
-    bindingStack: BindingStack,
+    generationContext: ComponentGenerationContext,
   ): List<IrExpression> {
     val params = function.parameters(this@ComponentTransformer)
     // TODO only value args are supported atm
@@ -796,7 +962,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
           Input type keys:
             - ${paramsToMap.map { it.typeKey }.joinToString()}
           Binding parameters (${function.kotlinFqName}):
-            - ${function.valueParameters.map { TypeMetadata.from(this@ComponentTransformer, it).typeKey }.joinToString()}
+            - ${function.valueParameters.map { ContextualTypeKey.from(this@ComponentTransformer, it).typeKey }.joinToString()}
         """
           .trimIndent()
       }
@@ -806,15 +972,27 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
       val typeKey = paramsToMap[i].typeKey
 
       // TODO consolidate this logic with generateBindingCode
-      instanceFields[typeKey]?.let { instanceField ->
+      generationContext.instanceFields[typeKey]?.let { instanceField ->
         // If it's in instance field, invoke that field
-        return@mapIndexed irGetField(irGet(thisReceiver), instanceField)
+        return@mapIndexed irGetField(irGet(generationContext.thisReceiver), instanceField)
       }
 
       val providerInstance =
-        if (typeKey in providerFields) {
+        if (typeKey in generationContext.providerFields) {
           // If it's in provider fields, invoke that field
-          irGetField(irGet(thisReceiver), providerFields.getValue(typeKey))
+          irGetField(
+            irGet(generationContext.thisReceiver),
+            generationContext.providerFields.getValue(typeKey),
+          )
+        } else if (
+          binding is Binding.Provided &&
+            binding.isMultibindingProvider &&
+            binding in generationContext.multibindingProviderFields
+        ) {
+          irGetField(
+            irGet(generationContext.thisReceiver),
+            generationContext.multibindingProviderFields.getValue(binding),
+          )
         } else {
           val entry =
             when (binding) {
@@ -828,21 +1006,18 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
               is Binding.Assisted -> {
                 BindingStackEntry.injectedAt(typeKey, function)
               }
+              is Binding.Multibinding -> {
+                // TODO can't be right?
+                BindingStackEntry.injectedAt(typeKey, function)
+              }
               is Binding.BoundInstance,
               is Binding.ComponentDependency -> error("Should never happen, logic is handled above")
             }
-          bindingStack.push(entry)
+          generationContext.bindingStack.push(entry)
           // Generate binding code for each param
-          val paramBinding = graph.getOrCreateBinding(typeKey, bindingStack)
-          generateBindingCode(
-            paramBinding,
-            graph,
-            thisReceiver,
-            instanceFields,
-            componentTypesToCtorParams,
-            providerFields,
-            bindingStack,
-          )
+          val paramBinding =
+            generationContext.graph.getOrCreateBinding(typeKey, generationContext.bindingStack)
+          generateBindingCode(paramBinding, generationContext)
         }
       // TODO share logic from InjectConstructorTransformer
       if (param.isWrappedInLazy) {
@@ -873,19 +1048,65 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     }
   }
 
+  private fun IrConstructorCall.shouldUnwrapMapKeyValues(): Boolean {
+    val mapKeyMapKeyAnnotation = annotationClass.mapKeyAnnotation()!!.ir
+    // TODO FIR check valid mapkey
+    //  - single arg
+    //  - no generics
+    val unwrapValue = mapKeyMapKeyAnnotation.getSingleConstBooleanArgumentOrNull() != false
+    return unwrapValue
+  }
+
+  private fun IrBuilderWithScope.generateMapKeyLiteral(
+    binding: Binding.Provided,
+    keyType: IrType,
+  ): IrExpression {
+    val mapKey = binding.mapKey!!.ir
+
+    val unwrapValue = mapKey.shouldUnwrapMapKeyValues()
+    val expression =
+      if (!unwrapValue) {
+        mapKey
+      } else {
+        // We can just copy the expression!
+        // TODO do we need to call shallowCopy()?
+        mapKey.getValueArgument(0)!!
+      }
+
+    val typeToCompare =
+      if (expression is IrClassReference) {
+        // We want KClass<*>, not the specific type in the annotation we got (i.e. KClass<Int>).
+        pluginContext.irBuiltIns.kClassClass.starProjectedType
+      } else {
+        expression.type
+      }
+    if (typeToCompare != keyType) {
+      // TODO check in FIR instead
+      error(
+        "Map key type mismatch: ${typeToCompare.dumpKotlinLike()} != ${keyType.dumpKotlinLike()}"
+      )
+    }
+    return expression
+  }
+
   @OptIn(UnsafeDuringIrConstructionAPI::class)
   private fun IrBuilderWithScope.generateBindingCode(
     binding: Binding,
-    graph: BindingGraph,
-    thisReceiver: IrValueParameter,
-    instanceFields: Map<TypeKey, IrField>,
-    componentTypesToCtorParams: Map<TypeKey, IrValueParameter>,
-    providerFields: Map<TypeKey, IrField>,
-    bindingStack: BindingStack,
+    generationContext: ComponentGenerationContext,
+    contextualTypeKey: ContextualTypeKey = binding.contextualTypeKey,
   ): IrExpression {
     // If we already have a provider field we can just return it
-    providerFields[binding.typeKey]?.let {
-      return irGetField(irGet(thisReceiver), it)
+    if (
+      binding is Binding.Provided &&
+        binding.isMultibindingProvider &&
+        binding in generationContext.multibindingProviderFields
+    ) {
+      generationContext.multibindingProviderFields[binding]?.let {
+        return irGetField(irGet(generationContext.thisReceiver), it)
+      }
+    }
+    generationContext.providerFields[binding.typeKey]?.let {
+      return irGetField(irGet(generationContext.thisReceiver), it)
     }
 
     return when (binding) {
@@ -912,12 +1133,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
             binding.parameters,
             createFunction.owner,
             binding,
-            graph,
-            thisReceiver,
-            instanceFields,
-            componentTypesToCtorParams,
-            providerFields,
-            bindingStack,
+            generationContext,
           )
         irInvoke(
           dispatchReceiver = irGetObject(creatorClass.symbol),
@@ -945,12 +1161,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
             binding.parameters,
             createFunction.owner,
             binding,
-            graph,
-            thisReceiver,
-            instanceFields,
-            componentTypesToCtorParams,
-            providerFields,
-            bindingStack,
+            generationContext,
           )
         irInvoke(
           dispatchReceiver = irGetObject(creatorClass.symbol),
@@ -963,21 +1174,230 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
         val implClass = assistedFactoryTransformer.getOrGenerateImplClass(binding.type)
         val implClassCompanion = implClass.companionObject()!!
         val createFunction = implClassCompanion.getSimpleFunction("create")!!
-        val delegateFactoryProvider =
-          generateBindingCode(
-            binding.target,
-            graph,
-            thisReceiver,
-            instanceFields,
-            componentTypesToCtorParams,
-            providerFields,
-            bindingStack,
-          )
+        val delegateFactoryProvider = generateBindingCode(binding.target, generationContext)
         irInvoke(
           dispatchReceiver = irGetObject(implClassCompanion.symbol),
           callee = createFunction,
           args = listOf(delegateFactoryProvider),
         )
+      }
+      is Binding.Multibinding -> {
+        if (binding.isSet) {
+          val elementType = (binding.typeKey.type as IrSimpleType).arguments.single().typeOrFail
+          val (collectionProviders, individualProviders) =
+            binding.providers.partition { it.elementsIntoSet }
+          check(individualProviders.all { it.intoSet })
+          // If we have any @ElementsIntoSet, we need to use SetFactory
+          if (collectionProviders.isNotEmpty() || contextualTypeKey.requiresProviderInstance) {
+            // SetFactory.<String>builder(1, 1)
+            //   .addProvider(FileSystemModule_Companion_ProvideString1Factory.create())
+            //   .addCollectionProvider(provideString2Provider)
+            //   .build()
+
+            // SetFactory.<String>builder(1, 1)
+            val builder: IrExpression =
+              irInvoke(
+                  dispatchReceiver = irGetObject(symbols.setFactoryCompanionObject),
+                  callee = symbols.setFactoryBuilderFunction,
+                  typeHint = symbols.setFactoryBuilder.typeWith(elementType),
+                )
+                .apply {
+                  putTypeArgument(0, elementType)
+                  putValueArgument(0, irInt(individualProviders.size))
+                  putValueArgument(1, irInt(collectionProviders.size))
+                }
+
+            val withProviders =
+              individualProviders.fold(builder) { receiver, provider ->
+                irInvoke(
+                    dispatchReceiver = receiver,
+                    callee = symbols.setFactoryBuilderAddProviderFunction,
+                    typeHint = builder.type,
+                  )
+                  .apply { putValueArgument(0, generateBindingCode(provider, generationContext)) }
+              }
+
+            // .addProvider(FileSystemModule_Companion_ProvideString1Factory.create())
+            val withCollectionProviders =
+              collectionProviders.fold(withProviders) { receiver, provider ->
+                irInvoke(
+                    dispatchReceiver = receiver,
+                    callee = symbols.setFactoryBuilderAddCollectionProviderFunction,
+                    typeHint = builder.type,
+                  )
+                  .apply { putValueArgument(0, generateBindingCode(provider, generationContext)) }
+              }
+
+            // .build()
+            irInvoke(
+              dispatchReceiver = withCollectionProviders,
+              callee = symbols.setFactoryBuilderBuildFunction,
+              typeHint =
+                pluginContext.irBuiltIns.setClass
+                  .typeWith(elementType)
+                  .wrapInProvider(symbols.latticeProvider),
+            )
+          } else {
+            val callee: IrSimpleFunctionSymbol
+            val args: List<IrExpression>
+            when (val size = binding.providers.size) {
+              0 -> {
+                // emptySet()
+                callee = symbols.emptySet
+                args = emptyList()
+              }
+              1 -> {
+                // setOf(<one>)
+                callee = symbols.setOfSingleton
+                val provider = binding.providers.first()
+                args = listOf(generateMultibindingArgument(provider, generationContext))
+              }
+              else -> {
+                // buildSet(<size>) { ... }
+                callee = symbols.buildSetWithCapacity
+                args = buildList {
+                  add(irInt(size))
+                  add(
+                    irLambda(
+                      context = pluginContext,
+                      parent = parent,
+                      receiverParameter =
+                        pluginContext.irBuiltIns.mutableSetClass.typeWith(elementType),
+                      valueParameters = emptyList(),
+                      returnType = pluginContext.irBuiltIns.unitType,
+                      suspend = false,
+                    ) { function ->
+                      // This is the mutable set receiver
+                      val functionReceiver = function.extensionReceiverParameter!!
+                      binding.providers.forEach { provider ->
+                        +irInvoke(
+                          dispatchReceiver = irGet(functionReceiver),
+                          callee = symbols.mutableSetAdd.symbol,
+                          args = listOf(generateMultibindingArgument(provider, generationContext)),
+                        )
+                      }
+                    }
+                  )
+                }
+              }
+            }
+            irCall(
+                callee = callee,
+                type = binding.typeKey.type,
+                typeArguments = listOf(elementType),
+              )
+              .apply {
+                for ((i, arg) in args.withIndex()) {
+                  putValueArgument(i, arg)
+                }
+              }
+          }
+        } else {
+          // It's a map
+          // MapFactory.<Integer, Integer>builder(2)
+          //   .put(1, FileSystemModule_Companion_ProvideMapInt1Factory.create())
+          //   .put(2, provideMapInt2Provider)
+          //   .build()
+          // MapProviderFactory.<Integer, Integer>builder(2)
+          //   .put(1, FileSystemModule_Companion_ProvideMapInt1Factory.create())
+          //   .put(2, provideMapInt2Provider)
+          //   .build()
+          val mapTypeArgs = (contextualTypeKey.typeKey.type as IrSimpleType).arguments
+          check(mapTypeArgs.size == 2) { "Unexpected map type args: ${mapTypeArgs.joinToString()}" }
+          val keyType: IrType = mapTypeArgs[0].typeOrFail
+          val rawValueType = mapTypeArgs[1].typeOrFail
+          val rawValueTypeMetadata =
+            rawValueType.typeOrFail.asContextualTypeKey(this@ComponentTransformer, null)
+          val useProviderFactory: Boolean = rawValueTypeMetadata.isWrappedInProvider
+          val valueType: IrType = rawValueTypeMetadata.typeKey.type
+
+          val targetCompanionObject =
+            if (useProviderFactory) {
+              symbols.mapProviderFactoryCompanionObject
+            } else {
+              symbols.mapFactoryCompanionObject
+            }
+          val builderFunction =
+            if (useProviderFactory) {
+              symbols.mapProviderFactoryBuilderFunction
+            } else {
+              symbols.mapFactoryBuilderFunction
+            }
+          val builderType =
+            if (useProviderFactory) {
+              symbols.mapProviderFactoryBuilder
+            } else {
+              symbols.mapFactoryBuilder
+            }
+
+          // MapFactory.<Integer, Integer>builder(2)
+          // MapProviderFactory.<Integer, Integer>builder(2)
+          val builder: IrExpression =
+            irInvoke(
+                dispatchReceiver = irGetObject(targetCompanionObject),
+                callee = builderFunction,
+                typeHint = builderType.typeWith(keyType, valueType),
+              )
+              .apply {
+                putTypeArgument(0, keyType)
+                putTypeArgument(1, valueType)
+                putValueArgument(0, irInt(binding.providers.size))
+              }
+
+          val putFunction =
+            if (useProviderFactory) {
+              symbols.mapProviderFactoryBuilderPutFunction
+            } else {
+              symbols.mapFactoryBuilderPutFunction
+            }
+          val putAllFunction =
+            if (useProviderFactory) {
+              symbols.mapProviderFactoryBuilderPutAllFunction
+            } else {
+              symbols.mapFactoryBuilderPutAllFunction
+            }
+
+          val withProviders =
+            binding.providers.fold(builder) { receiver, provider ->
+              val providerTypeMetadata = provider.contextualTypeKey
+
+              // TODO FIR this should be an error actually
+              val isMap =
+                providerTypeMetadata.typeKey.type.rawType().symbol == context.irBuiltIns.mapClass
+
+              val putter =
+                if (isMap) {
+                  // .putAll(1, FileSystemModule_Companion_ProvideMapInt1Factory.create())
+                  putAllFunction
+                  // TODO is this only for inheriting in subcomponents?
+                  TODO("putAll isn't yet supported")
+                } else {
+                  // .put(1, FileSystemModule_Companion_ProvideMapInt1Factory.create())
+                  putFunction
+                }
+              irInvoke(dispatchReceiver = receiver, callee = putter, typeHint = builder.type)
+                .apply {
+                  putValueArgument(0, generateMapKeyLiteral(provider, keyType))
+                  putValueArgument(1, generateBindingCode(provider, generationContext))
+                }
+            }
+
+          // .build()
+          val buildFunction =
+            if (useProviderFactory) {
+              symbols.mapProviderFactoryBuilderBuildFunction
+            } else {
+              symbols.mapFactoryBuilderBuildFunction
+            }
+          irInvoke(
+            dispatchReceiver = withProviders,
+            callee = buildFunction,
+            typeHint =
+              pluginContext.irBuiltIns.mapClass
+                .typeWith(keyType, rawValueType)
+                .wrapInProvider(symbols.latticeProvider),
+          )
+        }
       }
       is Binding.BoundInstance -> {
         // Should never happen, this should get handled in the provider fields logic above.
@@ -1000,33 +1420,58 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
         }
         */
 
-        val typeKey = binding.typeKey
         val componentParameter =
-          componentTypesToCtorParams[typeKey]
-            ?: run { error("No matching component instance found for type $typeKey") }
+          generationContext.componentTypesToCtorParams[binding.typeKey]
+            ?: run { error("No matching component instance found for type $binding.typeKey") }
         val lambda =
           irLambda(
             context = pluginContext,
-            parent = thisReceiver.parent,
+            parent = generationContext.thisReceiver.parent,
+            receiverParameter = null,
             emptyList(),
-            typeKey.type,
+            binding.typeKey.type,
             suspend = false,
           ) { lambdaFunction ->
             +irReturn(
               irInvoke(
                 dispatchReceiver = irGet(componentParameter),
                 callee = binding.getter.symbol,
-                typeHint = typeKey.type,
+                typeHint = binding.typeKey.type,
               )
             )
           }
         irInvoke(
           dispatchReceiver = null,
           callee = symbols.latticeProviderFunction,
-          typeHint = typeKey.type.wrapInProvider(symbols.latticeProvider),
+          typeHint = binding.typeKey.type.wrapInProvider(symbols.latticeProvider),
           args = listOf(lambda),
         )
       }
     }
   }
+
+  private fun IrBuilderWithScope.generateMultibindingArgument(
+    provider: Binding.Provided,
+    generationContext: ComponentGenerationContext,
+  ): IrExpression {
+    val bindingCode = generateBindingCode(provider, generationContext)
+    return typeAsProviderArgument(
+      this@ComponentTransformer,
+      ContextualTypeKey(provider.typeKey, false, false, false),
+      bindingCode,
+      false,
+      false,
+      symbols,
+    )
+  }
 }
+
+private class ComponentGenerationContext(
+  val graph: BindingGraph,
+  val thisReceiver: IrValueParameter,
+  val instanceFields: Map<TypeKey, IrField>,
+  val componentTypesToCtorParams: Map<TypeKey, IrValueParameter>,
+  val providerFields: Map<TypeKey, IrField>,
+  val multibindingProviderFields: Map<Binding.Provided, IrField>,
+  val bindingStack: BindingStack,
+)

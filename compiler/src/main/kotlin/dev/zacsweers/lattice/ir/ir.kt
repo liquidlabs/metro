@@ -19,13 +19,15 @@ import dev.zacsweers.lattice.LatticeOrigin
 import dev.zacsweers.lattice.LatticeSymbols
 import dev.zacsweers.lattice.letIf
 import dev.zacsweers.lattice.transformers.ConstructorParameter
+import dev.zacsweers.lattice.transformers.ContextualTypeKey
 import dev.zacsweers.lattice.transformers.LatticeTransformerContext
 import dev.zacsweers.lattice.transformers.Parameter
-import dev.zacsweers.lattice.transformers.TypeMetadata
+import dev.zacsweers.lattice.transformers.isLatticeProviderType
 import dev.zacsweers.lattice.transformers.wrapInLazy
 import dev.zacsweers.lattice.transformers.wrapInProvider
 import java.util.Objects
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
+import org.jetbrains.kotlin.backend.common.ir.addExtensionReceiver
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
 import org.jetbrains.kotlin.backend.jvm.ir.parentClassId
@@ -69,13 +71,16 @@ import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.declarations.IrVariable
 import org.jetbrains.kotlin.ir.declarations.addMember
 import org.jetbrains.kotlin.ir.expressions.IrBlockBody
+import org.jetbrains.kotlin.ir.expressions.IrClassReference
 import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionExpression
+import org.jetbrains.kotlin.ir.expressions.IrGetEnumValue
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
+import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
 import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
@@ -93,6 +98,7 @@ import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.types.classifierOrFail
 import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.types.createType
+import org.jetbrains.kotlin.ir.types.starProjectedType
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.SYNTHETIC_OFFSET
 import org.jetbrains.kotlin.ir.util.addSimpleDelegatingConstructor
@@ -113,6 +119,7 @@ import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.ir.util.properties
+import org.jetbrains.kotlin.ir.util.toIrConst
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -309,10 +316,23 @@ internal fun IrSimpleFunction.overridesFunctionIn(fqName: FqName): Boolean =
  * Computes a hash key for this annotation instance composed of its underlying type and value
  * arguments.
  */
+@OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun IrConstructorCall.computeAnnotationHash(): Int {
   return Objects.hash(
     type.rawType().classIdOrFail,
-    valueArguments.map { (it as IrConst).value }.toTypedArray().contentDeepHashCode(),
+    valueArguments
+      .map {
+        when (it) {
+          is IrConst -> it.value
+          is IrClassReference -> it.classType.classOrNull?.owner?.classId
+          is IrGetEnumValue -> it.symbol.owner.fqNameWhenAvailable
+          else -> {
+            error("Unknown annotation argument type: ${it?.let { it::class.java }}")
+          }
+        }
+      }
+      .toTypedArray()
+      .contentDeepHashCode(),
   )
 }
 
@@ -344,6 +364,7 @@ internal fun IrClass.allCallableMembers(
 internal fun irLambda(
   context: IrPluginContext,
   parent: IrDeclarationParent,
+  receiverParameter: IrType?,
   valueParameters: List<IrType>,
   returnType: IrType,
   suspend: Boolean = false,
@@ -362,6 +383,7 @@ internal fun irLambda(
       }
       .apply {
         this.parent = parent
+        receiverParameter?.let { addExtensionReceiver(it) }
         valueParameters.forEachIndexed { index, type -> addValueParameter("arg$index", type) }
         body =
           DeclarationIrBuilder(context, this.symbol, SYNTHETIC_OFFSET, SYNTHETIC_OFFSET)
@@ -435,17 +457,19 @@ internal fun IrBuilderWithScope.irCallWithSameParameters(
 }
 
 internal fun IrBuilderWithScope.parametersAsProviderArguments(
+  context: LatticeTransformerContext,
   parameters: List<Parameter>,
   receiver: IrValueParameter,
   parametersToFields: Map<Parameter, IrField>,
   symbols: LatticeSymbols,
 ): List<IrExpression> {
   return parameters.map { parameter ->
-    parameterAsProviderArgument(parameter, receiver, parametersToFields, symbols)
+    parameterAsProviderArgument(context, parameter, receiver, parametersToFields, symbols)
   }
 }
 
 internal fun IrBuilderWithScope.parameterAsProviderArgument(
+  context: LatticeTransformerContext,
   parameter: Parameter,
   receiver: IrValueParameter,
   parametersToFields: Map<Parameter, IrField>,
@@ -455,8 +479,9 @@ internal fun IrBuilderWithScope.parameterAsProviderArgument(
   // receiver is the Provider instance itself
   val providerInstance = irGetField(irGet(receiver), parametersToFields.getValue(parameter))
   // TODO this cast is unsafe
-  val typeMetadata = (parameter as ConstructorParameter).typeMetadata
+  val typeMetadata = (parameter as ConstructorParameter).contextualTypeKey
   return typeAsProviderArgument(
+    context,
     typeMetadata,
     providerInstance,
     isAssisted = parameter.isAssisted,
@@ -466,12 +491,18 @@ internal fun IrBuilderWithScope.parameterAsProviderArgument(
 }
 
 internal fun IrBuilderWithScope.typeAsProviderArgument(
-  type: TypeMetadata,
-  providerInstance: IrExpression,
+  context: LatticeTransformerContext,
+  type: ContextualTypeKey,
+  bindingCode: IrExpression,
   isAssisted: Boolean,
   isComponentInstance: Boolean,
   symbols: LatticeSymbols,
 ): IrExpression {
+  if (!bindingCode.type.isLatticeProviderType(context)) {
+    // Not a provider, nothing else to do here!
+    return bindingCode
+  }
+  val providerInstance = bindingCode
   return when {
     type.isLazyWrappedInProvider -> {
       // ProviderOfLazy.create(provider)
@@ -499,9 +530,12 @@ internal fun IrBuilderWithScope.typeAsProviderArgument(
         typeHint = type.typeKey.type.wrapInLazy(symbols),
       )
     }
-    isAssisted -> providerInstance
-    isComponentInstance -> providerInstance
+    isAssisted || isComponentInstance -> {
+      // provider
+      providerInstance
+    }
     else -> {
+      // provider.invoke()
       irInvoke(
         dispatchReceiver = providerInstance,
         callee = symbols.providerInvoke,
@@ -591,6 +625,7 @@ internal fun IrBuilderWithScope.checkNotNullCall(
         irLambda(
           context.pluginContext,
           parent = parent, // TODO this is obvi wrong
+          receiverParameter = null,
           valueParameters = emptyList(),
           returnType = context.pluginContext.irBuiltIns.stringType,
           suspend = false,
@@ -684,3 +719,37 @@ internal fun IrClass.abstractFunctions(context: LatticeTransformerContext): List
     .values
     .filterNotNull()
 }
+
+internal fun IrClass.implements(pluginContext: IrPluginContext, superType: ClassId): Boolean {
+  return implementsAny(pluginContext, setOf(superType))
+}
+
+internal fun IrClass.implementsAny(
+  pluginContext: IrPluginContext,
+  superTypes: Set<ClassId>,
+): Boolean {
+  return getAllSuperTypes(pluginContext, excludeSelf = false).any {
+    it.rawTypeOrNull()?.classId in superTypes
+  }
+}
+
+internal fun IrConstructorCall.getSingleConstStringArgumentOrNull(): String? =
+  (getValueArgument(0) as IrConst?)?.value as String?
+
+internal fun IrConstructorCall.getSingleConstBooleanArgumentOrNull(): Boolean? =
+  (getValueArgument(0) as IrConst?)?.value as Boolean?
+
+internal fun IrBuilderWithScope.irFloat(value: Float) =
+  value.toIrConst(this.context.irBuiltIns.floatType)
+
+internal fun IrBuilderWithScope.irDouble(value: Double) =
+  value.toIrConst(this.context.irBuiltIns.doubleType)
+
+internal fun IrBuilderWithScope.kClassReference(classType: IrType) =
+  IrClassReferenceImpl(
+    startOffset,
+    endOffset,
+    context.irBuiltIns.kClassClass.starProjectedType,
+    context.irBuiltIns.kClassClass,
+    classType,
+  )

@@ -18,6 +18,7 @@ package dev.zacsweers.lattice
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.createEmptyExternalPackageFragment
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
@@ -42,8 +43,11 @@ internal class LatticeSymbols(
 ) {
 
   object ClassIds {
+    private val kotlinCollectionsPackageFqn = FqName("kotlin.collections")
     val AnyClass = ClassId(kotlinPackageFqn, Name.identifier("Any"))
     val PublishedApi = ClassId(kotlinPackageFqn, Name.identifier("PublishedApi"))
+    val Set = ClassId(kotlinCollectionsPackageFqn, Name.identifier("Set"))
+    val Map = ClassId(kotlinCollectionsPackageFqn, Name.identifier("Map"))
   }
 
   object Names {
@@ -64,6 +68,7 @@ internal class LatticeSymbols(
   }
   private val stdlib: IrPackageFragment by lazy { createPackage("kotlin") }
   private val stdlibJvm: IrPackageFragment by lazy { createPackage("kotlin.jvm") }
+  private val stdlibCollections: IrPackageFragment by lazy { createPackage("kotlin.collections") }
 
   val anyConstructor by lazy { pluginContext.irBuiltIns.anyClass.owner.constructors.single() }
 
@@ -175,6 +180,96 @@ internal class LatticeSymbols(
     )!!
   }
 
+  val setFactory: IrClassSymbol by lazy {
+    pluginContext.referenceClass(
+      ClassId(latticeRuntimeInternal.packageFqName, Name.identifier("SetFactory"))
+    )!!
+  }
+
+  val setFactoryBuilder: IrClassSymbol by lazy {
+    setFactory.owner.nestedClasses.first { it.name.asString() == "Builder" }.symbol
+  }
+
+  val setFactoryCompanionObject: IrClassSymbol by lazy {
+    setFactory.owner.companionObject()!!.symbol
+  }
+
+  val setFactoryBuilderFunction: IrSimpleFunctionSymbol by lazy {
+    setFactoryCompanionObject.getSimpleFunction("builder")!!
+  }
+
+  val setFactoryBuilderAddProviderFunction: IrSimpleFunctionSymbol by lazy {
+    setFactoryBuilder.getSimpleFunction("addProvider")!!
+  }
+
+  val setFactoryBuilderAddCollectionProviderFunction: IrSimpleFunctionSymbol by lazy {
+    setFactoryBuilder.getSimpleFunction("addCollectionProvider")!!
+  }
+
+  val setFactoryBuilderBuildFunction: IrSimpleFunctionSymbol by lazy {
+    setFactoryBuilder.getSimpleFunction("build")!!
+  }
+
+  val mapFactory: IrClassSymbol by lazy {
+    pluginContext.referenceClass(
+      ClassId(latticeRuntimeInternal.packageFqName, Name.identifier("MapFactory"))
+    )!!
+  }
+
+  val mapFactoryBuilder: IrClassSymbol by lazy {
+    mapFactory.owner.nestedClasses.first { it.name.asString() == "Builder" }.symbol
+  }
+
+  val mapFactoryCompanionObject: IrClassSymbol by lazy {
+    mapFactory.owner.companionObject()!!.symbol
+  }
+
+  val mapFactoryBuilderFunction: IrSimpleFunctionSymbol by lazy {
+    mapFactoryCompanionObject.getSimpleFunction("builder")!!
+  }
+
+  val mapFactoryBuilderPutFunction: IrSimpleFunctionSymbol by lazy {
+    mapFactoryBuilder.getSimpleFunction("put")!!
+  }
+
+  val mapFactoryBuilderPutAllFunction: IrSimpleFunctionSymbol by lazy {
+    mapFactoryBuilder.getSimpleFunction("putAll")!!
+  }
+
+  val mapFactoryBuilderBuildFunction: IrSimpleFunctionSymbol by lazy {
+    mapFactoryBuilder.getSimpleFunction("build")!!
+  }
+
+  val mapProviderFactory: IrClassSymbol by lazy {
+    pluginContext.referenceClass(
+      ClassId(latticeRuntimeInternal.packageFqName, Name.identifier("MapProviderFactory"))
+    )!!
+  }
+
+  val mapProviderFactoryBuilder: IrClassSymbol by lazy {
+    mapProviderFactory.owner.nestedClasses.first { it.name.asString() == "Builder" }.symbol
+  }
+
+  val mapProviderFactoryCompanionObject: IrClassSymbol by lazy {
+    mapProviderFactory.owner.companionObject()!!.symbol
+  }
+
+  val mapProviderFactoryBuilderFunction: IrSimpleFunctionSymbol by lazy {
+    mapProviderFactoryCompanionObject.getSimpleFunction("builder")!!
+  }
+
+  val mapProviderFactoryBuilderPutFunction: IrSimpleFunctionSymbol by lazy {
+    mapProviderFactoryBuilder.getSimpleFunction("put")!!
+  }
+
+  val mapProviderFactoryBuilderPutAllFunction: IrSimpleFunctionSymbol by lazy {
+    mapProviderFactoryBuilder.getSimpleFunction("putAll")!!
+  }
+
+  val mapProviderFactoryBuilderBuildFunction: IrSimpleFunctionSymbol by lazy {
+    mapProviderFactoryBuilder.getSimpleFunction("build")!!
+  }
+
   val stdlibLazy: IrClassSymbol by lazy {
     pluginContext.referenceClass(ClassId(stdlib.packageFqName, Name.identifier("Lazy")))!!
   }
@@ -183,6 +278,52 @@ internal class LatticeSymbols(
     pluginContext
       .referenceFunctions(CallableId(stdlib.packageFqName, Name.identifier("checkNotNull")))
       .single { it.owner.explicitParametersCount == 2 }
+  }
+
+  val emptySet by lazy {
+    pluginContext
+      .referenceFunctions(CallableId(stdlibCollections.packageFqName, Name.identifier("emptySet")))
+      .first()
+  }
+
+  val setOfSingleton by lazy {
+    pluginContext
+      .referenceFunctions(CallableId(stdlibCollections.packageFqName, Name.identifier("setOf")))
+      .first {
+        it.owner.valueParameters.size == 1 && it.owner.valueParameters[0].varargElementType == null
+      }
+  }
+
+  val buildSetWithCapacity by lazy {
+    pluginContext
+      .referenceFunctions(CallableId(stdlibCollections.packageFqName, Name.identifier("buildSet")))
+      .first { it.owner.valueParameters.size == 2 }
+  }
+
+  val mutableSetAdd by lazy {
+    pluginContext.irBuiltIns.mutableSetClass.owner.declarations
+      .filterIsInstance<IrSimpleFunction>()
+      .single { it.name.asString() == "add" }
+  }
+
+  val emptyMap by lazy {
+    pluginContext
+      .referenceFunctions(CallableId(stdlibCollections.packageFqName, Name.identifier("emptyMap")))
+      .first()
+  }
+
+  val mapOfSingleton by lazy {
+    pluginContext
+      .referenceFunctions(CallableId(stdlibCollections.packageFqName, Name.identifier("mapOf")))
+      .first {
+        it.owner.valueParameters.size == 1 && it.owner.valueParameters[0].varargElementType == null
+      }
+  }
+
+  val buildMapWithCapacity by lazy {
+    pluginContext
+      .referenceFunctions(CallableId(stdlibCollections.packageFqName, Name.identifier("buildMap")))
+      .first { it.owner.valueParameters.size == 2 }
   }
 
   val jvmStatic: IrClassSymbol by lazy {
@@ -203,6 +344,9 @@ internal class LatticeSymbols(
 
   val scopeAnnotations
     get() = latticeClassIds.scopeAnnotations
+
+  val mapKeyAnnotations
+    get() = latticeClassIds.mapKeyAnnotations
 
   val providesAnnotations
     get() = latticeClassIds.providesAnnotations

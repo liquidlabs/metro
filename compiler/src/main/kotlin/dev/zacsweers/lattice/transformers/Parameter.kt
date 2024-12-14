@@ -16,32 +16,23 @@
 package dev.zacsweers.lattice.transformers
 
 import dev.zacsweers.lattice.LatticeSymbols
-import dev.zacsweers.lattice.expectAs
-import dev.zacsweers.lattice.ir.IrAnnotation
 import dev.zacsweers.lattice.ir.annotationsIn
 import dev.zacsweers.lattice.ir.constArgumentOfTypeAt
-import dev.zacsweers.lattice.ir.rawTypeOrNull
 import dev.zacsweers.lattice.transformers.Parameter.Kind
 import kotlin.collections.count
 import kotlin.collections.sumOf
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
 import org.jetbrains.kotlin.ir.declarations.IrTypeParametersContainer
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
-import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classOrFail
-import org.jetbrains.kotlin.ir.types.typeOrFail
 import org.jetbrains.kotlin.ir.types.typeWith
-import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.ir.util.remapTypeParameters
-import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.name.Name
 
 internal sealed interface Parameter {
@@ -124,24 +115,24 @@ internal fun Name.uniqueParameterName(vararg superParameters: List<Parameter>): 
 internal data class ConstructorParameter(
   override val kind: Kind,
   override val name: Name,
-  val typeMetadata: TypeMetadata,
+  val contextualTypeKey: ContextualTypeKey,
   override val originalName: Name,
   override val providerType: IrType,
   override val lazyType: IrType,
   override val isAssisted: Boolean,
   override val assistedIdentifier: String,
   override val assistedParameterKey: Parameter.AssistedParameterKey =
-    Parameter.AssistedParameterKey(typeMetadata.typeKey, assistedIdentifier),
+    Parameter.AssistedParameterKey(contextualTypeKey.typeKey, assistedIdentifier),
   override val symbols: LatticeSymbols,
   override val isComponentInstance: Boolean,
   val bindingStackEntry: BindingStackEntry,
   override val isBindsInstance: Boolean,
 ) : Parameter {
-  override val typeKey: TypeKey = typeMetadata.typeKey
-  override val type: IrType = typeMetadata.typeKey.type
-  override val isWrappedInProvider: Boolean = typeMetadata.isWrappedInProvider
-  override val isWrappedInLazy: Boolean = typeMetadata.isWrappedInLazy
-  override val isLazyWrappedInProvider: Boolean = typeMetadata.isLazyWrappedInProvider
+  override val typeKey: TypeKey = contextualTypeKey.typeKey
+  override val type: IrType = contextualTypeKey.typeKey.type
+  override val isWrappedInProvider: Boolean = contextualTypeKey.isWrappedInProvider
+  override val isWrappedInLazy: Boolean = contextualTypeKey.isWrappedInLazy
+  override val isLazyWrappedInProvider: Boolean = contextualTypeKey.isLazyWrappedInProvider
 }
 
 internal fun IrType.wrapInProvider(providerType: IrType): IrType {
@@ -233,75 +224,6 @@ internal fun List<IrValueParameter>.mapToConstructorParameters(
   }
 }
 
-internal data class TypeMetadata(
-  val typeKey: TypeKey,
-  val isWrappedInProvider: Boolean,
-  val isWrappedInLazy: Boolean,
-  val isLazyWrappedInProvider: Boolean,
-) {
-  // TODO cache these in ComponentTransformer or shared transformer data
-  companion object {
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
-    fun from(
-      context: LatticeTransformerContext,
-      function: IrSimpleFunction,
-      type: IrType = function.returnType,
-    ): TypeMetadata =
-      type.asTypeMetadata(
-        context,
-        with(context) {
-          function.correspondingPropertySymbol?.owner?.qualifierAnnotation()
-            ?: function.qualifierAnnotation()
-        },
-      )
-
-    fun from(
-      context: LatticeTransformerContext,
-      parameter: IrValueParameter,
-      type: IrType = parameter.type,
-    ): TypeMetadata =
-      type.asTypeMetadata(context, with(context) { parameter.qualifierAnnotation() })
-  }
-}
-
-internal fun IrType.asTypeMetadata(
-  context: LatticeTransformerContext,
-  qualifierAnnotation: IrAnnotation?,
-): TypeMetadata {
-  check(this is IrSimpleType) { "Unrecognized IrType '${javaClass}': ${render()}" }
-
-  val declaredType = this
-  val rawTypeClass = declaredType.rawTypeOrNull()
-  val rawType = rawTypeClass?.classId
-
-  val isWrappedInProvider = rawType in context.symbols.providerTypes
-  val isWrappedInLazy = rawType in context.symbols.lazyTypes
-  val isLazyWrappedInProvider =
-    isWrappedInProvider &&
-      declaredType.arguments[0].typeOrFail.rawTypeOrNull()?.classId in context.symbols.lazyTypes
-
-  val type =
-    when {
-      isLazyWrappedInProvider ->
-        declaredType.arguments
-          .single()
-          .typeOrFail
-          .expectAs<IrSimpleType>()
-          .arguments
-          .single()
-          .typeOrFail
-      isWrappedInProvider || isWrappedInLazy -> declaredType.arguments.single().typeOrFail
-      else -> declaredType
-    }
-  val typeKey = TypeKey(type, qualifierAnnotation)
-  return TypeMetadata(
-    typeKey = typeKey,
-    isWrappedInProvider = isWrappedInProvider,
-    isWrappedInLazy = isWrappedInLazy,
-    isLazyWrappedInProvider = isLazyWrappedInProvider,
-  )
-}
-
 internal fun IrValueParameter.toConstructorParameter(
   context: LatticeTransformerContext,
   kind: Kind = Kind.VALUE,
@@ -313,7 +235,8 @@ internal fun IrValueParameter.toConstructorParameter(
   val declaredType =
     typeParameterRemapper?.invoke(this@toConstructorParameter.type)
       ?: this@toConstructorParameter.type
-  val typeMetadata = declaredType.asTypeMetadata(context, with(context) { qualifierAnnotation() })
+  val typeMetadata =
+    declaredType.asContextualTypeKey(context, with(context) { qualifierAnnotation() })
 
   val assistedAnnotation = annotationsIn(context.symbols.assistedAnnotations).singleOrNull()
 
@@ -328,7 +251,7 @@ internal fun IrValueParameter.toConstructorParameter(
     kind = kind,
     name = uniqueName,
     originalName = name,
-    typeMetadata = typeMetadata,
+    contextualTypeKey = typeMetadata,
     providerType = typeMetadata.typeKey.type.wrapInProvider(context.symbols.latticeProvider),
     lazyType = typeMetadata.typeKey.type.wrapInLazy(context.symbols),
     isAssisted = assistedAnnotation != null,

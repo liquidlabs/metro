@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice
+package dev.zacsweers.lattice.internal
 
-public fun interface Provider<T : Any> {
-  public operator fun invoke(): T
-}
+// Replicates a simple AtomicInt
+class SimpleCounter(var count: Int = 0) {
+  fun incrementAndGet(): Int = ++count
 
-public inline fun <T : Any> provider(crossinline provider: () -> T): Provider<T> {
-  return Provider { provider() }
+  fun getAndIncrement(): Int = count++
 }
