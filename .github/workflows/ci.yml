@@ -33,10 +33,19 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '22'
+          java-version: '23'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # Only save Gradle User Home state for builds on the 'main' branch.
+          # Builds on other branches will only read existing entries from the cache.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+          # Don't reuse cache entries from any other Job.
+          gradle-home-cache-strict-match: true
+
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Test
         run: ./gradlew check --quiet
@@ -54,10 +63,19 @@ jobs:
 #        uses: actions/setup-java@v4
 #        with:
 #          distribution: 'zulu'
-#          java-version: '22'
+#          java-version: '23'
 #
 #      - name: Setup Gradle
 #        uses: gradle/actions/setup-gradle@v4
+#        with:
+#          # Only save Gradle User Home state for builds on the 'main' branch.
+#          # Builds on other branches will only read existing entries from the cache.
+#          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+#
+#          # Don't reuse cache entries from any other Job.
+#          gradle-home-cache-strict-match: true
+#
+#          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 #
 #      - name: Upload snapshot (main only)
 #        env:
