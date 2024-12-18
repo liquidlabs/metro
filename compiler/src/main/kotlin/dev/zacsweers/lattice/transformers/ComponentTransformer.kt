@@ -244,8 +244,8 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
       }
     }
 
-    // TODO not currently reading supertypes yet
-    val scope = componentDeclaration.scopeAnnotation()
+    // TODO not currently reading supertypes yet.
+    val scopes = componentDeclaration.scopeAnnotations()
 
     val providerMethods =
       componentDeclaration
@@ -308,7 +308,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
         generatedComponentId = generatedComponentId,
         isAnnotatedWithComponent = true,
         dependencies = componentDependencies,
-        scope = scope,
+        scopes = scopes,
         providerFunctions = providerMethods,
         exposedTypes = exposedTypes,
         isExternal = false,
@@ -366,7 +366,6 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     // Add explicit bindings from @Provides methods
     val bindingStack = BindingStack(component.sourceComponent)
     component.providerFunctions.forEach { (typeKey, function) ->
-      logVerbose("Processing provider function ${function.dumpKotlinLike()}")
       // TODO these annotation searches are greedy. Need a single-pass lookup
       val provider =
         Binding.Provided(
@@ -884,14 +883,25 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     // Check scoping compatibility
     // TODO FIR error?
     if (bindingScope != null) {
-      if (node.scope == null || bindingScope != node.scope) {
-        // Error if an unscoped component references scoped bindings
+      if (node.scopes.isEmpty() || bindingScope !in node.scopes) {
+        val componentIsUnscoped = node.scopes.isEmpty()
+        // Error if there are mismatched scopes
         val declarationToReport = node.sourceComponent
-        bindingStack.push(BindingStackEntry.simpleTypeRef(key))
+        bindingStack.push(
+          BindingStackEntry.simpleTypeRef(key, usage = "(scoped to '$bindingScope')")
+        )
         val message = buildString {
           append("[Lattice/IncompatiblyScopedBindings] ")
           append(declarationToReport.kotlinFqName)
-          append(" (unscoped) may not reference scoped bindings:")
+          if (componentIsUnscoped) {
+            // Unscoped component but scoped binding
+            append(" (unscoped) may not reference scoped bindings:")
+          } else {
+            // Scope mismatch
+            append(
+              " (scopes ${node.scopes.joinToString { "'$it'" }}) may not reference bindings from different scopes:"
+            )
+          }
           appendLine()
           appendBindingStack(bindingStack)
         }
