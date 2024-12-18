@@ -16,6 +16,7 @@
 package dev.zacsweers.lattice.transformers
 
 import dev.zacsweers.lattice.LatticeOrigin
+import dev.zacsweers.lattice.LatticeSymbols
 import dev.zacsweers.lattice.ir.addCompanionObject
 import dev.zacsweers.lattice.ir.addOverride
 import dev.zacsweers.lattice.ir.createIrBuilder
@@ -23,7 +24,6 @@ import dev.zacsweers.lattice.ir.irInvoke
 import dev.zacsweers.lattice.ir.isAnnotatedWithAny
 import dev.zacsweers.lattice.ir.rawType
 import dev.zacsweers.lattice.ir.singleAbstractFunction
-import dev.zacsweers.lattice.joinSimpleNames
 import dev.zacsweers.lattice.transformers.AssistedFactoryTransformer.AssistedFactoryFunction.Companion.toAssistedFactoryFunction
 import dev.zacsweers.lattice.transformers.Parameter.AssistedParameterKey.Companion.toAssistedParameterKey
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -46,7 +46,6 @@ import org.jetbrains.kotlin.ir.util.addSimpleDelegatingConstructor
 import org.jetbrains.kotlin.ir.util.classIdOrFail
 import org.jetbrains.kotlin.ir.util.copyTypeParametersFrom
 import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
-import org.jetbrains.kotlin.ir.util.getPackageFragment
 import org.jetbrains.kotlin.ir.util.getSimpleFunction
 import org.jetbrains.kotlin.ir.util.isInterface
 import org.jetbrains.kotlin.ir.util.kotlinFqName
@@ -100,15 +99,15 @@ internal class AssistedFactoryTransformer(
         injectConstructor.valueParameters[index].toAssistedParameterKey(symbols, parameter.typeKey)
       }
 
-    val implClassName = declaration.classIdOrFail.joinSimpleNames(suffix = "_Impl")
-
     val implClass =
       pluginContext.irFactory
         .buildClass {
-          name = implClassName.shortClassName
+          name = LatticeSymbols.Names.LatticeImpl
           origin = LatticeOrigin
         }
         .apply {
+          declaration.addChild(this)
+
           copyTypeParametersFrom(declaration)
           superTypes += declaration.symbol.typeWith()
 
@@ -165,9 +164,6 @@ internal class AssistedFactoryTransformer(
           val companion = pluginContext.irFactory.addCompanionObject(symbols, parent = this)
           companion.buildCreateFunction(declaration.typeWith(), this, ctor, generatedFactory)
         }
-
-    implClass.parent = declaration.parent
-    declaration.getPackageFragment().addChild(implClass)
 
     implClass.dumpToLatticeLog()
 

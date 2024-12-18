@@ -22,6 +22,7 @@ import dev.zacsweers.lattice.transformers.ConstructorParameter
 import dev.zacsweers.lattice.transformers.ContextualTypeKey
 import dev.zacsweers.lattice.transformers.LatticeTransformerContext
 import dev.zacsweers.lattice.transformers.Parameter
+import dev.zacsweers.lattice.transformers.Parameters
 import dev.zacsweers.lattice.transformers.isLatticeProviderType
 import dev.zacsweers.lattice.transformers.wrapInLazy
 import dev.zacsweers.lattice.transformers.wrapInProvider
@@ -98,6 +99,7 @@ import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.types.classifierOrFail
 import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.types.createType
+import org.jetbrains.kotlin.ir.types.isAny
 import org.jetbrains.kotlin.ir.types.starProjectedType
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.SYNTHETIC_OFFSET
@@ -110,7 +112,9 @@ import org.jetbrains.kotlin.ir.util.copyTo
 import org.jetbrains.kotlin.ir.util.copyTypeParameters
 import org.jetbrains.kotlin.ir.util.copyValueParametersFrom
 import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
-import org.jetbrains.kotlin.ir.util.file
+import org.jetbrains.kotlin.ir.util.defaultType
+import org.jetbrains.kotlin.ir.util.dumpKotlinLike
+import org.jetbrains.kotlin.ir.util.fileOrNull
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.ir.util.hasAnnotation
@@ -126,7 +130,12 @@ import org.jetbrains.kotlin.name.Name
 
 /** Finds the line and column of [this] within its file. */
 internal fun IrDeclaration.location(): CompilerMessageSourceLocation {
-  return locationIn(file)
+  return locationOrNull() ?: error("No location found for ${dumpKotlinLike()}!")
+}
+
+/** Finds the line and column of [this] within its file or returns null if this has no location. */
+internal fun IrDeclaration.locationOrNull(): CompilerMessageSourceLocation? {
+  return fileOrNull?.let(::locationIn)
 }
 
 /** Finds the line and column of [this] within this [file]. */
@@ -216,7 +225,7 @@ internal fun IrBuilderWithScope.irInvoke(
   extensionReceiver: IrExpression? = null,
   callee: IrFunctionSymbol,
   typeHint: IrType? = null,
-  args: List<IrExpression> = emptyList(),
+  args: List<IrExpression?> = emptyList(),
 ): IrMemberAccessExpression<*> {
   assert(callee.isBound) { "Symbol $callee expected to be bound" }
   val returnType = typeHint ?: callee.owner.returnType
@@ -456,25 +465,36 @@ internal fun IrBuilderWithScope.irCallWithSameParameters(
   }
 }
 
+/**
+ * For use with generated factory create() functions, converts parameters to Provider<T> types + any
+ * bitmasks for default functions.
+ */
 internal fun IrBuilderWithScope.parametersAsProviderArguments(
   context: LatticeTransformerContext,
-  parameters: List<Parameter>,
+  parameters: Parameters,
   receiver: IrValueParameter,
   parametersToFields: Map<Parameter, IrField>,
   symbols: LatticeSymbols,
-): List<IrExpression> {
-  return parameters.map { parameter ->
-    parameterAsProviderArgument(context, parameter, receiver, parametersToFields, symbols)
+): List<IrExpression?> {
+  return buildList {
+    addAll(
+      parameters.allParameters
+        .filterNot { it.isAssisted }
+        .map { parameter ->
+          parameterAsProviderArgument(context, parameter, receiver, parametersToFields, symbols)
+        }
+    )
   }
 }
 
+/** For use with generated factory create() functions. */
 internal fun IrBuilderWithScope.parameterAsProviderArgument(
   context: LatticeTransformerContext,
   parameter: Parameter,
   receiver: IrValueParameter,
   parametersToFields: Map<Parameter, IrField>,
   symbols: LatticeSymbols,
-): IrExpression {
+): IrExpression? {
   // When calling value getter on Provider<T>, make sure the dispatch
   // receiver is the Provider instance itself
   val providerInstance = irGetField(irGet(receiver), parametersToFields.getValue(parameter))
@@ -548,12 +568,12 @@ internal fun IrBuilderWithScope.typeAsProviderArgument(
 internal fun LatticeTransformerContext.assignConstructorParamsToFields(
   constructor: IrConstructor,
   clazz: IrClass,
-  parameters: List<Parameter>,
+  parameters: Parameters,
 ): Map<Parameter, IrField> {
   // Add a constructor parameter + field for every parameter.
   // This should be the provider type unless it's a special instance component type
   val parametersToFields = mutableMapOf<Parameter, IrField>()
-  for (parameter in parameters) {
+  for (parameter in parameters.allParameters) {
     if (parameter.isAssisted) continue
     val irParameter =
       constructor.addValueParameter(parameter.name, parameter.providerType, LatticeOrigin)
@@ -585,19 +605,31 @@ internal fun IrClass.buildFactoryCreateFunction(
   factoryClass: IrClass,
   factoryClassParameterized: IrType,
   factoryConstructor: IrConstructorSymbol,
-  parameters: List<Parameter>,
+  parameters: Parameters,
 ) {
   addFunction("create", factoryClassParameterized, isStatic = true).apply {
     val thisFunction = this
+    dispatchReceiverParameter = this@buildFactoryCreateFunction.thisReceiver?.copyTo(this)
     this.copyTypeParameters(factoryClass.typeParameters)
     this.origin = LatticeOrigin
     this.visibility = DescriptorVisibilities.PUBLIC
     with(context) { markJvmStatic() }
-    for (parameter in parameters) {
-      if (parameter.isAssisted) continue
-      addValueParameter(parameter.name, parameter.providerType, LatticeOrigin)
-    }
-    dispatchReceiverParameter = this@buildFactoryCreateFunction.thisReceiver?.copyTo(this)
+
+    val instanceParam =
+      parameters.instance?.let { addValueParameter(it.name, it.providerType, LatticeOrigin) }
+    parameters.extensionReceiver?.let { addValueParameter(it.name, it.providerType, LatticeOrigin) }
+    val valueParamsToPatch =
+      parameters.valueParameters
+        .filterNot { it.isAssisted }
+        .map { addValueParameter(it.name, it.providerType, LatticeOrigin) }
+
+    context.patchFactoryCreationParameters(
+      sourceParameters = parameters.valueParameters.filterNot { it.isAssisted }.map { it.ir },
+      factoryParameters = valueParamsToPatch,
+      factoryComponentParameter = instanceParam,
+      wrapInProvider = true,
+    )
+
     body =
       context.pluginContext.createIrBuilder(symbol).run {
         irExprBody(
@@ -618,22 +650,23 @@ internal fun IrBuilderWithScope.checkNotNullCall(
   message: String,
 ): IrExpression =
   irInvoke(
-    callee = context.symbols.stdlibCheckNotNull,
-    args =
-      listOf(
-        firstArg,
-        irLambda(
-          context.pluginContext,
-          parent = parent, // TODO this is obvi wrong
-          receiverParameter = null,
-          valueParameters = emptyList(),
-          returnType = context.pluginContext.irBuiltIns.stringType,
-          suspend = false,
-        ) {
-          +irReturn(irString(message))
-        },
-      ),
-  )
+      callee = context.symbols.stdlibCheckNotNull,
+      args =
+        listOf(
+          firstArg,
+          irLambda(
+            context.pluginContext,
+            parent = parent, // TODO this is obvi wrong
+            receiverParameter = null,
+            valueParameters = emptyList(),
+            returnType = context.pluginContext.irBuiltIns.stringType,
+            suspend = false,
+          ) {
+            +irReturn(irString(message))
+          },
+        ),
+    )
+    .apply { putTypeArgument(0, firstArg.type) }
 
 @OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun IrClass.getAllSuperTypes(
@@ -753,3 +786,16 @@ internal fun IrBuilderWithScope.kClassReference(classType: IrType) =
     context.irBuiltIns.kClassClass,
     classType,
   )
+
+internal fun Collection<IrElement?>.joinToKotlinLike(separator: String = "\n"): String {
+  return joinToString(separator = separator) { it?.dumpKotlinLike() ?: "<null element>" }
+}
+
+@OptIn(UnsafeDuringIrConstructionAPI::class)
+internal fun IrClass.getSuperClassNotAny(): IrClass? {
+  val parentClass =
+    superTypes
+      .mapNotNull { it.classOrNull?.owner }
+      .singleOrNull { it.kind == ClassKind.CLASS || it.kind == ClassKind.ENUM_CLASS } ?: return null
+  return if (parentClass.defaultType.isAny()) null else parentClass
+}

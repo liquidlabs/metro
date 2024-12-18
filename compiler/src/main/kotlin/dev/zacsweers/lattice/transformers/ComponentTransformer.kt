@@ -738,12 +738,11 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
                 )
             getter.apply {
               this.dispatchReceiverParameter = thisReceiverParameter
-              val binding = graph.getOrCreateBinding(key, BindingStack.empty())
+              val binding = graph.getOrCreateBinding(contextualTypeKey, BindingStack.empty())
               bindingStack.push(BindingStackEntry.requestedAt(key, function))
               body =
                 pluginContext.createIrBuilder(symbol).run {
                   if (binding is Binding.Multibinding) {
-                    // It's not a provider in this case! Return the created collection directly
                     // TODO if we have multiple exposed types pointing at the same type, implement
                     //  one and make the rest call that one. Not multibinding specific. Maybe
                     //  groupBy { typekey }?
@@ -778,10 +777,9 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
 
     // Initial pass from each root
     node.exposedTypes.forEach { (accessor, contextualTypeKey) ->
-      val key = contextualTypeKey.typeKey
       findAndProcessBinding(
-        key = key,
-        stackEntry = BindingStackEntry.requestedAt(key, accessor),
+        contextKey = contextualTypeKey,
+        stackEntry = BindingStackEntry.requestedAt(contextualTypeKey.typeKey, accessor),
         node = node,
         graph = graph,
         bindingStack = bindingStack,
@@ -794,7 +792,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
   }
 
   private fun findAndProcessBinding(
-    key: TypeKey,
+    contextKey: ContextualTypeKey,
     stackEntry: BindingStackEntry,
     node: ComponentNode,
     graph: BindingGraph,
@@ -803,6 +801,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     usedUnscopedBindings: MutableSet<TypeKey>,
     visitedBindings: MutableSet<TypeKey>,
   ) {
+    val key = contextKey.typeKey
     // Skip if already visited
     if (key in visitedBindings) {
       if (key in usedUnscopedBindings && key !in bindingDependencies) {
@@ -813,7 +812,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     }
 
     bindingStack.withEntry(stackEntry) {
-      val binding = graph.getOrCreateBinding(key, bindingStack)
+      val binding = graph.getOrCreateBinding(contextKey, bindingStack)
       processBinding(
         binding,
         node,
@@ -926,7 +925,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
       val depKey = param.typeKey
       // Process binding dependencies
       findAndProcessBinding(
-        key = depKey,
+        contextKey = param.contextualTypeKey,
         stackEntry = (param as ConstructorParameter).bindingStackEntry,
         node = node,
         graph = graph,
@@ -943,7 +942,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     function: IrFunction,
     binding: Binding,
     generationContext: ComponentGenerationContext,
-  ): List<IrExpression> {
+  ): List<IrExpression?> {
     val params = function.parameters(this@ComponentTransformer)
     // TODO only value args are supported atm
     val paramsToMap = buildList {
@@ -973,7 +972,8 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     }
 
     return params.valueParameters.mapIndexed { i, param ->
-      val typeKey = paramsToMap[i].typeKey
+      val contextualTypeKey = paramsToMap[i].contextualTypeKey
+      val typeKey = contextualTypeKey.typeKey
 
       // TODO consolidate this logic with generateBindingCode
       generationContext.instanceFields[typeKey]?.let { instanceField ->
@@ -1014,13 +1014,23 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
                 // TODO can't be right?
                 BindingStackEntry.injectedAt(typeKey, function)
               }
+              is Binding.Absent,
               is Binding.BoundInstance,
               is Binding.ComponentDependency -> error("Should never happen, logic is handled above")
             }
           generationContext.bindingStack.push(entry)
           // Generate binding code for each param
           val paramBinding =
-            generationContext.graph.getOrCreateBinding(typeKey, generationContext.bindingStack)
+            generationContext.graph.getOrCreateBinding(
+              contextualTypeKey,
+              generationContext.bindingStack,
+            )
+
+          if (paramBinding is Binding.Absent) {
+            // Null argument expressions get treated as absent in the final call
+            return@mapIndexed null
+          }
+
           generateBindingCode(paramBinding, generationContext)
         }
       // TODO share logic from InjectConstructorTransformer
@@ -1099,6 +1109,10 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     generationContext: ComponentGenerationContext,
     contextualTypeKey: ContextualTypeKey = binding.contextualTypeKey,
   ): IrExpression {
+    if (binding is Binding.Absent) {
+      error("Absent bindings need to be checked prior to generateBindingCode()")
+    }
+
     // If we already have a provider field we can just return it
     if (
       binding is Binding.Provided &&
@@ -1116,6 +1130,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     return when (binding) {
       is Binding.ConstructorInjected -> {
         // Example_Factory.create(...)
+        // TODO if there are default params, compute a mask
         val injectableConstructor = binding.injectedConstructor
         val factoryClass =
           injectConstructorTransformer.getOrGenerateFactoryClass(
@@ -1147,6 +1162,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
       }
 
       is Binding.Provided -> {
+        // TODO if there are default params, compute a mask
         // TODO what about inherited/overridden providers?
         //  https://github.com/evant/kotlin-inject?tab=readme-ov-file#component-inheritance
         val factoryClass = providesTransformer.getOrGenerateFactoryClass(binding)
@@ -1311,7 +1327,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
           val keyType: IrType = mapTypeArgs[0].typeOrFail
           val rawValueType = mapTypeArgs[1].typeOrFail
           val rawValueTypeMetadata =
-            rawValueType.typeOrFail.asContextualTypeKey(this@ComponentTransformer, null)
+            rawValueType.typeOrFail.asContextualTypeKey(this@ComponentTransformer, null, false)
           val useProviderFactory: Boolean = rawValueTypeMetadata.isWrappedInProvider
           val valueType: IrType = rawValueTypeMetadata.typeKey.type
 
@@ -1403,6 +1419,10 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
           )
         }
       }
+      is Binding.Absent -> {
+        // Should never happen, this should be checked before function/constructor injections.
+        error("Unable to generate code for unexpected Absent binding: $binding")
+      }
       is Binding.BoundInstance -> {
         // Should never happen, this should get handled in the provider fields logic above.
         error("Unable to generate code for unexpected BoundInstance binding: $binding")
@@ -1461,7 +1481,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
     val bindingCode = generateBindingCode(provider, generationContext)
     return typeAsProviderArgument(
       this@ComponentTransformer,
-      ContextualTypeKey(provider.typeKey, false, false, false),
+      ContextualTypeKey(provider.typeKey, false, false, false, false),
       bindingCode,
       false,
       false,

@@ -35,6 +35,7 @@ internal data class ContextualTypeKey(
   val isWrappedInProvider: Boolean,
   val isWrappedInLazy: Boolean,
   val isLazyWrappedInProvider: Boolean,
+  val hasDefault: Boolean,
 ) {
 
   val requiresProviderInstance: Boolean =
@@ -54,6 +55,7 @@ internal data class ContextualTypeKey(
           function.correspondingPropertySymbol?.owner?.qualifierAnnotation()
             ?: function.qualifierAnnotation()
         },
+        false,
       )
 
     fun from(
@@ -61,7 +63,11 @@ internal data class ContextualTypeKey(
       parameter: IrValueParameter,
       type: IrType = parameter.type,
     ): ContextualTypeKey =
-      type.asContextualTypeKey(context, with(context) { parameter.qualifierAnnotation() })
+      type.asContextualTypeKey(
+        context,
+        with(context) { parameter.qualifierAnnotation() },
+        parameter.defaultValue != null,
+      )
   }
 }
 
@@ -78,6 +84,7 @@ internal fun IrType.isLatticeProviderType(context: LatticeTransformerContext): B
 internal fun IrType.asContextualTypeKey(
   context: LatticeTransformerContext,
   qualifierAnnotation: IrAnnotation?,
+  hasDefault: Boolean,
 ): ContextualTypeKey {
   check(this is IrSimpleType) { "Unrecognized IrType '${javaClass}': ${render()}" }
 
@@ -110,5 +117,6 @@ internal fun IrType.asContextualTypeKey(
     isWrappedInProvider = isWrappedInProvider,
     isWrappedInLazy = isWrappedInLazy,
     isLazyWrappedInProvider = isLazyWrappedInProvider,
+    hasDefault = hasDefault,
   )
 }

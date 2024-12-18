@@ -17,6 +17,7 @@ package dev.zacsweers.lattice.transformers
 
 import dev.zacsweers.lattice.exitProcessing
 import dev.zacsweers.lattice.ir.isAnnotatedWithAny
+import dev.zacsweers.lattice.ir.location
 import dev.zacsweers.lattice.ir.rawType
 import dev.zacsweers.lattice.ir.singleAbstractFunction
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -31,6 +32,21 @@ internal class BindingGraph(private val context: LatticeTransformerContext) {
   private val dependencies = mutableMapOf<TypeKey, Lazy<Set<TypeKey>>>()
 
   fun addBinding(key: TypeKey, binding: Binding, bindingStack: BindingStack) {
+    require(binding !is Binding.Absent) { "Cannot store 'Absent' binding for typekey $key" }
+    if (key in bindings) {
+      val message = buildString {
+        appendLine("Duplicate binding for $key")
+        if (binding is Binding.Provided) {
+          appendLine(
+            "Double check the provider's inferred return type or making its return type explicit."
+          )
+        }
+        appendBindingStack(bindingStack)
+      }
+      val location = binding.reportableLocation ?: bindingStack.component.location()
+      context.reportError(message, location)
+      exitProcessing()
+    }
     require(!bindings.containsKey(key)) { "Duplicate binding for $key" }
     bindings[key] = binding
 
@@ -65,6 +81,7 @@ internal class BindingGraph(private val context: LatticeTransformerContext) {
         }
         is Binding.BoundInstance -> emptySet()
         is Binding.ComponentDependency -> emptySet()
+        is Binding.Absent -> error("Should never happen")
       }
     }
   }
@@ -92,11 +109,17 @@ internal class BindingGraph(private val context: LatticeTransformerContext) {
     } as Binding.Multibinding
   }
 
-  fun getOrCreateBinding(key: TypeKey, bindingStack: BindingStack): Binding {
-    return bindings.getOrPut(key) {
-      // If no explicit binding exists, check if type is injectable
-      val irClass = key.type.rawType()
-      val injectableConstructor = with(context) { irClass.findInjectableConstructor() }
+  fun getOrCreateBinding(contextKey: ContextualTypeKey, bindingStack: BindingStack): Binding {
+    val key = contextKey.typeKey
+    val existingBinding = bindings[key]
+    if (existingBinding != null) {
+      return existingBinding
+    }
+
+    // If no explicit binding exists, check if type is injectable
+    val irClass = key.type.rawType()
+    val injectableConstructor = with(context) { irClass.findInjectableConstructor() }
+    val binding =
       if (injectableConstructor != null) {
         val parameters = injectableConstructor.parameters(context)
         Binding.ConstructorInjected(
@@ -114,7 +137,7 @@ internal class BindingGraph(private val context: LatticeTransformerContext) {
         val bindingStackEntry = BindingStackEntry.injectedAt(key, function)
         val targetBinding =
           bindingStack.withEntry(bindingStackEntry) {
-            getOrCreateBinding(targetContextualTypeKey.typeKey, bindingStack)
+            getOrCreateBinding(targetContextualTypeKey, bindingStack)
           } as Binding.ConstructorInjected
         Binding.Assisted(
           type = irClass,
@@ -123,6 +146,8 @@ internal class BindingGraph(private val context: LatticeTransformerContext) {
           parameters = function.parameters(context),
           target = targetBinding,
         )
+      } else if (contextKey.hasDefault) {
+        Binding.Absent(key)
       } else {
         val declarationToReport = bindingStack.lastEntryOrComponent
         val message = buildString {
@@ -138,7 +163,14 @@ internal class BindingGraph(private val context: LatticeTransformerContext) {
 
         exitProcessing()
       }
+
+    if (binding is Binding.Absent) {
+      // Don't store this
+      return binding
     }
+
+    bindings[key] = binding
+    return binding
   }
 
   fun validate(component: ComponentNode, onError: (String) -> Nothing) {
@@ -200,6 +232,7 @@ internal class BindingGraph(private val context: LatticeTransformerContext) {
             }
             is Binding.BoundInstance -> TODO()
             is Binding.ComponentDependency -> TODO()
+            is Binding.Absent -> error("Should never happen")
           }
         stack.withEntry(entry) { dfs(dependencyBinding) }
       }
@@ -229,13 +262,18 @@ internal class BindingGraph(private val context: LatticeTransformerContext) {
     bindingStack: BindingStack,
   ): Set<TypeKey> {
     return function.valueParameters
-      .map { param ->
-        val paramKey = ContextualTypeKey.from(context, param).typeKey
-        bindingStack.withEntry(BindingStackEntry.injectedAt(paramKey, function, param)) {
-          // This recursive call will create bindings for injectable types as needed
-          getOrCreateBinding(paramKey, bindingStack)
+      .mapNotNull { param ->
+        val paramKey = ContextualTypeKey.from(context, param)
+        val binding =
+          bindingStack.withEntry(BindingStackEntry.injectedAt(paramKey.typeKey, function, param)) {
+            // This recursive call will create bindings for injectable types as needed
+            getOrCreateBinding(paramKey, bindingStack)
+          }
+        if (binding is Binding.Absent) {
+          // Skip this key as it's absent
+          return@mapNotNull null
         }
-        paramKey
+        paramKey.typeKey
       }
       .toSet()
   }

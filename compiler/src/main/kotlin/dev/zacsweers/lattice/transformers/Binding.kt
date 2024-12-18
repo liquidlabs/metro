@@ -18,10 +18,12 @@ package dev.zacsweers.lattice.transformers
 import dev.zacsweers.lattice.capitalizeUS
 import dev.zacsweers.lattice.ir.IrAnnotation
 import dev.zacsweers.lattice.ir.implements
+import dev.zacsweers.lattice.ir.location
 import dev.zacsweers.lattice.ir.rawType
 import dev.zacsweers.lattice.isWordPrefixRegex
 import java.util.TreeSet
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
@@ -38,6 +40,7 @@ internal sealed interface Binding {
   val parameters: Parameters
   val nameHint: String
   val contextualTypeKey: ContextualTypeKey
+  val reportableLocation: CompilerMessageSourceLocation?
 
   data class ConstructorInjected(
     val type: IrClass,
@@ -51,7 +54,10 @@ internal sealed interface Binding {
   ) : Binding {
     override val nameHint: String = type.name.asString()
     override val contextualTypeKey: ContextualTypeKey =
-      ContextualTypeKey(typeKey, false, false, false)
+      ContextualTypeKey(typeKey, false, false, false, false)
+
+    override val reportableLocation: CompilerMessageSourceLocation
+      get() = type.location()
 
     fun parameterFor(typeKey: TypeKey) =
       injectedConstructor.valueParameters[
@@ -77,6 +83,9 @@ internal sealed interface Binding {
 
     override val nameHint: String = providerFunction.name.asString()
 
+    override val reportableLocation: CompilerMessageSourceLocation
+      get() = providerFunction.location()
+
     fun parameterFor(typeKey: TypeKey): IrValueParameter {
       return providerFunction.valueParameters[
           parameters.valueParameters.indexOfFirst { it.typeKey == typeKey }]
@@ -95,7 +104,9 @@ internal sealed interface Binding {
     override val nameHint: String = type.name.asString()
     override val scope: IrAnnotation? = null
     override val contextualTypeKey: ContextualTypeKey =
-      ContextualTypeKey(typeKey, false, false, false)
+      ContextualTypeKey(typeKey, false, false, false, false)
+    override val reportableLocation: CompilerMessageSourceLocation
+      get() = type.location()
   }
 
   data class BoundInstance(val parameter: Parameter) : Binding {
@@ -105,7 +116,23 @@ internal sealed interface Binding {
     override val dependencies: Map<TypeKey, Parameter> = emptyMap()
     override val parameters: Parameters = Parameters.EMPTY
     override val contextualTypeKey: ContextualTypeKey =
-      ContextualTypeKey(typeKey, false, false, false)
+      ContextualTypeKey(typeKey, false, false, false, false)
+
+    override val reportableLocation: CompilerMessageSourceLocation?
+      get() = parameter.location
+  }
+
+  data class Absent(override val typeKey: TypeKey) : Binding {
+    override val scope: IrAnnotation? = null
+    override val nameHint: String
+      get() = error("Should never be called")
+
+    override val dependencies: Map<TypeKey, Parameter> = emptyMap()
+    override val parameters: Parameters = Parameters.EMPTY
+    override val contextualTypeKey: ContextualTypeKey =
+      ContextualTypeKey(typeKey, false, false, false, false)
+
+    override val reportableLocation: CompilerMessageSourceLocation? = null
   }
 
   data class ComponentDependency(
@@ -131,7 +158,10 @@ internal sealed interface Binding {
     override val dependencies: Map<TypeKey, Parameter> = emptyMap()
     override val parameters: Parameters = Parameters.EMPTY
     override val contextualTypeKey: ContextualTypeKey =
-      ContextualTypeKey(typeKey, false, false, false)
+      ContextualTypeKey(typeKey, false, false, false, false)
+
+    override val reportableLocation: CompilerMessageSourceLocation
+      get() = getter.location()
   }
 
   // TODO sets
@@ -164,7 +194,9 @@ internal sealed interface Binding {
       get() = error("Should never be called")
 
     override val contextualTypeKey: ContextualTypeKey =
-      ContextualTypeKey(typeKey, false, false, false)
+      ContextualTypeKey(typeKey, false, false, false, false)
+
+    override val reportableLocation: CompilerMessageSourceLocation? = null
 
     companion object {
       @OptIn(UnsafeDuringIrConstructionAPI::class)

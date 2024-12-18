@@ -18,9 +18,13 @@ package dev.zacsweers.lattice.transformers
 import dev.zacsweers.lattice.LatticeSymbols
 import dev.zacsweers.lattice.ir.annotationsIn
 import dev.zacsweers.lattice.ir.constArgumentOfTypeAt
+import dev.zacsweers.lattice.ir.location
+import dev.zacsweers.lattice.ir.locationOrNull
 import dev.zacsweers.lattice.transformers.Parameter.Kind
+import dev.zacsweers.lattice.unsafeLazy
 import kotlin.collections.count
 import kotlin.collections.sumOf
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFunction
@@ -41,6 +45,7 @@ internal sealed interface Parameter : Comparable<Parameter> {
   val originalName: Name
   val type: IrType
   val providerType: IrType
+  val contextualTypeKey: ContextualTypeKey
   val lazyType: IrType
   val isWrappedInProvider: Boolean
   val isWrappedInLazy: Boolean
@@ -52,6 +57,12 @@ internal sealed interface Parameter : Comparable<Parameter> {
   val typeKey: TypeKey
   val isComponentInstance: Boolean
   val isBindsInstance: Boolean
+  val hasDefault: Boolean
+  val location: CompilerMessageSourceLocation?
+  val ir: IrValueParameter
+
+  val irFunction: IrFunction
+    get() = ir.parent as IrFunction
 
   override fun compareTo(other: Parameter): Int = COMPARATOR.compare(this, other)
 
@@ -126,7 +137,7 @@ internal fun Name.uniqueParameterName(vararg superParameters: List<Parameter>): 
 internal data class ConstructorParameter(
   override val kind: Kind,
   override val name: Name,
-  val contextualTypeKey: ContextualTypeKey,
+  override val contextualTypeKey: ContextualTypeKey,
   override val originalName: Name,
   override val providerType: IrType,
   override val lazyType: IrType,
@@ -138,7 +149,10 @@ internal data class ConstructorParameter(
   override val isComponentInstance: Boolean,
   val bindingStackEntry: BindingStackEntry,
   override val isBindsInstance: Boolean,
+  override val hasDefault: Boolean,
+  override val location: CompilerMessageSourceLocation?,
 ) : Parameter {
+  override lateinit var ir: IrValueParameter
   override val typeKey: TypeKey = contextualTypeKey.typeKey
   override val type: IrType = contextualTypeKey.typeKey.type
   override val isWrappedInProvider: Boolean = contextualTypeKey.isWrappedInProvider
@@ -166,28 +180,60 @@ private fun IrType.wrapIn(target: IrClassSymbol): IrType {
   return target.typeWith(this)
 }
 
-internal data class Parameters(
-  val instance: Parameter?,
-  val extensionReceiver: Parameter?,
-  val valueParameters: List<Parameter>,
-) : Comparable<Parameters> {
-  val nonInstanceParameters: List<Parameter> = buildList {
-    extensionReceiver?.let(::add)
-    addAll(valueParameters)
-  }
-  val allParameters: List<Parameter> = buildList {
-    instance?.let(::add)
-    addAll(nonInstanceParameters)
-  }
+internal sealed interface Parameters : Comparable<Parameters> {
+  val instance: Parameter?
+  val extensionReceiver: Parameter?
+  val valueParameters: List<Parameter>
+  val ir: IrFunction
+
+  val nonInstanceParameters: List<Parameter>
+  val allParameters: List<Parameter>
+
+  fun with(ir: IrFunction): Parameters
 
   override fun compareTo(other: Parameters): Int = COMPARATOR.compare(this, other)
 
   companion object {
-    val EMPTY = Parameters(null, null, emptyList())
+    val EMPTY: Parameters = ParametersImpl(null, null, emptyList())
     val COMPARATOR =
       compareBy<Parameters> { it.instance }
         .thenBy { it.extensionReceiver }
         .thenComparator { a, b -> compareValues(a, b) }
+
+    operator fun invoke(
+      instance: Parameter?,
+      extensionReceiver: Parameter?,
+      valueParameters: List<Parameter>,
+      ir: IrFunction?,
+    ): Parameters =
+      ParametersImpl(instance, extensionReceiver, valueParameters).apply {
+        ir?.let { this.ir = it }
+      }
+  }
+}
+
+private data class ParametersImpl(
+  override val instance: Parameter?,
+  override val extensionReceiver: Parameter?,
+  override val valueParameters: List<Parameter>,
+) : Parameters {
+  override lateinit var ir: IrFunction
+
+  override fun with(ir: IrFunction): Parameters {
+    return copy().apply { this.ir = ir }
+  }
+
+  override val nonInstanceParameters: List<Parameter> by unsafeLazy {
+    buildList {
+      extensionReceiver?.let(::add)
+      addAll(valueParameters)
+    }
+  }
+  override val allParameters: List<Parameter> by unsafeLazy {
+    buildList {
+      instance?.let(::add)
+      addAll(nonInstanceParameters)
+    }
   }
 }
 
@@ -224,6 +270,7 @@ internal fun IrFunction.parameters(
         typeParameterRemapper = mapper,
       ),
     valueParameters = valueParameters.mapToConstructorParameters(context, mapper),
+    ir = this,
   )
 }
 
@@ -252,8 +299,13 @@ internal fun IrValueParameter.toConstructorParameter(
   val declaredType =
     typeParameterRemapper?.invoke(this@toConstructorParameter.type)
       ?: this@toConstructorParameter.type
+
   val typeMetadata =
-    declaredType.asContextualTypeKey(context, with(context) { qualifierAnnotation() })
+    declaredType.asContextualTypeKey(
+      context,
+      with(context) { qualifierAnnotation() },
+      defaultValue != null,
+    )
 
   val assistedAnnotation = annotationsIn(context.symbols.assistedAnnotations).singleOrNull()
 
@@ -265,17 +317,20 @@ internal fun IrValueParameter.toConstructorParameter(
   val ownerFunction = this.parent as IrFunction // TODO is this safe
 
   return ConstructorParameter(
-    kind = kind,
-    name = uniqueName,
-    originalName = name,
-    contextualTypeKey = typeMetadata,
-    providerType = typeMetadata.typeKey.type.wrapInProvider(context.symbols.latticeProvider),
-    lazyType = typeMetadata.typeKey.type.wrapInLazy(context.symbols),
-    isAssisted = assistedAnnotation != null,
-    assistedIdentifier = assistedIdentifier,
-    symbols = context.symbols,
-    isComponentInstance = false,
-    bindingStackEntry = BindingStackEntry.injectedAt(typeMetadata.typeKey, ownerFunction, this),
-    isBindsInstance = isBindsInstance,
-  )
+      kind = kind,
+      name = uniqueName,
+      originalName = name,
+      contextualTypeKey = typeMetadata,
+      providerType = typeMetadata.typeKey.type.wrapInProvider(context.symbols.latticeProvider),
+      lazyType = typeMetadata.typeKey.type.wrapInLazy(context.symbols),
+      isAssisted = assistedAnnotation != null,
+      assistedIdentifier = assistedIdentifier,
+      symbols = context.symbols,
+      isComponentInstance = false,
+      bindingStackEntry = BindingStackEntry.injectedAt(typeMetadata.typeKey, ownerFunction, this),
+      isBindsInstance = isBindsInstance,
+      hasDefault = defaultValue != null,
+      location = locationOrNull(),
+    )
+    .apply { this.ir = this@toConstructorParameter }
 }

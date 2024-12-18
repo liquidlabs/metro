@@ -24,8 +24,8 @@ import dev.zacsweers.lattice.ir.irType
 import dev.zacsweers.lattice.ir.isAnnotatedWithAny
 import dev.zacsweers.lattice.ir.locationIn
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrAnnotationContainer
@@ -47,6 +47,7 @@ import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.platform.jvm.isJvm
 
+// TODO make this extend IrPluginContext?
 internal interface LatticeTransformerContext {
   val pluginContext: IrPluginContext
   val messageCollector: MessageCollector
@@ -62,7 +63,7 @@ internal interface LatticeTransformerContext {
     messageCollector.report(CompilerMessageSeverity.ERROR, message, location)
   }
 
-  fun reportError(message: String, location: CompilerMessageLocation) {
+  fun reportError(message: String, location: CompilerMessageSourceLocation) {
     messageCollector.report(CompilerMessageSeverity.ERROR, message, location)
   }
 

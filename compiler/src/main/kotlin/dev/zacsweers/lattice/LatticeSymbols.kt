@@ -53,6 +53,8 @@ internal class LatticeSymbols(
   object Names {
     val CompanionObject = Name.identifier("Companion")
     val Factory = Name.identifier("Factory")
+    val LatticeFactory = Name.identifier("\$\$LatticeFactory")
+    val LatticeImpl = Name.identifier("\$\$Impl")
     // Used in @Assisted.value
     val Value = Name.identifier("value")
   }
