@@ -21,6 +21,7 @@ import dev.zacsweers.lattice.annotations.Component
 import dev.zacsweers.lattice.annotations.Inject
 import dev.zacsweers.lattice.annotations.Provides
 import dev.zacsweers.lattice.annotations.Singleton
+import dev.zacsweers.lattice.createComponentFactory
 
 @Singleton
 @Component
@@ -36,14 +37,19 @@ interface ExampleComponent : FileSystemComponent {
   fun interface Factory {
     fun create(@BindsInstance text: String): ExampleComponent
   }
+
+  companion object {
+    // TODO temporary until we can move this back to the test calling this
+    fun factory() = createComponentFactory<Factory>()
+  }
 }
 
 interface FileSystemComponent {
-  @Singleton @Provides fun provideFileSystem(): FileSystem = FileSystem()
+  @Singleton @Provides private fun provideFileSystem(): FileSystem = FileSystem()
 
   @Singleton
   @Provides
-  fun provideFileSystemProvider(fs: FileSystem): FileSystemProvider = fs.provider()
+  private fun provideFileSystemProvider(fs: FileSystem): FileSystemProvider = fs.provider()
 }
 
 @Singleton @Inject class Example1(val text: String)
