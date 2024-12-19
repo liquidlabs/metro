@@ -76,7 +76,7 @@ internal sealed interface Binding {
     // TODO are both necessary? Is there any case where only one is specified?
     val intoMap: Boolean,
     val mapKey: IrAnnotation?,
-    val bindsImplType: ContextualTypeKey?,
+    val aliasedType: ContextualTypeKey?,
   ) : Binding {
     override val typeKey: TypeKey = contextualTypeKey.typeKey
     val isMultibindingProvider

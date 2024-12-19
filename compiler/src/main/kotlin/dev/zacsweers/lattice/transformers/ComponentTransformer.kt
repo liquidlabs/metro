@@ -412,7 +412,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
                 false
               }
               ?.let(::IrAnnotation),
-          bindsImplType = bindsImplType,
+          aliasedType = bindsImplType,
         )
 
       if (provider.isMultibindingProvider) {
@@ -821,7 +821,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
           .filter { it.second.body == null }
           .filter { (key, _) ->
             val binding = graph.requireBinding(key) as Binding.Provided
-            binding.bindsImplType != null
+            binding.aliasedType != null
           }
           // Stable sort. First the name then the type
           .sortedWith(
@@ -1273,7 +1273,7 @@ internal class ComponentTransformer(context: LatticeTransformerContext) :
         // TODO what about inherited/overridden providers?
 
         // For binds functions, just use the backing type
-        binding.bindsImplType?.let {
+        binding.aliasedType?.let {
           return generateBindingCode(
             generationContext.graph.getOrCreateBinding(it, generationContext.bindingStack),
             generationContext,
