@@ -21,18 +21,18 @@ import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.arguments
-import org.jetbrains.kotlin.fir.types.classId
+import org.jetbrains.kotlin.fir.types.renderReadable
+import org.jetbrains.kotlin.fir.types.renderReadableWithFqNames
 import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.types.ConstantValueKind
 
 internal class LatticeFirAnnotation(val fir: FirAnnotationCall) {
   private val cachedHashKey by unsafeLazy { fir.computeAnnotationHash() }
   private val cachedToString by unsafeLazy {
-    buildString {
-      append('@')
-      renderAsAnnotation(fir)
-    }
+    buildString { renderAsAnnotation(fir, simple = false) }
   }
+
+  fun simpleString() = buildString { renderAsAnnotation(fir, simple = true) }
 
   // TODO
   //  fun isQualifier(session: FirSession) =
@@ -54,8 +54,13 @@ internal class LatticeFirAnnotation(val fir: FirAnnotationCall) {
   override fun toString() = cachedToString
 }
 
-private fun StringBuilder.renderAsAnnotation(firAnnotation: FirAnnotationCall) {
-  val annotationClassName = firAnnotation.resolvedType.classId?.asString() ?: "<unbound>"
+private fun StringBuilder.renderAsAnnotation(firAnnotation: FirAnnotationCall, simple: Boolean) {
+  val annotationClassName =
+    if (simple) {
+      firAnnotation.resolvedType.renderReadable()
+    } else {
+      firAnnotation.resolvedType.renderReadableWithFqNames()
+    }
   append(annotationClassName)
 
   // TODO type args not supported

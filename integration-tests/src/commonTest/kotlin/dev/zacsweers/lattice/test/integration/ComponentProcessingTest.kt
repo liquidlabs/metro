@@ -1076,6 +1076,54 @@ class ComponentProcessingTest {
     @Provides @SingleIn(AppScope::class) private fun provideLong(): Long = longCounter++
   }
 
+  @Test
+  fun `binds - properties`() {
+    val component = createComponent<ComponentWithBindsProperties>()
+    assertEquals(3, component.number)
+  }
+
+  @Component
+  interface ComponentWithBindsProperties {
+    val number: Number
+
+    @Provides
+    private val provideInt: Int
+      get() = 3
+
+    @Provides val Int.provideNumber: Number
+  }
+
+  @Test
+  fun `binds - functions`() {
+    val component = createComponent<ComponentWithBindsFunctions>()
+    assertEquals(3, component.number)
+  }
+
+  @Component
+  interface ComponentWithBindsFunctions {
+    val number: Number
+
+    @Provides private fun provideInt(): Int = 3
+
+    @Provides fun Int.provideNumber(): Number
+  }
+
+  @Test
+  fun `binds - mix of functions and property`() {
+    val component = createComponent<BindsWithMixOfFunctionsAndProperties>()
+    assertEquals(component.string, component.charSequence)
+  }
+
+  @Component
+  interface BindsWithMixOfFunctionsAndProperties {
+    val string: String
+    val charSequence: CharSequence
+
+    @get:Provides val String.binds: CharSequence
+
+    @Provides private fun provideValue(): String = "Hello, world!"
+  }
+
   enum class Seasoning {
     SPICY,
     REGULAR,

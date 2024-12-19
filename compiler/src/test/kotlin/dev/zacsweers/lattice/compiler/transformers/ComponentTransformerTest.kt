@@ -28,7 +28,6 @@ import dev.zacsweers.lattice.compiler.createComponentViaFactory
 import dev.zacsweers.lattice.compiler.createComponentWithNoArgs
 import dev.zacsweers.lattice.compiler.generatedLatticeComponentClass
 import java.util.concurrent.Callable
-import org.junit.Ignore
 import org.junit.Test
 
 class ComponentTransformerTest : LatticeCompilerTest() {
@@ -816,80 +815,6 @@ class ComponentTransformerTest : LatticeCompilerTest() {
 
     assertThat(component.callComponentAccessorProperty<CharSequence>("value2"))
       .isEqualTo("Hello, world!")
-  }
-
-  @Ignore("Not yet implemented")
-  @Test
-  fun `simple binds with receiver example`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleComponent.kt",
-          """
-            package test
-
-            import dev.zacsweers.lattice.annotations.Component
-            import dev.zacsweers.lattice.annotations.Provides
-
-            @Component
-            interface ExampleComponent {
-
-              val value: String
-              val value2: CharSequence
-
-              @Provides
-              fun String.bind(): CharSequence = this
-
-              @Provides
-              fun provideValue(): String = "Hello, world!"
-            }
-
-          """
-            .trimIndent(),
-        ),
-        debug = true,
-      )
-
-    val component =
-      result.ExampleComponent.generatedLatticeComponentClass().createComponentWithNoArgs()
-
-    assertThat(component.callComponentAccessorProperty<String>("value")).isEqualTo("Hello, world!")
-
-    assertThat(component.callComponentAccessorProperty<CharSequence>("value2"))
-      .isEqualTo("Hello, world!")
-  }
-
-  @Ignore("Not yet implemented")
-  @Test
-  fun `simple binds with receiver`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleComponent.kt",
-          """
-            package test
-
-            import dev.zacsweers.lattice.annotations.Component
-            import dev.zacsweers.lattice.annotations.Provides
-
-            @Component
-            interface ExampleComponent {
-
-              val value: String
-              val value2: CharSequence
-
-              @get:Provides
-              val String.binds: CharSequence
-                get() = this
-
-              @Provides
-              fun provideValue(): String = "Hello, world!"
-            }
-
-          """
-            .trimIndent(),
-        )
-      )
   }
 
   @Test
