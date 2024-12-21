@@ -17,7 +17,7 @@ package dev.zacsweers.lattice.fir
 
 import dev.zacsweers.lattice.LatticeClassIds
 import java.util.Objects
-import kotlin.collections.contains
+import org.jetbrains.kotlin.GeneratedDeclarationKey
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
@@ -33,7 +33,7 @@ import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.constructors
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
-import org.jetbrains.kotlin.fir.declarations.toAnnotationClassId
+import org.jetbrains.kotlin.fir.declarations.toAnnotationClassIdSafe
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
@@ -44,6 +44,7 @@ import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.arguments
 import org.jetbrains.kotlin.fir.resolve.toClassSymbol
 import org.jetbrains.kotlin.fir.scopes.jvm.computeJvmDescriptor
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
@@ -51,14 +52,24 @@ import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.coneTypeSafe
 import org.jetbrains.kotlin.fir.types.resolvedType
-import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.name.ClassId
+
+internal object LatticeKey : GeneratedDeclarationKey() {
+  override fun toString() = "LatticeKey"
+}
 
 internal fun FirAnnotationContainer.isAnnotatedWithAny(
   session: FirSession,
   names: Collection<ClassId>,
 ): Boolean {
   return names.any { hasAnnotation(it, session) }
+}
+
+internal fun FirBasedSymbol<*>.annotationsIn(
+  session: FirSession,
+  names: Set<ClassId>,
+): Sequence<FirAnnotation> {
+  return resolvedAnnotationsWithClassIds.annotationsIn(session, names)
 }
 
 internal fun FirAnnotationContainer.annotationsIn(
@@ -72,7 +83,14 @@ internal fun List<FirAnnotation>.annotationsIn(
   session: FirSession,
   names: Set<ClassId>,
 ): Sequence<FirAnnotation> {
-  return asSequence().filter { it.toAnnotationClassId(session) in names }
+  return asSequence().filter { it.toAnnotationClassIdSafe(session) in names }
+}
+
+internal fun FirBasedSymbol<*>.isAnnotatedWithAny(
+  session: FirSession,
+  names: Set<ClassId>,
+): Boolean {
+  return annotations.any { it.toAnnotationClassIdSafe(session) in names }
 }
 
 internal fun List<FirAnnotation>.isAnnotatedWithAny(

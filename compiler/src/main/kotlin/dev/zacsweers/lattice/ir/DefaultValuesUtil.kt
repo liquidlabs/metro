@@ -28,7 +28,6 @@ import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.SYNTHETIC_OFFSET
 import org.jetbrains.kotlin.ir.util.deepCopyWithoutPatchingParents
-import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 
@@ -50,21 +49,6 @@ internal fun LatticeTransformerContext.patchFactoryCreationParameters(
   if (sourceParameters.isEmpty()) return
   check(sourceParameters.size == factoryParameters.size) {
     "Source parameters (${sourceParameters.size}) and factory parameters (${factoryParameters.size}) must be the same size! Function: ${sourceParameters.first().parent.kotlinFqName}"
-  }
-  if (debug) {
-    logVerbose(
-      buildString {
-        appendLine("Patching factory creation parameters")
-        appendLine("  Source params:")
-        for ((index, param) in sourceParameters.withIndex()) {
-          appendLine("    $index. ${param.dumpKotlinLike()}")
-        }
-        appendLine("  Factory params:")
-        for ((index, param) in factoryParameters.withIndex()) {
-          appendLine("    $index. ${param.dumpKotlinLike()}")
-        }
-      }
-    )
   }
   val transformer =
     object : IrElementTransformerVoid() {
