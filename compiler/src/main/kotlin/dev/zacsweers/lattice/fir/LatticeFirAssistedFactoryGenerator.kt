@@ -167,7 +167,6 @@ internal class LatticeFirAssistedFactoryGenerator(session: FirSession) :
   }
 
   // Called for generating nested names
-  // TODO avoid if there's already a nested factory
   override fun getNestedClassifiersNames(
     classSymbol: FirClassSymbol<*>,
     context: NestedClassGenerationContext,
