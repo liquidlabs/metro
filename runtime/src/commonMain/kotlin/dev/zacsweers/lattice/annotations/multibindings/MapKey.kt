@@ -32,7 +32,8 @@ import dev.zacsweers.lattice.annotations.Provides
  * @MapKey
  * annotation class SomeEnumKey(val value: SomeEnum)
  *
- * interface SomeComponent {
+ * @DependencyGraph
+ * interface SomeGraph {
  *   @Provides
  *   @IntoMap
  *   @SomeEnumKey(SomeEnum.FOO)
@@ -63,7 +64,8 @@ import dev.zacsweers.lattice.annotations.Provides
  * MyEnum someEnum();
  * }
  *
- * interface SomeComponent {
+ * @DependencyGraph
+ * interface SomeGraph {
  *   @Provides
  *   @IntoMap
  *   @MyMapKey(someString = "foo", someEnum = BAR)

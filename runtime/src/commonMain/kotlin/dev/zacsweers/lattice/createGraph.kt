@@ -13,17 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice.sample
+package dev.zacsweers.lattice
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+import dev.zacsweers.lattice.annotations.DependencyGraph
 
-class ExampleComponentTest {
-  @Test
-  fun simplePipeline() {
-    // TODO eventually call createComponentFactory() here again
-    val component = ExampleComponent.factory().create("Hello, world!")
-    val example1 = component.example1()
-    assertEquals("Hello, world!", example1.text)
-  }
+/**
+ * Creates a new parameter-less graph of type [T]. Note this is _only_ applicable for graphs that
+ * have no creators (i.e. [DependencyGraph.Factory]).
+ */
+public inline fun <reified T : Any> createGraph(): T {
+  throw NotImplementedError("Implemented by the compiler")
+}
+
+/**
+ * Creates a new instance of a [@DependencyGraph.Factory][DependencyGraph.Factory]-annotated class.
+ */
+public inline fun <reified T : Any> createGraphFactory(): T {
+  throw NotImplementedError("Implemented by the compiler")
 }

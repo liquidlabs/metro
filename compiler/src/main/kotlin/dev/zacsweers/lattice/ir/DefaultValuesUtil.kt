@@ -43,7 +43,7 @@ internal fun LatticeTransformerContext.patchFactoryCreationParameters(
   providerFunction: IrFunction?,
   sourceParameters: List<IrValueParameter>,
   factoryParameters: List<IrValueParameter>,
-  factoryComponentParameter: IrValueParameter?,
+  factoryGraphParameter: IrValueParameter?,
   wrapInProvider: Boolean = false,
 ) {
   if (sourceParameters.isEmpty()) return
@@ -55,11 +55,7 @@ internal fun LatticeTransformerContext.patchFactoryCreationParameters(
       override fun visitGetValue(expression: IrGetValue): IrExpression {
         // Check if the expression is the instance receiver
         if (expression.symbol == providerFunction?.dispatchReceiverParameter?.symbol) {
-          return IrGetValueImpl(
-            SYNTHETIC_OFFSET,
-            SYNTHETIC_OFFSET,
-            factoryComponentParameter!!.symbol,
-          )
+          return IrGetValueImpl(SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, factoryGraphParameter!!.symbol)
         }
         val index = sourceParameters.indexOfFirst { it.symbol == expression.symbol }
         if (index != -1) {

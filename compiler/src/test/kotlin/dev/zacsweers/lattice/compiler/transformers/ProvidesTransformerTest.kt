@@ -18,10 +18,10 @@ package dev.zacsweers.lattice.compiler.transformers
 import com.google.common.truth.Truth.assertThat
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
 import com.tschuchort.compiletesting.SourceFile.Companion.kotlin
-import dev.zacsweers.lattice.compiler.ExampleComponent
+import dev.zacsweers.lattice.compiler.ExampleGraph
 import dev.zacsweers.lattice.compiler.LatticeCompilerTest
-import dev.zacsweers.lattice.compiler.createComponentWithNoArgs
-import dev.zacsweers.lattice.compiler.generatedLatticeComponentClass
+import dev.zacsweers.lattice.compiler.createGraphWithNoArgs
+import dev.zacsweers.lattice.compiler.generatedLatticeGraphClass
 import dev.zacsweers.lattice.compiler.invokeCreateAs
 import dev.zacsweers.lattice.compiler.provideValueAs
 import dev.zacsweers.lattice.compiler.providesFactoryClass
@@ -36,15 +36,15 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               @Provides
               fun provideValue(): String = "Hello, world!"
             }
@@ -53,15 +53,14 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
         )
       )
 
-    val component =
-      result.ExampleComponent.generatedLatticeComponentClass().createComponentWithNoArgs()
-    val providesFactoryClass = result.ExampleComponent.providesFactoryClass()
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+    val providesFactoryClass = result.ExampleGraph.providesFactoryClass()
     // Exercise calling the static provideValue function directly
-    val providedValue = providesFactoryClass.provideValueAs<String>("provideValue", component)
+    val providedValue = providesFactoryClass.provideValueAs<String>("provideValue", graph)
     assertThat(providedValue).isEqualTo("Hello, world!")
 
     // Exercise calling the create + invoke() functions
-    val providesFactory = providesFactoryClass.invokeCreateAs<Factory<String>>(component)
+    val providesFactory = providesFactoryClass.invokeCreateAs<Factory<String>>(graph)
     assertThat(providesFactory()).isEqualTo("Hello, world!")
   }
 
@@ -70,15 +69,15 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               @Provides
               val value: String get() = "Hello, world!"
             }
@@ -87,15 +86,14 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
         )
       )
 
-    val component =
-      result.ExampleComponent.generatedLatticeComponentClass().createComponentWithNoArgs()
-    val providesFactoryClass = result.ExampleComponent.providesFactoryClass()
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+    val providesFactoryClass = result.ExampleGraph.providesFactoryClass()
     // Exercise calling the static provideValue function directly
-    val providedValue = providesFactoryClass.provideValueAs<String>("getValue", component)
+    val providedValue = providesFactoryClass.provideValueAs<String>("getValue", graph)
     assertThat(providedValue).isEqualTo("Hello, world!")
 
     // Exercise calling the create + invoke() functions
-    val providesFactory = providesFactoryClass.invokeCreateAs<Factory<String>>(component)
+    val providesFactory = providesFactoryClass.invokeCreateAs<Factory<String>>(graph)
     assertThat(providesFactory()).isEqualTo("Hello, world!")
   }
 
@@ -104,15 +102,15 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               companion object {
                 @Provides
                 fun provideValue(): String = "Hello, world!"
@@ -123,7 +121,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
         )
       )
 
-    val providesFactoryClass = result.ExampleComponent.providesFactoryClass(companion = true)
+    val providesFactoryClass = result.ExampleGraph.providesFactoryClass(companion = true)
     // These should be objects since they require no parameters
     // TODO these appear to need metadata annotations written correctly to work
     //    assertThat(providesFactoryClass.kotlin.objectInstance).isNotNull()
@@ -141,15 +139,15 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               companion object {
                 @Provides
                 val value: String get() = "Hello, world!"
@@ -160,7 +158,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
         )
       )
 
-    val providesFactoryClass = result.ExampleComponent.providesFactoryClass(companion = true)
+    val providesFactoryClass = result.ExampleGraph.providesFactoryClass(companion = true)
     // These should be objects since they require no parameters
     // TODO these appear to need metadata annotations written correctly to work
     //    assertThat(providesFactoryClass.kotlin.objectInstance).isNotNull()
@@ -178,15 +176,15 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               @Provides
               fun provideIntValue(): Int = 1
 
@@ -198,18 +196,16 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
         )
       )
 
-    val component =
-      result.ExampleComponent.generatedLatticeComponentClass().createComponentWithNoArgs()
-    val providesFactoryClass = result.ExampleComponent.providesFactoryClass("provideStringValue")
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+    val providesFactoryClass = result.ExampleGraph.providesFactoryClass("provideStringValue")
 
     // Exercise calling the static provideValue function directly
-    val providedValue =
-      providesFactoryClass.provideValueAs<String>("provideStringValue", component, 2)
+    val providedValue = providesFactoryClass.provideValueAs<String>("provideStringValue", graph, 2)
     assertThat(providedValue).isEqualTo("Hello, 2!")
 
     // Exercise calling the create + invoke() functions
     val providesFactory =
-      providesFactoryClass.invokeCreateAs<Factory<String>>(component, provider { 2 })
+      providesFactoryClass.invokeCreateAs<Factory<String>>(graph, provider { 2 })
     assertThat(providesFactory()).isEqualTo("Hello, 2!")
   }
 
@@ -218,15 +214,15 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               @Provides
               fun provideBooleanValue(): Boolean = false
 
@@ -241,22 +237,17 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
         )
       )
 
-    val component =
-      result.ExampleComponent.generatedLatticeComponentClass().createComponentWithNoArgs()
-    val providesFactoryClass = result.ExampleComponent.providesFactoryClass("provideStringValue")
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+    val providesFactoryClass = result.ExampleGraph.providesFactoryClass("provideStringValue")
 
     // Exercise calling the static provideValue function directly
     val providedValue =
-      providesFactoryClass.provideValueAs<String>("provideStringValue", component, 2, true)
+      providesFactoryClass.provideValueAs<String>("provideStringValue", graph, 2, true)
     assertThat(providedValue).isEqualTo("Hello, 2! true")
 
     // Exercise calling the create + invoke() functions
     val providesFactory =
-      providesFactoryClass.invokeCreateAs<Factory<String>>(
-        component,
-        provider { 2 },
-        provider { true },
-      )
+      providesFactoryClass.invokeCreateAs<Factory<String>>(graph, provider { 2 }, provider { true })
     assertThat(providesFactory()).isEqualTo("Hello, 2! true")
   }
 
@@ -265,16 +256,16 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
             import dev.zacsweers.lattice.annotations.Named
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               @Provides
               fun provideIntValue(): Int = 1
 
@@ -289,22 +280,17 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
         )
       )
 
-    val component =
-      result.ExampleComponent.generatedLatticeComponentClass().createComponentWithNoArgs()
-    val providesFactoryClass = result.ExampleComponent.providesFactoryClass("provideStringValue")
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+    val providesFactoryClass = result.ExampleGraph.providesFactoryClass("provideStringValue")
 
     // Exercise calling the static provideValue function directly
     val providedValue =
-      providesFactoryClass.provideValueAs<String>("provideStringValue", component, 2, 3)
+      providesFactoryClass.provideValueAs<String>("provideStringValue", graph, 2, 3)
     assertThat(providedValue).isEqualTo("Hello, 2 - 3!")
 
     // Exercise calling the create + invoke() functions
     val providesFactory =
-      providesFactoryClass.invokeCreateAs<Factory<String>>(
-        component,
-        provider { 2 },
-        provider { 3 },
-      )
+      providesFactoryClass.invokeCreateAs<Factory<String>>(graph, provider { 2 }, provider { 3 })
     assertThat(providesFactory()).isEqualTo("Hello, 2 - 3!")
   }
 
@@ -313,16 +299,16 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
             import dev.zacsweers.lattice.annotations.Named
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               @Provides
               fun provideIntValue(): Int = 1
 
@@ -341,22 +327,17 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
         )
       )
 
-    val component =
-      result.ExampleComponent.generatedLatticeComponentClass().createComponentWithNoArgs()
-    val providesFactoryClass = result.ExampleComponent.providesFactoryClass("provideStringValue")
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+    val providesFactoryClass = result.ExampleGraph.providesFactoryClass("provideStringValue")
 
     // Exercise calling the static provideValue function directly
     val providedValue =
-      providesFactoryClass.provideValueAs<String>("provideStringValue", component, 2, 3)
+      providesFactoryClass.provideValueAs<String>("provideStringValue", graph, 2, 3)
     assertThat(providedValue).isEqualTo("Hello, 2 - 3!")
 
     // Exercise calling the create + invoke() functions
     val providesFactory =
-      providesFactoryClass.invokeCreateAs<Factory<String>>(
-        component,
-        provider { 2 },
-        provider { 3 },
-      )
+      providesFactoryClass.invokeCreateAs<Factory<String>>(graph, provider { 2 }, provider { 3 })
     assertThat(providesFactory()).isEqualTo("Hello, 2 - 3!")
   }
 
@@ -365,16 +346,16 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
             import dev.zacsweers.lattice.annotations.Named
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               @Provides
               fun <T> provideValue(): Int = 1
             }
@@ -387,7 +368,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     assertThat(result.messages)
       .contains(
         """
-        ExampleComponent.kt:9:3 @Provides functions may not have type parameters
+        ExampleGraph.kt:9:3 @Provides functions may not have type parameters
       """
           .trimIndent()
       )
@@ -398,15 +379,15 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     val result =
       compile(
         kotlin(
-          "ExampleComponent.kt",
+          "ExampleGraph.kt",
           """
             package test
 
             import dev.zacsweers.lattice.annotations.Provides
-            import dev.zacsweers.lattice.annotations.Component
+            import dev.zacsweers.lattice.annotations.DependencyGraph
 
-            @Component
-            interface ExampleComponent {
+            @DependencyGraph
+            interface ExampleGraph {
               @Provides
               private fun String.provideValue(): Int = length
             }
@@ -419,7 +400,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
     assertThat(result.messages)
       .contains(
         """
-          ExampleComponent.kt:9:22 `@Provides` declarations may not have receiver parameters unless they are binds providers.
+          ExampleGraph.kt:9:22 `@Provides` declarations may not have receiver parameters unless they are binds providers.
         """
           .trimIndent()
       )
