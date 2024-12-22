@@ -18,14 +18,6 @@ package dev.zacsweers.lattice.ir
 import dev.zacsweers.lattice.LatticeOrigin
 import dev.zacsweers.lattice.LatticeSymbols
 import dev.zacsweers.lattice.letIf
-import dev.zacsweers.lattice.transformers.ConstructorParameter
-import dev.zacsweers.lattice.transformers.ContextualTypeKey
-import dev.zacsweers.lattice.transformers.LatticeTransformerContext
-import dev.zacsweers.lattice.transformers.Parameter
-import dev.zacsweers.lattice.transformers.Parameters
-import dev.zacsweers.lattice.transformers.isLatticeProviderType
-import dev.zacsweers.lattice.transformers.wrapInLazy
-import dev.zacsweers.lattice.transformers.wrapInProvider
 import java.util.Objects
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.ir.addExtensionReceiver
@@ -184,7 +176,6 @@ internal fun IrAnnotationContainer.annotationsIn(names: Set<ClassId>): Sequence<
 }
 
 internal fun <T> IrConstructorCall.constArgumentOfTypeAt(position: Int): T? {
-  @Suppress("UNCHECKED_CAST")
   return (getValueArgument(position) as? IrConst?)?.valueAs()
 }
 
@@ -496,7 +487,7 @@ internal fun IrBuilderWithScope.parameterAsProviderArgument(
   receiver: IrValueParameter,
   parametersToFields: Map<Parameter, IrField>,
   symbols: LatticeSymbols,
-): IrExpression? {
+): IrExpression {
   // When calling value getter on Provider<T>, make sure the dispatch
   // receiver is the Provider instance itself
   val providerInstance = irGetField(irGet(receiver), parametersToFields.getValue(parameter))

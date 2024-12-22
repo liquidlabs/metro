@@ -13,17 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice.transformers
+package dev.zacsweers.lattice.ir.transformers
 
 import dev.zacsweers.lattice.LatticeOrigin
 import dev.zacsweers.lattice.LatticeSymbols
 import dev.zacsweers.lattice.NameAllocator
 import dev.zacsweers.lattice.decapitalizeUS
 import dev.zacsweers.lattice.exitProcessing
+import dev.zacsweers.lattice.ir.Binding
+import dev.zacsweers.lattice.ir.BindingGraph
+import dev.zacsweers.lattice.ir.BindingStack
+import dev.zacsweers.lattice.ir.ConstructorParameter
+import dev.zacsweers.lattice.ir.ContextualTypeKey
+import dev.zacsweers.lattice.ir.DependencyGraphNode
 import dev.zacsweers.lattice.ir.IrAnnotation
+import dev.zacsweers.lattice.ir.LatticeTransformerContext
+import dev.zacsweers.lattice.ir.Parameters
+import dev.zacsweers.lattice.ir.TypeKey
 import dev.zacsweers.lattice.ir.addCompanionObject
 import dev.zacsweers.lattice.ir.addOverride
 import dev.zacsweers.lattice.ir.allCallableMembers
+import dev.zacsweers.lattice.ir.appendBindingStack
+import dev.zacsweers.lattice.ir.asContextualTypeKey
 import dev.zacsweers.lattice.ir.createIrBuilder
 import dev.zacsweers.lattice.ir.doubleCheck
 import dev.zacsweers.lattice.ir.getAllSuperTypes
@@ -34,10 +45,14 @@ import dev.zacsweers.lattice.ir.irLambda
 import dev.zacsweers.lattice.ir.isAnnotatedWithAny
 import dev.zacsweers.lattice.ir.isBindsProviderCandidate
 import dev.zacsweers.lattice.ir.isExternalParent
+import dev.zacsweers.lattice.ir.parameters
 import dev.zacsweers.lattice.ir.rawType
 import dev.zacsweers.lattice.ir.rawTypeOrNull
 import dev.zacsweers.lattice.ir.singleAbstractFunction
 import dev.zacsweers.lattice.ir.typeAsProviderArgument
+import dev.zacsweers.lattice.ir.withEntry
+import dev.zacsweers.lattice.ir.wrapInLazy
+import dev.zacsweers.lattice.ir.wrapInProvider
 import dev.zacsweers.lattice.letIf
 import org.jetbrains.kotlin.backend.jvm.codegen.AnnotationCodegen.Companion.annotationClass
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -264,7 +279,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
               ?.owner
               ?.isAnnotatedWithAny(symbols.providesAnnotations) == true
         }
-        .map { function -> ContextualTypeKey.from(this, function).typeKey to function }
+        .map { function -> ContextualTypeKey.Companion.from(this, function).typeKey to function }
         .toList()
 
     val exposedTypes =
@@ -282,7 +297,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
               ?.owner
               ?.isAnnotatedWithAny(symbols.providesAnnotations) != true
         }
-        .associateWith { function -> ContextualTypeKey.from(this, function) }
+        .associateWith { function -> ContextualTypeKey.Companion.from(this, function) }
 
     val creator =
       graphDeclaration.nestedClasses
@@ -305,7 +320,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         .map {
           val type = it.typeKey.type.rawType()
           bindingStack.withEntry(
-            BindingStackEntry.requestedAt(graphTypeKey, creator!!.createFunction)
+            BindingStack.Entry.requestedAt(graphTypeKey, creator!!.createFunction)
           ) {
             getOrComputeDependencyGraphNode(type, bindingStack)
           }
@@ -796,7 +811,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
             getter.apply {
               this.dispatchReceiverParameter = thisReceiverParameter
               val binding = bindingGraph.getOrCreateBinding(contextualTypeKey, BindingStack.empty())
-              bindingStack.push(BindingStackEntry.requestedAt(key, function))
+              bindingStack.push(BindingStack.Entry.requestedAt(key, function))
               body =
                 pluginContext.createIrBuilder(symbol).run {
                   if (binding is Binding.Multibinding) {
@@ -881,7 +896,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     node.exposedTypes.forEach { (accessor, contextualTypeKey) ->
       findAndProcessBinding(
         contextKey = contextualTypeKey,
-        stackEntry = BindingStackEntry.requestedAt(contextualTypeKey.typeKey, accessor),
+        stackEntry = BindingStack.Entry.requestedAt(contextualTypeKey.typeKey, accessor),
         node = node,
         graph = graph,
         bindingStack = bindingStack,
@@ -895,7 +910,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
 
   private fun findAndProcessBinding(
     contextKey: ContextualTypeKey,
-    stackEntry: BindingStackEntry,
+    stackEntry: BindingStack.Entry,
     node: DependencyGraphNode,
     graph: BindingGraph,
     bindingStack: BindingStack,
@@ -959,7 +974,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         // Error if there are mismatched scopes
         val declarationToReport = node.sourceGraph
         bindingStack.push(
-          BindingStackEntry.simpleTypeRef(key, usage = "(scoped to '$bindingScope')")
+          BindingStack.Entry.simpleTypeRef(key, usage = "(scoped to '$bindingScope')")
         )
         val message = buildString {
           append("[Lattice/IncompatiblyScopedBindings] ")
@@ -1115,17 +1130,17 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
             when (binding) {
               is Binding.ConstructorInjected -> {
                 val constructor = binding.injectedConstructor
-                BindingStackEntry.injectedAt(typeKey, constructor, constructor.valueParameters[i])
+                BindingStack.Entry.injectedAt(typeKey, constructor, constructor.valueParameters[i])
               }
               is Binding.Provided -> {
-                BindingStackEntry.injectedAt(typeKey, function, function.valueParameters[i])
+                BindingStack.Entry.injectedAt(typeKey, function, function.valueParameters[i])
               }
               is Binding.Assisted -> {
-                BindingStackEntry.injectedAt(typeKey, function)
+                BindingStack.Entry.injectedAt(typeKey, function)
               }
               is Binding.Multibinding -> {
                 // TODO can't be right?
-                BindingStackEntry.injectedAt(typeKey, function)
+                BindingStack.Entry.injectedAt(typeKey, function)
               }
               is Binding.Absent,
               is Binding.BoundInstance,

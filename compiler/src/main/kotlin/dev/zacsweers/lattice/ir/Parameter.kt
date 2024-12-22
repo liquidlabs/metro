@@ -13,13 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice.transformers
+package dev.zacsweers.lattice.ir
 
 import dev.zacsweers.lattice.LatticeSymbols
-import dev.zacsweers.lattice.ir.annotationsIn
-import dev.zacsweers.lattice.ir.constArgumentOfTypeAt
-import dev.zacsweers.lattice.ir.locationOrNull
-import dev.zacsweers.lattice.transformers.Parameter.Kind
+import dev.zacsweers.lattice.ir.Parameter.Kind
 import dev.zacsweers.lattice.unsafeLazy
 import kotlin.collections.count
 import kotlin.collections.sumOf
@@ -145,7 +142,7 @@ internal data class ConstructorParameter(
     Parameter.AssistedParameterKey(contextualTypeKey.typeKey, assistedIdentifier),
   override val symbols: LatticeSymbols,
   override val isGraphInstance: Boolean,
-  val bindingStackEntry: BindingStackEntry,
+  val bindingStackEntry: BindingStack.Entry,
   override val isBindsInstance: Boolean,
   override val hasDefault: Boolean,
   override val location: CompilerMessageSourceLocation?,
@@ -325,7 +322,7 @@ internal fun IrValueParameter.toConstructorParameter(
       assistedIdentifier = assistedIdentifier,
       symbols = context.symbols,
       isGraphInstance = false,
-      bindingStackEntry = BindingStackEntry.injectedAt(typeMetadata.typeKey, ownerFunction, this),
+      bindingStackEntry = BindingStack.Entry.injectedAt(typeMetadata.typeKey, ownerFunction, this),
       isBindsInstance = isBindsInstance,
       hasDefault = defaultValue != null,
       location = locationOrNull(),
