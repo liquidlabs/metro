@@ -84,6 +84,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.IrScriptSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
@@ -153,7 +154,8 @@ internal fun IrElement?.locationIn(file: IrFile): CompilerMessageSourceLocation 
 
 /** Returns the raw [IrClass] of this [IrType] or throws. */
 internal fun IrType.rawType(): IrClass {
-  return rawTypeOrNull() ?: error("Unrecognized type! $this")
+  return rawTypeOrNull()
+    ?: run { error("Unrecognized type! ${dumpKotlinLike()} (${classifierOrNull?.javaClass})") }
 }
 
 /** Returns the raw [IrClass] of this [IrType] or null. */
@@ -727,6 +729,7 @@ internal fun IrSimpleFunction.isAbstractAndVisible(): Boolean {
 
 internal fun IrClass.abstractFunctions(context: LatticeTransformerContext): List<IrSimpleFunction> {
   return allFunctions(context.pluginContext)
+    // Don't exclude fake overrides as we want the final materialized one
     // Merge inherited functions with matching signatures
     .groupBy {
       // Don't include the return type because overrides may have different ones
@@ -816,3 +819,24 @@ internal fun IrFunction.isBindsProviderCandidate(symbols: LatticeSymbols): Boole
  */
 internal fun IrBuilderWithScope.irBlockBody(symbol: IrSymbol, expression: IrExpression) =
   context.createIrBuilder(symbol).irBlockBody { +irReturn(expression) }
+
+internal fun IrFunction.buildBlockBody(
+  context: IrPluginContext,
+  blockBody: IrBlockBodyBuilder.() -> Unit,
+) {
+  body = context.createIrBuilder(symbol).irBlockBody(body = blockBody)
+}
+
+@OptIn(UnsafeDuringIrConstructionAPI::class)
+internal val IrType.simpleName: String?
+  get() =
+    when (val classifier = classifierOrNull) {
+      is IrClassSymbol -> {
+        classifier.owner.name.asString()
+      }
+      is IrScriptSymbol -> error("No simple name for script symbol: ${dumpKotlinLike()}")
+      is IrTypeParameterSymbol -> {
+        classifier.owner.name.asString()
+      }
+      null -> error("No classifier for ${dumpKotlinLike()}")
+    }
