@@ -42,6 +42,7 @@ plugins {
   alias(libs.plugins.atomicfu) apply false
   alias(libs.plugins.spotless)
   alias(libs.plugins.binaryCompatibilityValidator)
+  alias(libs.plugins.poko) apply false
 }
 
 apiValidation {
@@ -107,6 +108,8 @@ allprojects {
         "**/MapProviderFactory.kt",
         "**/MapProviderFactoryTest.kt",
         "**/NameAllocator.kt",
+        "**/NameAllocatorTest.kt",
+        "**/MembersInjector.kt",
         "**/ProviderOfLazy.kt",
         "**/SetFactory.kt",
         "**/SetFactoryTest.kt",

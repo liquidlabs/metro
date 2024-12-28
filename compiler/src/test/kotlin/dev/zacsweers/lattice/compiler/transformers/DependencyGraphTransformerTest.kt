@@ -1299,13 +1299,10 @@ class DependencyGraphTransformerTest : LatticeCompilerTest() {
   fun `graph creators must be visible`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
-          """
-            package test
-
-            import dev.zacsweers.lattice.annotations.DependencyGraph
-
+        source(
+          fileNameWithoutExtension = "graphs",
+          source =
+            """
             // Ok
             @DependencyGraph
             abstract class GraphWithImplicitPublicFactory {
@@ -1349,14 +1346,14 @@ class DependencyGraphTransformerTest : LatticeCompilerTest() {
               }
             }
           """
-            .trimIndent(),
+              .trimIndent(),
         ),
         expectedExitCode = ExitCode.COMPILATION_ERROR,
       )
 
     result.assertContainsAll(
-      "ExampleGraph.kt:35:23 DependencyGraph factory must be public or internal.",
-      "ExampleGraph.kt:43:21 DependencyGraph factory must be public or internal.",
+      "graphs.kt:38:3 DependencyGraph factory must be public or internal.",
+      "graphs.kt:46:3 DependencyGraph factory must be public or internal.",
     )
   }
 
@@ -1536,8 +1533,6 @@ class DependencyGraphTransformerTest : LatticeCompilerTest() {
 
   // TODO
   //  - advanced graph resolution (i.e. complex dep chains)
-  //  - break-the-chain deps
   //  - @get:Provides?
-  //  - Binds examples
   //  - Inherited exposed types + deduping overrides?
 }

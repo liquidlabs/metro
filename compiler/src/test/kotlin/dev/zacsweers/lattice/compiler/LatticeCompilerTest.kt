@@ -21,11 +21,14 @@ import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.PluginOption
 import com.tschuchort.compiletesting.SourceFile
+import com.tschuchort.compiletesting.addPreviousResultToClasspath
 import dev.zacsweers.lattice.LatticeCommandLineProcessor
 import dev.zacsweers.lattice.LatticeCommandLineProcessor.Companion.OPTION_DEBUG
 import dev.zacsweers.lattice.LatticeCommandLineProcessor.Companion.OPTION_ENABLED
 import dev.zacsweers.lattice.LatticeCommandLineProcessor.Companion.OPTION_GENERATE_ASSISTED_FACTORIES
 import dev.zacsweers.lattice.LatticeCompilerPluginRegistrar
+import dev.zacsweers.lattice.LatticeSymbols
+import org.intellij.lang.annotations.Language
 import org.jetbrains.kotlin.compiler.plugin.CliOption
 import org.jetbrains.kotlin.compiler.plugin.CommandLineProcessor
 import org.junit.Rule
@@ -35,10 +38,20 @@ abstract class LatticeCompilerTest {
 
   @Rule @JvmField val temporaryFolder: TemporaryFolder = TemporaryFolder()
 
+  val defaultImports =
+    listOf(
+      "${LatticeSymbols.StringNames.latticeRuntimePackage}.*",
+      "${LatticeSymbols.StringNames.latticeRuntimeAnnotationsPackage}.*",
+      "${LatticeSymbols.StringNames.latticeRuntimeMultibindingsPackage}.*",
+      // For Callable access
+      "java.util.concurrent.*",
+    )
+
   protected fun prepareCompilation(
     vararg sourceFiles: SourceFile,
     debug: Boolean = false,
     generateAssistedFactories: Boolean = false,
+    previousCompilationResult: JvmCompilationResult? = null,
   ): KotlinCompilation {
     return KotlinCompilation().apply {
       workingDir = temporaryFolder.root
@@ -57,6 +70,10 @@ abstract class LatticeCompilerTest {
       jvmTarget = "11"
       // TODO need to support non-JVM invoke too
       kotlincArguments += "-Xjvm-default=all"
+
+      if (previousCompilationResult != null) {
+        addPreviousResultToClasspath(previousCompilationResult)
+      }
     }
   }
 
@@ -64,16 +81,49 @@ abstract class LatticeCompilerTest {
     return PluginOption(pluginId, key.optionName, value.toString())
   }
 
+  /**
+   * Returns a [SourceFile] representation of this [source]. This includes common imports from
+   * Lattice.
+   */
+  protected fun source(
+    @Language("kotlin") source: String,
+    fileNameWithoutExtension: String? = null,
+    packageName: String = "test",
+    vararg extraImports: String,
+  ): SourceFile {
+    val fileName =
+      fileNameWithoutExtension ?: CLASS_NAME_REGEX.find(source)?.groups?.get(2)?.value ?: "source"
+    return SourceFile.kotlin(
+      "${fileName}.kt",
+      buildString {
+        // Package statement
+        appendLine("package $packageName")
+
+        // Imports
+        for (import in defaultImports + extraImports) {
+          appendLine("import $import")
+        }
+
+        appendLine()
+        appendLine()
+        appendLine(source)
+      },
+    )
+  }
+
   protected fun compile(
     vararg sourceFiles: SourceFile,
     debug: Boolean = false,
     generateAssistedFactories: Boolean = false,
     expectedExitCode: KotlinCompilation.ExitCode = KotlinCompilation.ExitCode.OK,
+    previousCompilationResult: JvmCompilationResult? = null,
+    body: JvmCompilationResult.() -> Unit = {},
   ): JvmCompilationResult {
     return prepareCompilation(
         sourceFiles = sourceFiles,
         debug = debug,
         generateAssistedFactories = generateAssistedFactories,
+        previousCompilationResult = previousCompilationResult,
       )
       .compile()
       .apply {
@@ -83,9 +133,14 @@ abstract class LatticeCompilerTest {
           )
         }
       }
+      .apply(body)
   }
 
   protected fun CompilationResult.assertContains(message: String) {
     assertThat(messages).contains(message)
+  }
+
+  companion object {
+    val CLASS_NAME_REGEX = Regex("(class|object|interface) ([a-zA-Z0-9_]+)")
   }
 }

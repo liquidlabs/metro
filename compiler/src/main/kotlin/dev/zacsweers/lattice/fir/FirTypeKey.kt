@@ -25,14 +25,10 @@ import org.jetbrains.kotlin.fir.declarations.FirReceiverParameter
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
-import org.jetbrains.kotlin.fir.resolve.toClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
-import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.renderReadableWithFqNames
-import org.jetbrains.kotlin.fir.types.resolvedType
 
 // TODO cache these?
 internal class FirTypeKey(val type: FirTypeRef, val qualifier: LatticeFirAnnotation? = null) :
@@ -124,19 +120,7 @@ internal class FirTypeKey(val type: FirTypeRef, val qualifier: LatticeFirAnnotat
       annotations: List<FirAnnotation>,
     ): FirTypeKey {
       // Check duplicate params
-      val qualifier =
-        annotations
-          .filterIsInstance<FirAnnotationCall>()
-          .singleOrNull { annotationCall ->
-            val annotationType =
-              annotationCall.resolvedType as? ConeClassLikeType ?: return@singleOrNull false
-            val annotationClass = annotationType.toClassSymbol(session) ?: return@singleOrNull false
-            annotationClass.annotations.isAnnotatedWithAny(
-              session,
-              latticeClassIds.qualifierAnnotations,
-            )
-          }
-          ?.let { LatticeFirAnnotation(it) }
+      val qualifier = annotations.qualifierAnnotation(session)
       return FirTypeKey(typeRef, qualifier)
     }
   }

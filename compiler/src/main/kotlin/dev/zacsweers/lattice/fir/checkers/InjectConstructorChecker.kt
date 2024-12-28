@@ -15,7 +15,12 @@
  */
 package dev.zacsweers.lattice.fir.checkers
 
-import dev.zacsweers.lattice.fir.*
+import dev.zacsweers.lattice.fir.FirLatticeErrors
+import dev.zacsweers.lattice.fir.annotationsIn
+import dev.zacsweers.lattice.fir.findInjectConstructor
+import dev.zacsweers.lattice.fir.latticeClassIds
+import dev.zacsweers.lattice.fir.validateInjectedClass
+import dev.zacsweers.lattice.fir.validateVisibility
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
@@ -55,7 +60,7 @@ internal object InjectConstructorChecker : FirClassChecker(MppCheckerKind.Common
     }
 
     val constructorToValidate = injectedConstructor ?: declaration.primaryConstructorIfAny(session)
-    constructorToValidate?.validateVisibility(context, reporter) {
+    constructorToValidate?.validateVisibility(context, reporter, "Injected constructors") {
       return
     }
   }

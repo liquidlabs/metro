@@ -28,12 +28,17 @@ import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirClass
+import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.constructors
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
+import org.jetbrains.kotlin.fir.declarations.primaryConstructorIfAny
 import org.jetbrains.kotlin.fir.declarations.toAnnotationClassIdSafe
+import org.jetbrains.kotlin.fir.declarations.utils.isAbstract
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
@@ -217,8 +222,8 @@ internal inline fun FirClass.singleAbstractFunction(
   function.checkVisibility { source ->
     reporter.reportOn(
       source,
-      FirLatticeErrors.FACTORY_FACTORY_FUNCTION_MUST_BE_VISIBLE,
-      type,
+      FirLatticeErrors.LATTICE_DECLARATION_VISIBILITY_ERROR,
+      "$type classes' single abstract functions",
       context,
     )
     onError()
@@ -237,13 +242,14 @@ internal fun FirAnnotationCall.computeAnnotationHash(): Int {
   )
 }
 
-internal inline fun FirClass.findInjectConstructor(
+internal inline fun FirClassLikeDeclaration.findInjectConstructor(
   session: FirSession,
   latticeClassIds: LatticeClassIds,
   context: CheckerContext,
   reporter: DiagnosticReporter,
   onError: () -> Nothing,
 ): FirConstructorSymbol? {
+  if (this !is FirClass) return null
   val constructorInjections =
     constructors(session).filter {
       it.annotations.isAnnotatedWithAny(session, latticeClassIds.injectAnnotations)
@@ -316,14 +322,30 @@ internal inline fun FirClass.validateInjectedClass(
   }
 }
 
-internal inline fun FirClass.validateFactoryClass(
+internal fun FirCallableDeclaration.allAnnotations(): Sequence<FirAnnotation> {
+  return sequence {
+    yieldAll(annotations)
+    if (this@allAnnotations is FirProperty) {
+      yieldAll(backingField?.annotations.orEmpty())
+      getter?.annotations?.let { yieldAll(it) }
+      setter?.annotations?.let { yieldAll(it) }
+    }
+  }
+}
+
+internal inline fun FirClass.validateApiDeclaration(
   context: CheckerContext,
   reporter: DiagnosticReporter,
   type: String,
   onError: () -> Nothing,
 ) {
   if (isLocal) {
-    reporter.reportOn(source, FirLatticeErrors.FACTORY_CLASS_CANNOT_BE_LOCAL, type, context)
+    reporter.reportOn(
+      source,
+      FirLatticeErrors.LATTICE_DECLARATION_ERROR,
+      "$type classes cannot be local classes.",
+      context,
+    )
     onError()
   }
 
@@ -334,8 +356,8 @@ internal inline fun FirClass.validateFactoryClass(
         Modality.SEALED -> {
           reporter.reportOn(
             source,
-            FirLatticeErrors.FACTORY_SHOULD_BE_INTERFACE_OR_ABSTRACT,
-            type,
+            FirLatticeErrors.LATTICE_DECLARATION_ERROR,
+            "$type classes should be non-sealed abstract classes or interfaces.",
             context,
           )
           onError()
@@ -354,8 +376,8 @@ internal inline fun FirClass.validateFactoryClass(
           // final/open/sealed
           reporter.reportOn(
             source,
-            FirLatticeErrors.FACTORY_SHOULD_BE_INTERFACE_OR_ABSTRACT,
-            type,
+            FirLatticeErrors.LATTICE_DECLARATION_ERROR,
+            "$type classes should be non-sealed abstract classes or interfaces.",
             context,
           )
           onError()
@@ -365,8 +387,8 @@ internal inline fun FirClass.validateFactoryClass(
     else -> {
       reporter.reportOn(
         source,
-        FirLatticeErrors.FACTORY_SHOULD_BE_INTERFACE_OR_ABSTRACT,
-        type,
+        FirLatticeErrors.LATTICE_DECLARATION_ERROR,
+        "$type classes should be non-sealed abstract classes or interfaces.",
         context,
       )
       onError()
@@ -374,18 +396,56 @@ internal inline fun FirClass.validateFactoryClass(
   }
 
   checkVisibility { source ->
-    reporter.reportOn(source, FirLatticeErrors.FACTORY_MUST_BE_VISIBLE, type, context)
+    reporter.reportOn(source, FirLatticeErrors.LATTICE_DECLARATION_VISIBILITY_ERROR, type, context)
     onError()
+  }
+  if (isAbstract && classKind == ClassKind.CLASS) {
+    primaryConstructorIfAny(context.session)?.validateVisibility(
+      context,
+      reporter,
+      "$type classes' primary constructor",
+    ) {
+      onError()
+    }
   }
 }
 
 internal inline fun FirConstructorSymbol.validateVisibility(
   context: CheckerContext,
   reporter: DiagnosticReporter,
+  type: String,
   onError: () -> Nothing,
 ) {
   checkVisibility { source ->
-    reporter.reportOn(source, FirLatticeErrors.INJECTED_CONSTRUCTOR_MUST_BE_VISIBLE, context)
+    reporter.reportOn(source, FirLatticeErrors.LATTICE_DECLARATION_VISIBILITY_ERROR, type, context)
     onError()
   }
+}
+
+internal fun List<FirAnnotation>.qualifierAnnotation(session: FirSession): LatticeFirAnnotation? =
+  asSequence().annotationAnnotatedWithAny(session, session.latticeClassIds.qualifierAnnotations)
+
+internal fun List<FirAnnotation>.scopeAnnotation(session: FirSession): LatticeFirAnnotation? =
+  asSequence().scopeAnnotation(session)
+
+internal fun Sequence<FirAnnotation>.scopeAnnotation(session: FirSession): LatticeFirAnnotation? =
+  annotationAnnotatedWithAny(session, session.latticeClassIds.scopeAnnotations)
+
+// TODO add a single = true|false param? How would we propagate errors
+internal fun Sequence<FirAnnotation>.annotationAnnotatedWithAny(
+  session: FirSession,
+  names: Set<ClassId>,
+): LatticeFirAnnotation? {
+  return filterIsInstance<FirAnnotationCall>()
+    .firstOrNull { annotationCall -> annotationCall.isAnnotatedWithAny(session, names) }
+    ?.let { LatticeFirAnnotation(it) }
+}
+
+internal fun FirAnnotationCall.isAnnotatedWithAny(
+  session: FirSession,
+  names: Set<ClassId>,
+): Boolean {
+  val annotationType = resolvedType as? ConeClassLikeType ?: return false
+  val annotationClass = annotationType.toClassSymbol(session) ?: return false
+  return annotationClass.annotations.isAnnotatedWithAny(session, names)
 }

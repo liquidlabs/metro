@@ -16,16 +16,21 @@
 package dev.zacsweers.lattice.ir
 
 import dev.zacsweers.lattice.capitalizeUS
+import dev.zacsweers.lattice.ir.parameters.MembersInjectParameter
+import dev.zacsweers.lattice.ir.parameters.Parameter
+import dev.zacsweers.lattice.ir.parameters.Parameters
 import dev.zacsweers.lattice.isWordPrefixRegex
 import java.util.TreeSet
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
+import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.classId
+import org.jetbrains.kotlin.name.ClassId
 
 internal sealed interface Binding {
   val typeKey: TypeKey
@@ -33,7 +38,7 @@ internal sealed interface Binding {
   // TODO reconcile dependencies vs parameters in collectBindings
   val dependencies: Map<TypeKey, Parameter>
   // Track the list of parameters, which may not have unique type keys
-  val parameters: Parameters
+  val parameters: Parameters<out Parameter>
   val nameHint: String
   val contextualTypeKey: ContextualTypeKey
   val reportableLocation: CompilerMessageSourceLocation?
@@ -43,7 +48,7 @@ internal sealed interface Binding {
     val injectedConstructor: IrConstructor,
     val isAssisted: Boolean,
     override val typeKey: TypeKey,
-    override val parameters: Parameters,
+    override val parameters: Parameters<out Parameter>,
     override val scope: IrAnnotation? = null,
     override val dependencies: Map<TypeKey, Parameter> =
       parameters.nonInstanceParameters.associateBy { it.typeKey },
@@ -63,7 +68,7 @@ internal sealed interface Binding {
   data class Provided(
     val providerFunction: IrSimpleFunction,
     override val contextualTypeKey: ContextualTypeKey,
-    override val parameters: Parameters,
+    override val parameters: Parameters<out Parameter>,
     override val scope: IrAnnotation? = null,
     override val dependencies: Map<TypeKey, Parameter> =
       parameters.nonInstanceParameters.associateBy { it.typeKey },
@@ -93,7 +98,7 @@ internal sealed interface Binding {
     val type: IrClass,
     val target: ConstructorInjected,
     val function: IrSimpleFunction,
-    override val parameters: Parameters,
+    override val parameters: Parameters<out Parameter>,
     override val typeKey: TypeKey,
   ) : Binding {
     // Dependencies are handled by the target class
@@ -106,17 +111,20 @@ internal sealed interface Binding {
       get() = type.location()
   }
 
-  data class BoundInstance(val parameter: Parameter) : Binding {
-    override val typeKey: TypeKey = parameter.typeKey
+  data class BoundInstance(
+    override val typeKey: TypeKey,
+    override val nameHint: String,
+    override val reportableLocation: CompilerMessageSourceLocation?,
+  ) : Binding {
+    constructor(
+      parameter: Parameter
+    ) : this(parameter.typeKey, "${parameter.name.asString()}Instance", parameter.location)
+
     override val scope: IrAnnotation? = null
-    override val nameHint: String = "${parameter.name.asString()}Instance"
     override val dependencies: Map<TypeKey, Parameter> = emptyMap()
-    override val parameters: Parameters = Parameters.EMPTY
+    override val parameters: Parameters<out Parameter> = Parameters.empty()
     override val contextualTypeKey: ContextualTypeKey =
       ContextualTypeKey(typeKey, false, false, false, false)
-
-    override val reportableLocation: CompilerMessageSourceLocation?
-      get() = parameter.location
   }
 
   data class Absent(override val typeKey: TypeKey) : Binding {
@@ -125,7 +133,7 @@ internal sealed interface Binding {
       get() = error("Should never be called")
 
     override val dependencies: Map<TypeKey, Parameter> = emptyMap()
-    override val parameters: Parameters = Parameters.EMPTY
+    override val parameters: Parameters<out Parameter> = Parameters.empty()
     override val contextualTypeKey: ContextualTypeKey =
       ContextualTypeKey(typeKey, false, false, false, false)
 
@@ -153,7 +161,7 @@ internal sealed interface Binding {
       }
     }
     override val dependencies: Map<TypeKey, Parameter> = emptyMap()
-    override val parameters: Parameters = Parameters.EMPTY
+    override val parameters: Parameters<out Parameter> = Parameters.empty()
     override val contextualTypeKey: ContextualTypeKey =
       ContextualTypeKey(typeKey, false, false, false, false)
 
@@ -184,8 +192,8 @@ internal sealed interface Binding {
     override val dependencies: Map<TypeKey, Parameter>
       get() = emptyMap()
 
-    override val parameters: Parameters
-      get() = Parameters.EMPTY
+    override val parameters: Parameters<out Parameter>
+      get() = Parameters.empty()
 
     override val nameHint: String
       get() = error("Should never be called")
@@ -213,5 +221,22 @@ internal sealed interface Binding {
         return Multibinding(typeKey, isSet = isSet, isMap = isMap)
       }
     }
+  }
+
+  data class MembersInjected(
+    override val contextualTypeKey: ContextualTypeKey,
+    override val parameters: Parameters<MembersInjectParameter>,
+    override val reportableLocation: CompilerMessageSourceLocation?,
+    val function: IrFunction,
+    val isFromInjectorFunction: Boolean,
+    val targetClassId: ClassId,
+  ) : Binding {
+    override val typeKey: TypeKey = contextualTypeKey.typeKey
+
+    override val dependencies: Map<TypeKey, Parameter> =
+      parameters.nonInstanceParameters.associateBy { it.typeKey }
+    override val scope: IrAnnotation? = null
+
+    override val nameHint: String = "${typeKey.type.rawType().name}MembersInjector"
   }
 }

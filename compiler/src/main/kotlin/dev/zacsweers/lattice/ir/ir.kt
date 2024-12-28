@@ -17,6 +17,10 @@ package dev.zacsweers.lattice.ir
 
 import dev.zacsweers.lattice.LatticeOrigin
 import dev.zacsweers.lattice.LatticeSymbols
+import dev.zacsweers.lattice.ir.parameters.Parameter
+import dev.zacsweers.lattice.ir.parameters.Parameters
+import dev.zacsweers.lattice.ir.parameters.wrapInLazy
+import dev.zacsweers.lattice.ir.parameters.wrapInProvider
 import dev.zacsweers.lattice.letIf
 import java.util.Objects
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -63,6 +67,7 @@ import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrMutableAnnotationContainer
+import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.declarations.IrVariable
@@ -342,12 +347,29 @@ internal fun IrConstructorCall.computeAnnotationHash(): Int {
   )
 }
 
+// TODO create an instance of this that caches lookups?
+internal fun IrClass.declaredCallableMembers(
+  functionFilter: (IrSimpleFunction) -> Boolean = { true },
+  propertyFilter: (IrProperty) -> Boolean = { true },
+): Sequence<IrSimpleFunction> =
+  allCallableMembers(
+    excludeAnyFunctions = true,
+    excludeInheritedMembers = true,
+    excludeCompanionObjectMembers = true,
+    functionFilter = functionFilter,
+    propertyFilter = propertyFilter,
+  )
+
+// TODO create an instance of this that caches lookups?
 @OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun IrClass.allCallableMembers(
-  excludeAnyFunctions: Boolean = true
+  excludeAnyFunctions: Boolean = true,
+  excludeInheritedMembers: Boolean = false,
+  excludeCompanionObjectMembers: Boolean = false,
+  functionFilter: (IrSimpleFunction) -> Boolean = { true },
+  propertyFilter: (IrProperty) -> Boolean = { true },
 ): Sequence<IrSimpleFunction> {
   return functions
-    .asSequence()
     .letIf(excludeAnyFunctions) {
       // TODO optimize this?
       // TODO does this even work
@@ -357,11 +379,22 @@ internal fun IrClass.allCallableMembers(
         }
       }
     }
-    .plus(properties.asSequence().mapNotNull { property -> property.getter })
+    .filter(functionFilter)
+    .plus(properties.filter(propertyFilter).mapNotNull { property -> property.getter })
+    .letIf(excludeInheritedMembers) { it.filterNot { function -> function.isFakeOverride } }
     .let { parentClassCallables ->
-      companionObject()?.let { companionObject ->
-        parentClassCallables + companionObject.allCallableMembers()
-      } ?: parentClassCallables
+      if (excludeCompanionObjectMembers) {
+        parentClassCallables
+      } else {
+        companionObject()?.let { companionObject ->
+          parentClassCallables +
+            companionObject.allCallableMembers(
+              excludeAnyFunctions,
+              excludeInheritedMembers,
+              excludeCompanionObjectMembers = false,
+            )
+        } ?: parentClassCallables
+      }
     }
 }
 
@@ -466,17 +499,16 @@ internal fun IrBuilderWithScope.irCallWithSameParameters(
  */
 internal fun IrBuilderWithScope.parametersAsProviderArguments(
   context: LatticeTransformerContext,
-  parameters: Parameters,
+  parameters: Parameters<out Parameter>,
   receiver: IrValueParameter,
   parametersToFields: Map<Parameter, IrField>,
-  symbols: LatticeSymbols,
 ): List<IrExpression?> {
   return buildList {
     addAll(
       parameters.allParameters
         .filterNot { it.isAssisted }
         .map { parameter ->
-          parameterAsProviderArgument(context, parameter, receiver, parametersToFields, symbols)
+          parameterAsProviderArgument(context, parameter, receiver, parametersToFields)
         }
     )
   }
@@ -488,20 +520,17 @@ internal fun IrBuilderWithScope.parameterAsProviderArgument(
   parameter: Parameter,
   receiver: IrValueParameter,
   parametersToFields: Map<Parameter, IrField>,
-  symbols: LatticeSymbols,
 ): IrExpression {
   // When calling value getter on Provider<T>, make sure the dispatch
   // receiver is the Provider instance itself
   val providerInstance = irGetField(irGet(receiver), parametersToFields.getValue(parameter))
-  // TODO this cast is unsafe
-  val typeMetadata = (parameter as ConstructorParameter).contextualTypeKey
+  val typeMetadata = parameter.contextualTypeKey
   return typeAsProviderArgument(
     context,
     typeMetadata,
     providerInstance,
     isAssisted = parameter.isAssisted,
     isGraphInstance = parameter.isGraphInstance,
-    symbols = symbols,
   )
 }
 
@@ -511,8 +540,8 @@ internal fun IrBuilderWithScope.typeAsProviderArgument(
   bindingCode: IrExpression,
   isAssisted: Boolean,
   isGraphInstance: Boolean,
-  symbols: LatticeSymbols,
 ): IrExpression {
+  val symbols = context.symbols
   if (!bindingCode.type.isLatticeProviderType(context)) {
     // Not a provider, nothing else to do here!
     return bindingCode
@@ -563,12 +592,12 @@ internal fun IrBuilderWithScope.typeAsProviderArgument(
 internal fun LatticeTransformerContext.assignConstructorParamsToFields(
   constructor: IrConstructor,
   clazz: IrClass,
-  parameters: Parameters,
+  parameters: List<Parameter>,
 ): Map<Parameter, IrField> {
   // Add a constructor parameter + field for every parameter.
   // This should be the provider type unless it's a special instance component type
   val parametersToFields = mutableMapOf<Parameter, IrField>()
-  for (parameter in parameters.allParameters) {
+  for (parameter in parameters) {
     if (parameter.isAssisted) continue
     val irParameter =
       constructor.addValueParameter(parameter.name, parameter.providerType, LatticeOrigin)
@@ -583,7 +612,7 @@ internal fun LatticeTransformerContext.assignConstructorParamsToFields(
 }
 
 /*
- * Implement a static `create()` function.
+ * Implement a static `create()` function for a given target [generatedConstructor].
  *
  * ```kotlin
  * // Simple
@@ -595,18 +624,19 @@ internal fun LatticeTransformerContext.assignConstructorParamsToFields(
  * fun <T> create(valueProvider: Provider<T>): Example_Factory<T> = Example_Factory<T>(valueProvider)
  * ```
  */
-internal fun IrClass.buildFactoryCreateFunction(
+internal fun IrClass.addStaticCreateFunction(
   context: LatticeTransformerContext,
-  factoryClass: IrClass,
-  factoryClassParameterized: IrType,
-  factoryConstructor: IrConstructorSymbol,
-  parameters: Parameters,
+  targetClass: IrClass,
+  targetClassParameterized: IrType,
+  targetConstructor: IrConstructorSymbol,
+  parameters: Parameters<out Parameter>,
   providerFunction: IrFunction?,
-) {
-  addFunction("create", factoryClassParameterized, isStatic = true).apply {
+  patchCreationParams: Boolean = true,
+): IrSimpleFunction {
+  return addFunction("create", targetClassParameterized, isStatic = true).apply {
     val thisFunction = this
-    dispatchReceiverParameter = this@buildFactoryCreateFunction.thisReceiver?.copyTo(this)
-    this.copyTypeParameters(factoryClass.typeParameters)
+    dispatchReceiverParameter = this@addStaticCreateFunction.thisReceiver?.copyTo(this)
+    this.copyTypeParameters(targetClass.typeParameters)
     this.origin = LatticeOrigin
     this.visibility = DescriptorVisibilities.PUBLIC
     with(context) { markJvmStatic() }
@@ -617,24 +647,33 @@ internal fun IrClass.buildFactoryCreateFunction(
     val valueParamsToPatch =
       parameters.valueParameters
         .filterNot { it.isAssisted }
-        .map { addValueParameter(it.name, it.providerType, LatticeOrigin) }
+        .map {
+          addValueParameter(it.name, it.providerType, LatticeOrigin).also { irParam ->
+            it.typeKey.qualifier?.let {
+              // Copy any qualifiers over so they're retrievable during dependency graph resolution
+              irParam.annotations += it.ir
+            }
+          }
+        }
 
-    context.patchFactoryCreationParameters(
-      providerFunction = providerFunction,
-      sourceParameters = parameters.valueParameters.filterNot { it.isAssisted }.map { it.ir },
-      factoryParameters = valueParamsToPatch,
-      factoryGraphParameter = instanceParam,
-      wrapInProvider = true,
-    )
+    if (patchCreationParams) {
+      context.copyParameterDefaultValues(
+        providerFunction = providerFunction,
+        sourceParameters = parameters.valueParameters.filterNot { it.isAssisted }.map { it.ir },
+        targetParameters = valueParamsToPatch,
+        targetGraphParameter = instanceParam,
+        wrapInProvider = true,
+      )
+    }
 
     body =
       context.pluginContext.createIrBuilder(symbol).run {
         irBlockBody(
           symbol,
-          if (factoryClass.isObject) {
-            irGetObject(factoryClass.symbol)
+          if (targetClass.isObject) {
+            irGetObject(targetClass.symbol)
           } else {
-            irCallConstructorWithSameParameters(thisFunction, factoryConstructor)
+            irCallConstructorWithSameParameters(thisFunction, targetConstructor)
           },
         )
       }
@@ -840,3 +879,14 @@ internal val IrType.simpleName: String?
       }
       null -> error("No classifier for ${dumpKotlinLike()}")
     }
+
+internal val IrProperty.allAnnotations: List<IrConstructorCall>
+  get() {
+    return buildList {
+        addAll(annotations)
+        getter?.let { addAll(it.annotations) }
+        setter?.let { addAll(it.annotations) }
+        backingField?.let { addAll(it.annotations) }
+      }
+      .distinct()
+  }

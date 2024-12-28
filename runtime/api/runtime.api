@@ -1,9 +1,14 @@
+public abstract interface class dev/zacsweers/lattice/MembersInjector {
+	public abstract fun injectMembers (Ljava/lang/Object;)V
+}
+
 public abstract interface class dev/zacsweers/lattice/Provider {
 	public abstract fun invoke ()Ljava/lang/Object;
 }
 
 public final class dev/zacsweers/lattice/ProviderKt {
 	public static final fun provider (Lkotlin/jvm/functions/Function0;)Ldev/zacsweers/lattice/Provider;
+	public static final fun providerOf (Ljava/lang/Object;)Ldev/zacsweers/lattice/Provider;
 }
 
 public abstract class dev/zacsweers/lattice/annotations/AppScope {
