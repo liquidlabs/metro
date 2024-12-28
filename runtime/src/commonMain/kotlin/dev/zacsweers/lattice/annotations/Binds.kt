@@ -13,10 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice.compiler
+package dev.zacsweers.lattice.annotations
 
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOriginImpl
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOriginImpl.Companion.provideDelegate
-
-internal val LatticeOrigin: IrDeclarationOrigin by IrDeclarationOriginImpl
+@Target(AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY_GETTER, AnnotationTarget.PROPERTY)
+public annotation class Binds

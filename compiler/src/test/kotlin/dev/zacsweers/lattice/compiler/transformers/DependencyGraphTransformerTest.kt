@@ -804,14 +804,8 @@ class DependencyGraphTransformerTest : LatticeCompilerTest() {
   fun `simple binds example`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
+        source(
           """
-            package test
-
-            import dev.zacsweers.lattice.annotations.DependencyGraph
-            import dev.zacsweers.lattice.annotations.Provides
-
             @DependencyGraph
             interface ExampleGraph {
 
@@ -824,9 +818,8 @@ class DependencyGraphTransformerTest : LatticeCompilerTest() {
               @Provides
               fun provideValue(): String = "Hello, world!"
             }
-
           """
-            .trimIndent(),
+            .trimIndent()
         )
       )
 
