@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2015 The Dagger Authors.
+ * Copyright (C) 2015 Zac Sweers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,18 +15,11 @@
  */
 @file:Suppress("RUNTIME_ANNOTATION_NOT_SUPPORTED") // Only read at compile-time
 
-package dev.zacsweers.lattice.annotations.multibindings
+package dev.zacsweers.lattice
 
-import kotlin.reflect.KClass
-
-/**
- * A [MapKey] annotation for maps with `KClass<*>` keys.
- *
- * If your map's keys can be constrained, consider using a custom annotation instead, with a member
- * whose type is `KClass<out Something>`.
- */
+/** A [MapKey] annotation for maps with [String] keys. */
 @MustBeDocumented
 @Target(AnnotationTarget.FUNCTION, AnnotationTarget.FIELD, AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 @MapKey
-public annotation class ClassKey(val value: KClass<*>)
+public annotation class StringKey(val value: String)
