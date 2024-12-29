@@ -22,7 +22,6 @@ import dev.zacsweers.lattice.compiler.capitalizeUS
 import dev.zacsweers.lattice.compiler.ir.LatticeTransformerContext
 import dev.zacsweers.lattice.compiler.ir.addCompanionObject
 import dev.zacsweers.lattice.compiler.ir.addOverride
-import dev.zacsweers.lattice.compiler.ir.addStaticCreateFunction
 import dev.zacsweers.lattice.compiler.ir.assignConstructorParamsToFields
 import dev.zacsweers.lattice.compiler.ir.createIrBuilder
 import dev.zacsweers.lattice.compiler.ir.declaredCallableMembers
@@ -37,6 +36,7 @@ import dev.zacsweers.lattice.compiler.ir.parameters.Parameters
 import dev.zacsweers.lattice.compiler.ir.parameters.memberInjectParameters
 import dev.zacsweers.lattice.compiler.ir.parametersAsProviderArguments
 import dev.zacsweers.lattice.compiler.ir.rawTypeOrNull
+import dev.zacsweers.lattice.compiler.ir.thisReceiverOrFail
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.builders.IrBlockBodyBuilder
@@ -160,7 +160,11 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
     val membersInjectorType = symbols.latticeMembersInjector.typeWith(injectedTypeParameterized)
 
     /*
-    TODO doc how this looks
+    Generates an implementation of a MembersInjector for the given target type. This includes
+    - Dependencies as provider params
+    - A static create() to instantiate it
+    - An implementation of MembersInjector.injectMembers()
+    - Static inject* functions for each member of the target class's _declared_ members.
     */
     val injectorClass =
       pluginContext.irFactory
@@ -179,12 +183,10 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
           declaration.addChild(this)
         }
 
-    val injectorClassId = injectorClass.classIdOrFail
-
     val typeParameters = injectorClass.copyTypeParameters(injectedTypeParameters)
 
     injectorClass.createImplicitParameterDeclarationWithWrappedDescriptor()
-    val injectorClassReceiver = injectorClass.thisReceiver!!
+    val injectorClassReceiver = injectorClass.thisReceiverOrFail
 
     val injectorClassParameterized = injectorClass.symbol.typeWithParameters(typeParameters)
 
@@ -203,8 +205,9 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
       pluginContext.irFactory.addCompanionObject(symbols, parent = injectorClass)
 
     // Static create()
-    companionObject.addStaticCreateFunction(
-      context = this,
+    generateStaticCreateFunction(
+      context = latticeContext,
+      parentClass = companionObject,
       targetClass = injectorClass,
       targetClassParameterized = injectorClassParameterized,
       targetConstructor = ctor.symbol,
@@ -243,8 +246,6 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
               origin = LatticeOrigin,
             )
             .apply {
-              markJvmStatic()
-
               // Params
               // Add instance
               val instanceParam =
@@ -263,7 +264,7 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
                       if (irField == null) {
                         irInvoke(
                           irGet(instanceParam),
-                          callee = params.ir.symbol,
+                          callee = params.ir!!.symbol,
                           args = listOf(irGet(value)),
                         )
                       } else {
@@ -272,7 +273,7 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
                     } else {
                       irInvoke(
                         irGet(instanceParam),
-                        callee = params.ir.symbol,
+                        callee = params.ir!!.symbol,
                         args = valueParameters.drop(1).map { irGet(it) },
                       )
                     }
@@ -308,13 +309,13 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
         overriddenSymbols = listOf(symbols.latticeMembersInjectorInjectMembers),
       )
       .apply {
-        this.dispatchReceiverParameter = injectorClass.thisReceiver!!
+        this.dispatchReceiverParameter = injectorClass.thisReceiverOrFail
         val instanceParam =
           addValueParameter(LatticeSymbols.Names.Instance, injectedTypeParameterized)
         body =
           pluginContext.createIrBuilder(symbol).irBlockBody {
             addMemberInjection(
-              context = this@MembersInjectorTransformer,
+              context = latticeContext,
               instanceReceiver = instanceParam,
               injectorReceiver = injectorClassReceiver,
               injectFunctions = injectFunctions,

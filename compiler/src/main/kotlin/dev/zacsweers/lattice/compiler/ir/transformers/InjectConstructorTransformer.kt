@@ -20,11 +20,9 @@ import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.ir.LatticeTransformerContext
 import dev.zacsweers.lattice.compiler.ir.addCompanionObject
 import dev.zacsweers.lattice.compiler.ir.addOverride
-import dev.zacsweers.lattice.compiler.ir.addStaticCreateFunction
 import dev.zacsweers.lattice.compiler.ir.assignConstructorParamsToFields
-import dev.zacsweers.lattice.compiler.ir.copyParameterDefaultValues
 import dev.zacsweers.lattice.compiler.ir.createIrBuilder
-import dev.zacsweers.lattice.compiler.ir.irBlockBody
+import dev.zacsweers.lattice.compiler.ir.dispatchReceiverFor
 import dev.zacsweers.lattice.compiler.ir.irInvoke
 import dev.zacsweers.lattice.compiler.ir.irTemporary
 import dev.zacsweers.lattice.compiler.ir.isAnnotatedWithAny
@@ -33,6 +31,7 @@ import dev.zacsweers.lattice.compiler.ir.parameters.Parameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameters
 import dev.zacsweers.lattice.compiler.ir.parameters.parameters
 import dev.zacsweers.lattice.compiler.ir.parametersAsProviderArguments
+import dev.zacsweers.lattice.compiler.ir.thisReceiverOrFail
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.builders.declarations.addFunction
@@ -47,10 +46,10 @@ import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
-import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.typeWith
@@ -125,7 +124,7 @@ internal class InjectConstructorTransformer(
     val typeParameters = factoryCls.copyTypeParameters(targetTypeParameters)
 
     val constructorParameters =
-      targetConstructor.parameters(this@InjectConstructorTransformer, factoryCls, declaration)
+      targetConstructor.parameters(latticeContext, factoryCls, declaration)
     val allParameters =
       buildList {
           add(constructorParameters)
@@ -156,7 +155,7 @@ internal class InjectConstructorTransformer(
     val parametersToFields =
       assignConstructorParamsToFields(ctor, factoryCls, allParameters.flatMap { it.allParameters })
 
-    val newInstanceFunctionSymbol =
+    val newInstanceFunction =
       generateCreators(
         factoryCls,
         ctor.symbol,
@@ -207,10 +206,10 @@ internal class InjectConstructorTransformer(
 
     implementInvokeOrGetBody(
       invokeOrGet,
-      newInstanceFunctionSymbol,
+      newInstanceFunction,
       constructorParameters,
       injectors,
-      factoryCls.thisReceiver!!,
+      factoryCls.thisReceiverOrFail,
       parametersToFields,
     )
 
@@ -222,7 +221,7 @@ internal class InjectConstructorTransformer(
 
   private fun implementInvokeOrGetBody(
     function: IrFunction,
-    newInstanceFunctionSymbol: IrSimpleFunctionSymbol,
+    newInstanceFunction: IrSimpleFunction,
     constructorParameters: Parameters<ConstructorParameter>,
     injectors: List<MembersInjectorTransformer.MemberInjectClass>,
     factoryReceiver: IrValueParameter,
@@ -235,11 +234,12 @@ internal class InjectConstructorTransformer(
         val instance =
           irTemporary(
             irInvoke(
-              callee = newInstanceFunctionSymbol,
+              dispatchReceiver = dispatchReceiverFor(newInstanceFunction),
+              callee = newInstanceFunction.symbol,
               args =
                 assistedArgs +
                   parametersAsProviderArguments(
-                    context = this@InjectConstructorTransformer,
+                    context = latticeContext,
                     parameters = constructorParameters,
                     receiver = factoryReceiver,
                     parametersToFields = parametersToFields,
@@ -258,7 +258,7 @@ internal class InjectConstructorTransformer(
                     add(irGet(instance))
                     addAll(
                       parametersAsProviderArguments(
-                        this@InjectConstructorTransformer,
+                        latticeContext,
                         parameters,
                         factoryReceiver,
                         parametersToFields,
@@ -283,7 +283,7 @@ internal class InjectConstructorTransformer(
     factoryClassParameterized: IrType,
     constructorParameters: Parameters<ConstructorParameter>,
     allParameters: List<Parameters<out Parameter>>,
-  ): IrSimpleFunctionSymbol {
+  ): IrSimpleFunction {
     // If this is an object, we can generate directly into this object
     val isObject = factoryCls.kind == ClassKind.OBJECT
     val classToGenerateCreatorsIn =
@@ -295,15 +295,15 @@ internal class InjectConstructorTransformer(
 
     // TODO
     //  Dagger will de-dupe these by type key to shrink the code. We could do the same but only for
-    // parameters
-    //  that don't have default values. For those cases, we would need to keep them as-is.
-    //  Something for another day.
+    //  parameters that don't have default values. For those cases, we would need to keep them
+    //  as-is. Something for another day.
     val mergedParameters =
       allParameters.reduce { current, next -> current.mergeValueParametersWithUntyped(next) }
 
     // Generate create()
-    classToGenerateCreatorsIn.addStaticCreateFunction(
-      context = this,
+    generateStaticCreateFunction(
+      context = latticeContext,
+      parentClass = classToGenerateCreatorsIn,
       targetClass = factoryCls,
       targetClassParameterized = factoryClassParameterized,
       targetConstructor = factoryConstructor,
@@ -311,60 +311,23 @@ internal class InjectConstructorTransformer(
       providerFunction = null,
     )
 
-    /*
-     Implement a static newInstance() function
-
-     // Simple
-     @JvmStatic // JVM only
-     fun newInstance(value: T): Example = Example(value)
-
-     // Generic
-     @JvmStatic // JVM only
-     fun <T> newInstance(value: T): Example<T> = Example<T>(value)
-
-     // Provider
-     @JvmStatic // JVM only
-     fun newInstance(value: Provider<String>): Example = Example(value)
-    */
-    // TODO dedupe with provider factory code gen
     val newInstanceFunction =
-      classToGenerateCreatorsIn
-        .addFunction(
-          "newInstance",
-          targetTypeParameterized,
-          isStatic = true,
-          origin = LatticeOrigin,
-          visibility = DescriptorVisibilities.PUBLIC,
-        )
-        .apply {
-          this.copyTypeParameters(targetConstructor.owner.typeParameters)
-          markJvmStatic()
-
-          for (parameter in constructorParameters.valueParameters) {
-            addValueParameter(parameter.name, parameter.originalType, LatticeOrigin)
+      generateStaticNewInstanceFunction(
+        latticeContext,
+        classToGenerateCreatorsIn,
+        LatticeSymbols.StringNames.NewInstance,
+        targetTypeParameterized,
+        constructorParameters,
+        sourceParameters = constructorParameters.valueParameters.map { it.ir },
+        sourceTypeParameters = targetConstructor.owner.typeParameters,
+      ) { function ->
+        irCallConstructor(targetConstructor, emptyList()).apply {
+          for (index in constructorParameters.allParameters.indices) {
+            val parameter = function.valueParameters[index]
+            putValueArgument(parameter.index, irGet(parameter))
           }
-
-          copyParameterDefaultValues(
-            providerFunction = null,
-            sourceParameters = constructorParameters.valueParameters.map { it.ir },
-            targetParameters = valueParameters,
-            targetGraphParameter = null,
-          )
-
-          body =
-            pluginContext.createIrBuilder(symbol).run {
-              irBlockBody(
-                symbol,
-                irCallConstructor(targetConstructor, emptyList()).apply {
-                  for (index in constructorParameters.allParameters.indices) {
-                    val parameter = valueParameters[index]
-                    putValueArgument(parameter.index, irGet(parameter))
-                  }
-                },
-              )
-            }
         }
-
-    return newInstanceFunction.symbol
+      }
+    return newInstanceFunction
   }
 }

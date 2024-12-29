@@ -111,7 +111,6 @@ import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.classIdOrFail
 import org.jetbrains.kotlin.ir.util.companionObject
 import org.jetbrains.kotlin.ir.util.copyTo
-import org.jetbrains.kotlin.ir.util.copyTypeParameters
 import org.jetbrains.kotlin.ir.util.copyValueParametersFrom
 import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
 import org.jetbrains.kotlin.ir.util.defaultType
@@ -616,74 +615,17 @@ internal fun LatticeTransformerContext.assignConstructorParamsToFields(
   return parametersToFields
 }
 
-/*
- * Implement a static `create()` function for a given target [generatedConstructor].
- *
- * ```kotlin
- * // Simple
- * @JvmStatic // JVM only
- * fun create(valueProvider: Provider<String>): Example_Factory = Example_Factory(valueProvider)
- *
- * // Generic
- * @JvmStatic // JVM only
- * fun <T> create(valueProvider: Provider<T>): Example_Factory<T> = Example_Factory<T>(valueProvider)
- * ```
- */
-internal fun IrClass.addStaticCreateFunction(
-  context: LatticeTransformerContext,
-  targetClass: IrClass,
-  targetClassParameterized: IrType,
-  targetConstructor: IrConstructorSymbol,
-  parameters: Parameters<out Parameter>,
-  providerFunction: IrFunction?,
-  patchCreationParams: Boolean = true,
-): IrSimpleFunction {
-  return addFunction("create", targetClassParameterized, isStatic = true).apply {
-    val thisFunction = this
-    dispatchReceiverParameter = this@addStaticCreateFunction.thisReceiver?.copyTo(this)
-    this.copyTypeParameters(targetClass.typeParameters)
-    this.origin = LatticeOrigin
-    this.visibility = DescriptorVisibilities.PUBLIC
-    with(context) { markJvmStatic() }
-
-    val instanceParam =
-      parameters.instance?.let { addValueParameter(it.name, it.providerType, LatticeOrigin) }
-    parameters.extensionReceiver?.let { addValueParameter(it.name, it.providerType, LatticeOrigin) }
-    val valueParamsToPatch =
-      parameters.valueParameters
-        .filterNot { it.isAssisted }
-        .map {
-          addValueParameter(it.name, it.providerType, LatticeOrigin).also { irParam ->
-            it.typeKey.qualifier?.let {
-              // Copy any qualifiers over so they're retrievable during dependency graph resolution
-              irParam.annotations += it.ir
-            }
-          }
-        }
-
-    if (patchCreationParams) {
-      context.copyParameterDefaultValues(
-        providerFunction = providerFunction,
-        sourceParameters = parameters.valueParameters.filterNot { it.isAssisted }.map { it.ir },
-        targetParameters = valueParamsToPatch,
-        targetGraphParameter = instanceParam,
-        wrapInProvider = true,
-      )
-    }
-
-    body =
-      context.pluginContext.createIrBuilder(symbol).run {
-        irBlockBody(
-          symbol,
-          if (targetClass.isObject) {
-            irGetObject(targetClass.symbol)
-          } else {
-            irCallConstructorWithSameParameters(thisFunction, targetConstructor)
-          },
-        )
-      }
+internal fun IrBuilderWithScope.dispatchReceiverFor(function: IrFunction): IrExpression {
+  val parent = function.parentAsClass
+  return if (parent.isObject) {
+    irGetObject(parent.symbol)
+  } else {
+    irGet(parent.thisReceiverOrFail)
   }
 }
+
+internal val IrClass.thisReceiverOrFail: IrValueParameter
+  get() = this.thisReceiver ?: error("No thisReceiver for $classId")
 
 internal fun IrBuilderWithScope.checkNotNullCall(
   context: LatticeTransformerContext,

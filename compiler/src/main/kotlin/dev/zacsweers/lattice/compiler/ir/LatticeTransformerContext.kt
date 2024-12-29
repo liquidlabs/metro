@@ -28,12 +28,10 @@ import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrProperty
-import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrTypeArgument
 import org.jetbrains.kotlin.ir.types.classOrNull
-import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.KotlinLikeDumpOptions
 import org.jetbrains.kotlin.ir.util.VisibilityPrintingStrategy
 import org.jetbrains.kotlin.ir.util.constructors
@@ -41,7 +39,6 @@ import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.platform.jvm.isJvm
 
 // TODO make this extend IrPluginContext?
 internal interface LatticeTransformerContext {
@@ -96,13 +93,6 @@ internal interface LatticeTransformerContext {
     nullable: Boolean = false,
     arguments: List<IrTypeArgument> = emptyList(),
   ) = pluginContext.irType(classId, nullable, arguments)
-
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
-  fun IrSimpleFunction.markJvmStatic() {
-    if (pluginContext.platform.isJvm()) {
-      addAnnotation(symbols.jvmStatic.typeWith(), symbols.jvmStatic.constructors.single())
-    }
-  }
 
   fun IrProperty?.qualifierAnnotation(): IrAnnotation? {
     if (this == null) return null

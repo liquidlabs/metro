@@ -53,6 +53,7 @@ import dev.zacsweers.lattice.compiler.ir.parameters.wrapInProvider
 import dev.zacsweers.lattice.compiler.ir.rawType
 import dev.zacsweers.lattice.compiler.ir.rawTypeOrNull
 import dev.zacsweers.lattice.compiler.ir.singleAbstractFunction
+import dev.zacsweers.lattice.compiler.ir.thisReceiverOrFail
 import dev.zacsweers.lattice.compiler.ir.typeAsProviderArgument
 import dev.zacsweers.lattice.compiler.ir.withEntry
 import dev.zacsweers.lattice.compiler.letIf
@@ -180,7 +181,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         }
         val graphClass = getOrBuildDependencyGraph(rawType)
         val graphCompanion = graphClass.companionObject()!!
-        val factoryFunction = graphCompanion.getSimpleFunction("create")!!
+        val factoryFunction = graphCompanion.getSimpleFunction(LatticeSymbols.StringNames.Create)!!
         // Replace it with a call directly to the create function
         return pluginContext.createIrBuilder(expression.symbol).run {
           irCall(callee = factoryFunction, type = type).apply {
@@ -651,7 +652,6 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
               this.dispatchReceiverParameter = thisReceiver?.copyTo(this)
               this.origin = LatticeOrigin
               this.visibility = DescriptorVisibilities.PUBLIC
-              markJvmStatic()
               body =
                 pluginContext.createIrBuilder(symbol).run {
                   irBlockBody(
@@ -664,11 +664,9 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         } else {
           // Generate a no-arg create() function
           pluginContext.irFactory.addCompanionObject(symbols, parent = this) {
-            addFunction("create", node.sourceGraph.typeWith(), isStatic = true).apply {
-              this.dispatchReceiverParameter = thisReceiver?.copyTo(this)
+            addFunction(LatticeSymbols.StringNames.Create, node.sourceGraph.typeWith()).apply {
               this.origin = LatticeOrigin
               this.visibility = DescriptorVisibilities.PUBLIC
-              markJvmStatic()
               body =
                 pluginContext.createIrBuilder(symbol).run {
                   irBlockBody(
@@ -758,7 +756,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
 
         // Add fields for this graph and other instance params
         val instanceFields = mutableMapOf<TypeKey, IrField>()
-        val thisReceiverParameter = thisReceiver!!
+        val thisReceiverParameter = thisReceiverOrFail
         val thisGraphField =
           addField(
               fieldName = fieldNameAllocator.newName(graphImplName.decapitalizeUS()),
@@ -980,7 +978,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
                   irBlockBody(
                     symbol,
                     typeAsProviderArgument(
-                      this@DependencyGraphTransformer,
+                      latticeContext,
                       contextualTypeKey,
                       generateBindingCode(binding, generationContext, contextualTypeKey),
                       isAssisted = false,
@@ -1051,7 +1049,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
                                 )
                               add(
                                 typeAsProviderArgument(
-                                  this@DependencyGraphTransformer,
+                                  latticeContext,
                                   parameter.contextualTypeKey,
                                   generateBindingCode(
                                     paramBinding,
@@ -1314,11 +1312,9 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     binding: Binding,
     generationContext: GraphGenerationContext,
   ): List<IrExpression?> {
-    val params = function.parameters(this@DependencyGraphTransformer)
+    val params = function.parameters(latticeContext)
     // TODO only value args are supported atm
     val paramsToMap = buildList {
-      // Can't use isStatic here because companion object functions actually have
-      // dispatch receivers
       if (
         binding is Binding.Provided &&
           targetParams.instance?.type?.rawTypeOrNull()?.isObject != true
@@ -1336,7 +1332,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           Input type keys:
             - ${paramsToMap.map { it.typeKey }.joinToString()}
           Binding parameters (${function.kotlinFqName}):
-            - ${function.valueParameters.map { ContextualTypeKey.from(this@DependencyGraphTransformer, it).typeKey }.joinToString()}
+            - ${function.valueParameters.map { ContextualTypeKey.from(latticeContext, it).typeKey }.joinToString()}
         """
           .trimIndent()
       }
@@ -1533,10 +1529,10 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           } else {
             factoryClass.companionObject()!!
           }
-        val createFunction = creatorClass.getSimpleFunction("create")!!
+        val createFunction = creatorClass.getSimpleFunction(LatticeSymbols.StringNames.Create)!!
         val args =
           generateBindingArguments(
-            createFunction.owner.parameters(this@DependencyGraphTransformer),
+            createFunction.owner.parameters(latticeContext),
             createFunction.owner,
             binding,
             generationContext,
@@ -1549,9 +1545,6 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
       }
 
       is Binding.Provided -> {
-        // TODO if there are default params, compute a mask
-        // TODO what about inherited/overridden providers?
-
         // For binds functions, just use the backing type
         binding.aliasedType?.let {
           return generateBindingCode(
@@ -1561,7 +1554,6 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           )
         }
 
-        //  https://github.com/evant/kotlin-inject?tab=readme-ov-file#component-inheritance
         val factoryClass = providesTransformer.getOrGenerateFactoryClass(binding)
         // Invoke its factory's create() function
         val creatorClass =
@@ -1570,7 +1562,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           } else {
             factoryClass.companionObject()!!
           }
-        val createFunction = creatorClass.getSimpleFunction("create")!!
+        val createFunction = creatorClass.getSimpleFunction(LatticeSymbols.StringNames.Create)!!
         // Must use the provider's params for TypeKey as that has qualifier
         // annotations
         val args =
@@ -1590,7 +1582,8 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         // Example9_Factory_Impl.create(example9Provider);
         val implClass = assistedFactoryTransformer.getOrGenerateImplClass(binding.type)
         val implClassCompanion = implClass.companionObject()!!
-        val createFunction = implClassCompanion.getSimpleFunction("create")!!
+        val createFunction =
+          implClassCompanion.getSimpleFunction(LatticeSymbols.StringNames.Create)!!
         val delegateFactoryProvider = generateBindingCode(binding.target, generationContext)
         irInvoke(
           dispatchReceiver = irGetObject(implClassCompanion.symbol),
@@ -1724,11 +1717,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           val keyType: IrType = mapTypeArgs[0].typeOrFail
           val rawValueType = mapTypeArgs[1].typeOrFail
           val rawValueTypeMetadata =
-            rawValueType.typeOrFail.asContextualTypeKey(
-              this@DependencyGraphTransformer,
-              null,
-              false,
-            )
+            rawValueType.typeOrFail.asContextualTypeKey(latticeContext, null, false)
           val useProviderFactory: Boolean = rawValueTypeMetadata.isWrappedInProvider
           val valueType: IrType = rawValueTypeMetadata.typeKey.type
 
@@ -1832,7 +1821,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
             )
             .apply { putTypeArgument(0, injectedClass.typeWith()) }
         } else {
-          val createFunction = injectorClass.getSimpleFunction("create")!!
+          val createFunction = injectorClass.getSimpleFunction(LatticeSymbols.StringNames.Create)!!
           val args =
             generateBindingArguments(
               binding.parameters,
@@ -1921,7 +1910,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
   ): IrExpression {
     val bindingCode = generateBindingCode(provider, generationContext)
     return typeAsProviderArgument(
-      this@DependencyGraphTransformer,
+      latticeContext,
       ContextualTypeKey(provider.typeKey, false, false, false, false),
       bindingCode,
       false,
