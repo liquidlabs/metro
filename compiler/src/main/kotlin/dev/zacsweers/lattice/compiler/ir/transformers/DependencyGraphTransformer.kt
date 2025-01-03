@@ -1689,7 +1689,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
   ): IrExpression {
     val elementType = (binding.typeKey.type as IrSimpleType).arguments.single().typeOrFail
     val (collectionProviders, individualProviders) =
-      binding.sourceBindings.partition { it is Binding.Provided && it.elementsIntoSet }
+      binding.sourceBindings.partition { it.elementsIntoSet }
     // If we have any @ElementsIntoSet, we need to use SetFactory
     return if (collectionProviders.isNotEmpty() || contextualTypeKey.requiresProviderInstance) {
       generateSetFactoryExpression(
