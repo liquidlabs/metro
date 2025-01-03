@@ -32,8 +32,6 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.concurrent.Callable
-import kotlin.collections.component1
-import kotlin.collections.map
 import kotlin.reflect.KCallable
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.companionObject
@@ -437,7 +435,7 @@ private fun String.parseDiagnostics() =
     }
 
 fun String.cleanOutputLine(includeSeverity: Boolean): String {
-  val trimmed = trim()
+  val trimmed = trimEnd()
   val sourceFileIndex = trimmed.indexOf(".kt")
   if (sourceFileIndex == -1) return trimmed
   val startIndex =

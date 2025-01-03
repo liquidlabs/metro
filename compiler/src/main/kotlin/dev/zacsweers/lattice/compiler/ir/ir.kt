@@ -21,6 +21,7 @@ import dev.zacsweers.lattice.compiler.ir.parameters.Parameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameters
 import dev.zacsweers.lattice.compiler.ir.parameters.wrapInLazy
 import dev.zacsweers.lattice.compiler.ir.parameters.wrapInProvider
+import dev.zacsweers.lattice.compiler.latticeAnnotations
 import dev.zacsweers.lattice.compiler.letIf
 import java.util.Objects
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -787,10 +788,6 @@ internal fun IrClass.getSuperClassNotAny(): IrClass? {
 
 internal val IrDeclarationParent.isExternalParent: Boolean
   get() = this is Fir2IrLazyClass || this is IrExternalPackageFragment
-
-internal fun IrFunction.isBindsAnnotated(symbols: LatticeSymbols): Boolean {
-  return isAnnotatedWithAny(symbols.latticeClassIds.bindsAnnotations)
-}
 
 /**
  * An [irBlockBody] with a single [expression]. This is useful because [irExprBody] is not
