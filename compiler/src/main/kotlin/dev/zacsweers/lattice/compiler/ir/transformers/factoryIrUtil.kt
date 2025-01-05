@@ -18,13 +18,11 @@ package dev.zacsweers.lattice.compiler.ir.transformers
 import dev.zacsweers.lattice.compiler.LatticeOrigin
 import dev.zacsweers.lattice.compiler.LatticeOrigins
 import dev.zacsweers.lattice.compiler.LatticeSymbols
-import dev.zacsweers.lattice.compiler.ifNotEmpty
 import dev.zacsweers.lattice.compiler.ir.LatticeTransformerContext
 import dev.zacsweers.lattice.compiler.ir.copyParameterDefaultValues
 import dev.zacsweers.lattice.compiler.ir.createIrBuilder
 import dev.zacsweers.lattice.compiler.ir.irCallConstructorWithSameParameters
 import dev.zacsweers.lattice.compiler.ir.irExprBodySafe
-import dev.zacsweers.lattice.compiler.ir.parameters.ConstructorParameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameters
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -35,7 +33,6 @@ import org.jetbrains.kotlin.ir.builders.irGetObject
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
-import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
@@ -145,40 +142,12 @@ internal fun generateStaticCreateFunction(
 internal fun generateStaticNewInstanceFunction(
   context: LatticeTransformerContext,
   parentClass: IrClass,
-  name: String,
-  returnType: IrType,
-  parameters: Parameters<ConstructorParameter>,
   sourceParameters: List<IrValueParameter>,
   targetFunction: IrFunction? = null,
-  sourceTypeParameters: List<IrTypeParameter> = emptyList(),
   buildBody: IrBuilderWithScope.(IrSimpleFunction) -> IrExpression,
 ): IrSimpleFunction {
   val function =
-    parentClass.functions.find { it.origin == LatticeOrigins.ProviderNewInstanceFunction }
-      ?: run {
-        parentClass
-          .addFunction(
-            name,
-            returnType,
-            origin = LatticeOrigin,
-            visibility = DescriptorVisibilities.PUBLIC,
-          )
-          .apply {
-            sourceTypeParameters.ifNotEmpty { this@apply.copyTypeParameters(this) }
-
-            val newInstanceParameters = parameters.with(this)
-
-            newInstanceParameters.instance?.let {
-              addValueParameter(it.name, it.originalType, LatticeOrigins.InstanceParameter)
-            }
-            newInstanceParameters.extensionReceiver?.let {
-              addValueParameter(it.name, it.originalType, LatticeOrigins.ReceiverParameter)
-            }
-            newInstanceParameters.valueParameters.map {
-              addValueParameter(it.name, it.originalType, LatticeOrigins.ValueParameter)
-            }
-          }
-      }
+    parentClass.functions.first { it.origin == LatticeOrigins.FactoryNewInstanceFunction }
 
   return function.apply {
     val instanceParam = valueParameters.find { it.origin == LatticeOrigins.InstanceParameter }

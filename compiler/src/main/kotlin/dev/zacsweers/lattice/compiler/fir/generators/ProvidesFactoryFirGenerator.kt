@@ -20,22 +20,15 @@ import dev.zacsweers.lattice.compiler.asName
 import dev.zacsweers.lattice.compiler.capitalizeUS
 import dev.zacsweers.lattice.compiler.fir.LatticeFirValueParameter
 import dev.zacsweers.lattice.compiler.fir.LatticeKeys
-import dev.zacsweers.lattice.compiler.fir.buildSimpleValueParameter
-import dev.zacsweers.lattice.compiler.fir.copyParameters
-import dev.zacsweers.lattice.compiler.fir.generateMemberFunction
 import dev.zacsweers.lattice.compiler.fir.isAnnotatedWithAny
 import dev.zacsweers.lattice.compiler.fir.latticeClassIds
 import dev.zacsweers.lattice.compiler.fir.markAsDeprecatedHidden
-import dev.zacsweers.lattice.compiler.fir.wrapInProvider
 import dev.zacsweers.lattice.compiler.isWordPrefixRegex
 import dev.zacsweers.lattice.compiler.mapNotNullToSet
 import dev.zacsweers.lattice.compiler.unsafeLazy
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
-import org.jetbrains.kotlin.fir.containingClassForStaticMemberAttr
-import org.jetbrains.kotlin.fir.declarations.FirConstructor
-import org.jetbrains.kotlin.fir.declarations.builder.buildTypeParameterCopy
 import org.jetbrains.kotlin.fir.declarations.origin
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
@@ -44,21 +37,17 @@ import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
 import org.jetbrains.kotlin.fir.extensions.NestedClassGenerationContext
 import org.jetbrains.kotlin.fir.extensions.predicate.LookupPredicate.BuilderContext.annotated
 import org.jetbrains.kotlin.fir.plugin.createCompanionObject
-import org.jetbrains.kotlin.fir.plugin.createConstructor
 import org.jetbrains.kotlin.fir.plugin.createDefaultPrivateConstructor
 import org.jetbrains.kotlin.fir.plugin.createMemberFunction
 import org.jetbrains.kotlin.fir.plugin.createNestedClass
 import org.jetbrains.kotlin.fir.resolve.defaultType
-import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
-import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.constructClassLikeType
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -121,52 +110,6 @@ internal class ProvidesFactoryFirGenerator(session: FirSession) :
     return listOf(constructor.symbol)
   }
 
-  // TODO eventually extract shared logic for creating constructors, to share with Constructor
-  //  factory gen
-  private fun buildFactoryConstructor(
-    context: MemberGenerationContext,
-    instanceReceiver: ConeClassLikeType?,
-    extensionReceiver: ConeClassLikeType?,
-    valueParameters: List<LatticeFirValueParameter>,
-  ): FirConstructor {
-    val owner = context.owner
-    return createConstructor(
-        owner,
-        LatticeKeys.Default,
-        isPrimary = true,
-        generateDelegatedNoArgConstructorCall = true,
-      ) {
-        instanceReceiver?.let {
-          valueParameter(LatticeSymbols.Names.instance, it, key = LatticeKeys.InstanceParameter)
-        }
-        extensionReceiver?.let {
-          valueParameter(
-            LatticeSymbols.Names.receiver,
-            it.wrapInProvider(),
-            key = LatticeKeys.ReceiverParameter,
-          )
-        }
-        for (i in valueParameters.indices) {
-          val valueParameter = valueParameters[i]
-          // TODO toe-hold for later factory gen
-          if (
-            valueParameter.symbol.isAnnotatedWithAny(
-              session,
-              session.latticeClassIds.assistedAnnotations,
-            )
-          ) {
-            continue
-          }
-          valueParameter(
-            valueParameter.symbol.name,
-            valueParameter.contextKey.typeKey.type.wrapInProvider(),
-            key = LatticeKeys.ValueParameter,
-          )
-        }
-      }
-      .also { it.containingClassForStaticMemberAttr = owner.toLookupTag() }
-  }
-
   override fun generateFunctions(
     callableId: CallableId,
     context: MemberGenerationContext?,
@@ -219,113 +162,6 @@ internal class ProvidesFactoryFirGenerator(session: FirSession) :
         }
       }
     return listOf(function)
-  }
-
-  @OptIn(SymbolInternals::class)
-  private fun buildFactoryCreateFunction(
-    context: MemberGenerationContext,
-    returnType: ConeKotlinType,
-    instanceReceiver: ConeClassLikeType?,
-    extensionReceiver: ConeClassLikeType?,
-    valueParameters: List<LatticeFirValueParameter>,
-  ): FirNamedFunctionSymbol {
-    return generateMemberFunction(
-        context.owner,
-        returnType.toFirResolvedTypeRef(),
-        CallableId(context.owner.classId, LatticeSymbols.Names.create),
-      ) {
-        val thisFunctionSymbol = symbol
-        for (typeParameter in context.owner.typeParameterSymbols) {
-          typeParameters += buildTypeParameterCopy(typeParameter.fir) {}
-        }
-
-        instanceReceiver?.let {
-          this.valueParameters +=
-            buildSimpleValueParameter(
-              name = LatticeSymbols.Names.instance,
-              type = it.toFirResolvedTypeRef(),
-              containingFunctionSymbol = thisFunctionSymbol,
-              origin = LatticeKeys.InstanceParameter.origin,
-            )
-        }
-        extensionReceiver?.let {
-          this.valueParameters +=
-            buildSimpleValueParameter(
-              name = LatticeSymbols.Names.receiver,
-              type = it.wrapInProvider().toFirResolvedTypeRef(),
-              containingFunctionSymbol = thisFunctionSymbol,
-              origin = LatticeKeys.ReceiverParameter.origin,
-            )
-        }
-
-        copyParameters(
-          functionBuilder = this,
-          sourceParameters =
-            valueParameters.filterNot {
-              it.symbol.isAnnotatedWithAny(session, session.latticeClassIds.assistedAnnotations)
-            },
-          // Will be copied in IR
-          copyParameterDefaults = false,
-        ) { original ->
-          this.returnTypeRef =
-            original.contextKey.typeKey.type.wrapInProvider().toFirResolvedTypeRef()
-        }
-      }
-      .symbol
-  }
-
-  @OptIn(SymbolInternals::class)
-  private fun buildNewInstanceFunction(
-    context: MemberGenerationContext,
-    name: Name,
-    returnType: ConeKotlinType,
-    instanceReceiver: ConeClassLikeType?,
-    extensionReceiver: ConeClassLikeType?,
-    valueParameters: List<LatticeFirValueParameter>,
-  ): FirNamedFunctionSymbol {
-    return generateMemberFunction(
-        context.owner,
-        returnType.toFirResolvedTypeRef(),
-        CallableId(context.owner.classId, name),
-        origin = LatticeKeys.ProviderNewInstanceFunction.origin,
-      ) {
-        val thisFunctionSymbol = symbol
-        for (typeParameter in context.owner.typeParameterSymbols) {
-          typeParameters += buildTypeParameterCopy(typeParameter.fir) {}
-        }
-
-        instanceReceiver?.let {
-          this.valueParameters +=
-            buildSimpleValueParameter(
-              name = LatticeSymbols.Names.instance,
-              type = it.toFirResolvedTypeRef(),
-              containingFunctionSymbol = thisFunctionSymbol,
-              origin = LatticeKeys.InstanceParameter.origin,
-            )
-        }
-        extensionReceiver?.let {
-          this.valueParameters +=
-            buildSimpleValueParameter(
-              name = LatticeSymbols.Names.receiver,
-              type = it.toFirResolvedTypeRef(),
-              containingFunctionSymbol = thisFunctionSymbol,
-              origin = LatticeKeys.ReceiverParameter.origin,
-            )
-        }
-
-        copyParameters(
-          functionBuilder = this,
-          sourceParameters =
-            valueParameters.filterNot {
-              it.symbol.isAnnotatedWithAny(session, session.latticeClassIds.assistedAnnotations)
-            },
-          // Will be copied in IR
-          copyParameterDefaults = false,
-        ) { original ->
-          this.returnTypeRef = original.contextKey.originalType.toFirResolvedTypeRef()
-        }
-      }
-      .symbol
   }
 
   // TODO can we get a finer-grained callback other than just per-class?

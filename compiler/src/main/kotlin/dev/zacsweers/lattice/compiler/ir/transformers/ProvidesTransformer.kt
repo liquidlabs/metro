@@ -74,7 +74,6 @@ import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.synthetic.isVisibleOutside
 
 internal class ProvidesTransformer(context: LatticeTransformerContext) :
@@ -140,12 +139,17 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
       // Look up the external class
       // TODO do we generate it here + warn like dagger does?
       val generatedClass =
-        pluginContext.referenceClass(reference.generatedClassId)
-          ?: error(
-            "Could not find generated factory for ${reference.fqName} in upstream module where it's defined. Run the Lattice compiler over that module too."
-          )
-      generatedFactories[reference.fqName] = generatedClass.owner
-      generatedClass.owner
+        binding.providerFunction.parentAsClass.nestedClasses.find {
+          it.name == reference.generatedClassId.shortClassName
+        }
+      if (generatedClass == null) {
+        reference.callee.owner.reportError(
+          "Could not find generated factory for ${reference.fqName} in upstream module where it's defined. Run the Lattice compiler over that module too."
+        )
+        exitProcessing()
+      }
+      generatedFactories[reference.fqName] = generatedClass
+      generatedClass
     }
     return getOrGenerateFactoryClass(reference)
   }
@@ -180,15 +184,12 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
         it.origin == LatticeOrigins.ProviderFactoryClassDeclaration &&
           it.classIdOrFail == generatedClassId
       }
-        ?: run {
-          error(
-            "No factory class generated for ${reference.fqName}. Report this bug with a repro case at https://github.com/zacsweers/lattice/issues/new"
-          )
-        }
+        ?: error(
+          "No expected factory class generated for ${reference.fqName}. Report this bug with a repro case at https://github.com/zacsweers/lattice/issues/new"
+        )
 
     val factoryClassParameterized = factoryCls.typeWith()
 
-    // Implement constructor w/ params if necessary
     val ctor = factoryCls.primaryConstructor!!
 
     val graphType = reference.graphParent.typeWith()
@@ -389,11 +390,8 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
     // Generate the named newInstance function
     val newInstanceFunction =
       generateStaticNewInstanceFunction(
-        latticeContext,
-        classToGenerateCreatorsIn,
-        SpecialNames.NO_NAME_PROVIDED.asString(), // TODO remove
-        targetTypeParameterized,
-        factoryParameters,
+        context = latticeContext,
+        parentClass = classToGenerateCreatorsIn,
         targetFunction = reference.callee.owner,
         sourceParameters = reference.parameters.valueParameters.map { it.ir },
       ) { function ->

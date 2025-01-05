@@ -165,7 +165,8 @@ internal class AssistedFactoryTransformer(
                   irInvoke(
                     dispatchReceiver =
                       irGetField(irGet(dispatchReceiverParameter!!), delegateFactoryField),
-                    callee = generatedFactory.requireSimpleFunction("get"),
+                    callee =
+                      generatedFactory.requireSimpleFunction(LatticeSymbols.StringNames.invoke),
                     args = argumentList,
                   ),
                 )
