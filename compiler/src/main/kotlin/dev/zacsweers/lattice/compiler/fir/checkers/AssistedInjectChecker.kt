@@ -15,7 +15,6 @@
  */
 package dev.zacsweers.lattice.compiler.fir.checkers
 
-import dev.zacsweers.lattice.compiler.LatticeClassIds
 import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.fir.FirLatticeErrors.ASSISTED_INJECTION
 import dev.zacsweers.lattice.compiler.fir.FirTypeKey
@@ -105,11 +104,7 @@ internal object AssistedInjectChecker : FirClassChecker(MppCheckerKind.Common) {
 
     val (factoryKeys, dupeFactoryKeys) =
       functionParams.mapToSetWithDupes {
-        it.symbol.toAssistedParameterKey(
-          session,
-          latticeClassIds,
-          FirTypeKey.from(session, latticeClassIds, it),
-        )
+        it.symbol.toAssistedParameterKey(session, FirTypeKey.from(session, it))
       }
 
     if (dupeFactoryKeys.isNotEmpty()) {
@@ -124,11 +119,7 @@ internal object AssistedInjectChecker : FirClassChecker(MppCheckerKind.Common) {
 
     val (constructorKeys, dupeConstructorKeys) =
       constructorAssistedParams.mapToSetWithDupes {
-        it.toAssistedParameterKey(
-          session,
-          latticeClassIds,
-          FirTypeKey.from(session, latticeClassIds, it),
-        )
+        it.toAssistedParameterKey(session, FirTypeKey.from(session, it))
       }
 
     if (dupeConstructorKeys.isNotEmpty()) {
@@ -189,15 +180,14 @@ internal object AssistedInjectChecker : FirClassChecker(MppCheckerKind.Common) {
     companion object {
       fun FirValueParameterSymbol.toAssistedParameterKey(
         session: FirSession,
-        latticeClassIds: LatticeClassIds,
         typeKey: FirTypeKey,
       ): FirAssistedParameterKey {
         return FirAssistedParameterKey(
           typeKey,
           annotations
-            .annotationsIn(session, latticeClassIds.assistedAnnotations)
+            .annotationsIn(session, session.latticeClassIds.assistedAnnotations)
             .singleOrNull()
-            ?.getStringArgument(LatticeSymbols.Names.Value, session)
+            ?.getStringArgument(LatticeSymbols.Names.value, session)
             .orEmpty(),
         )
       }

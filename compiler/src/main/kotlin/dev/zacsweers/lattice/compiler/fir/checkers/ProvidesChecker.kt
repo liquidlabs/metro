@@ -72,6 +72,17 @@ internal object ProvidesChecker : FirCallableDeclarationChecker(MppCheckerKind.C
       return
     }
 
+    if (declaration.typeParameters.isNotEmpty()) {
+      val type = if (annotations.isProvides) "Provides" else "Binds"
+      reporter.reportOn(
+        source,
+        FirLatticeErrors.LATTICE_TYPE_PARAMETERS_ERROR,
+        "`@$type` declarations may not have type parameters.",
+        context,
+      )
+      return
+    }
+
     val bodyExpression =
       when (declaration) {
         is FirSimpleFunction -> declaration.body
@@ -110,24 +121,19 @@ internal object ProvidesChecker : FirCallableDeclarationChecker(MppCheckerKind.C
             // Compare type keys. Different qualifiers are ok
             val returnTypeKey =
               when (declaration) {
-                is FirSimpleFunction -> FirTypeKey.from(session, latticeClassIds, declaration)
-                is FirProperty -> FirTypeKey.from(session, latticeClassIds, declaration)
+                is FirSimpleFunction -> FirTypeKey.from(session, declaration)
+                is FirProperty -> FirTypeKey.from(session, declaration)
                 else -> return
               }
             val receiverTypeKey =
-              FirTypeKey.from(
-                session,
-                latticeClassIds,
-                declaration.receiverParameter!!,
-                declaration,
-              )
+              FirTypeKey.from(session, declaration.receiverParameter!!, declaration)
 
             // TODO add a test for isIntoMultibinding
             if (returnTypeKey == receiverTypeKey && !annotations.isIntoMultibinding) {
               reporter.reportOn(
                 source,
                 FirLatticeErrors.PROVIDES_ERROR,
-                "Binds receiver type `${receiverTypeKey.simpleString()}` is the same type and qualifier as the bound type `${returnTypeKey.simpleString()}`.",
+                "Binds receiver type `${receiverTypeKey.render(short = false)}` is the same type and qualifier as the bound type `${returnTypeKey.render(short = false)}`.",
                 context,
               )
             }

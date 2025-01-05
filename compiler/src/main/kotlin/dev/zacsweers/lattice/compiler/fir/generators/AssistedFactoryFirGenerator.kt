@@ -13,22 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice.compiler.fir
+package dev.zacsweers.lattice.compiler.fir.generators
 
 import dev.zacsweers.lattice.compiler.LatticeSymbols
+import dev.zacsweers.lattice.compiler.fir.LatticeFirValueParameter
+import dev.zacsweers.lattice.compiler.fir.LatticeKeys
+import dev.zacsweers.lattice.compiler.fir.copyParameters
+import dev.zacsweers.lattice.compiler.fir.generateMemberFunction
+import dev.zacsweers.lattice.compiler.fir.isAnnotatedWithAny
+import dev.zacsweers.lattice.compiler.fir.latticeClassIds
 import dev.zacsweers.lattice.compiler.unsafeLazy
-import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.descriptors.Visibilities
-import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
-import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunction
-import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameterCopy
-import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
-import org.jetbrains.kotlin.fir.declarations.origin
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotation
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotationArgumentMapping
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
@@ -37,7 +35,6 @@ import org.jetbrains.kotlin.fir.extensions.FirExtension
 import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
 import org.jetbrains.kotlin.fir.extensions.NestedClassGenerationContext
 import org.jetbrains.kotlin.fir.extensions.predicate.LookupPredicate.BuilderContext.annotated
-import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.plugin.createNestedClass
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
@@ -47,8 +44,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
-import org.jetbrains.kotlin.fir.toEffectiveVisibility
 import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.name.CallableId
@@ -57,8 +52,11 @@ import org.jetbrains.kotlin.name.Name
 /**
  * For assisted injection, we can generate the assisted factory _for_ the assisted type as a nested
  * interface of the annotated class. This saves the user some boilerplate.
+ *
+ * Note this is specifically for generating `@AssistedFactory`-annotated declarations, not for
+ * generating assisted factory impls.
  */
-internal class LatticeFirAssistedFactoryGenerator(session: FirSession) :
+internal class AssistedFactoryFirGenerator(session: FirSession) :
   FirDeclarationGenerationExtension(session) {
 
   private val assistedInjectAnnotationPredicate by unsafeLazy {
@@ -82,7 +80,7 @@ internal class LatticeFirAssistedFactoryGenerator(session: FirSession) :
     assistedFactoriesToClasses[classSymbol]?.let { targetClass ->
       assistedInjectClasses[targetClass]?.let { constructor ->
         // Need to generate a SAM create() for this
-        val id = CallableId(classSymbol.classId, LatticeSymbols.Names.Create)
+        val id = CallableId(classSymbol.classId, LatticeSymbols.Names.create)
         createIdsToFactories[id] = classSymbol
         return setOf(id.callableName)
       }
@@ -106,10 +104,12 @@ internal class LatticeFirAssistedFactoryGenerator(session: FirSession) :
             constructor.valueParameterSymbols
               // TODO need a predicate?
               .mapNotNull { param ->
-                param
-                  .annotationsIn(session, session.latticeClassIds.assistedAnnotations)
-                  .singleOrNull() ?: return@mapNotNull null
-                param
+                if (
+                  !param.isAnnotatedWithAny(session, session.latticeClassIds.assistedAnnotations)
+                ) {
+                  return@mapNotNull null
+                }
+                LatticeFirValueParameter(session, param)
               }
           val createFunction =
             generateCreateFunction(assistedParams, targetClass, factoryClass, callableId)
@@ -122,47 +122,22 @@ internal class LatticeFirAssistedFactoryGenerator(session: FirSession) :
 
   @OptIn(SymbolInternals::class)
   private fun FirExtension.generateCreateFunction(
-    assistedParams: List<FirValueParameterSymbol>,
+    assistedParams: List<LatticeFirValueParameter>,
     targetClass: FirClassLikeSymbol<*>,
     factoryClass: FirClassSymbol<*>,
     callableId: CallableId,
   ): FirSimpleFunction {
-    return buildSimpleFunction {
-      resolvePhase = FirResolvePhase.BODY_RESOLVE
-      moduleData = session.moduleData
-      origin = LatticeKey.origin
-
-      source = targetClass.source?.fakeElement(KtFakeSourceElementKind.PluginGenerated)
-
-      val functionSymbol = FirNamedFunctionSymbol(callableId)
-      symbol = functionSymbol
-      name = callableId.callableName
-
-      // TODO is there a non-impl API for this?
-      status =
-        FirResolvedDeclarationStatusImpl(
-          Visibilities.Public,
-          Modality.ABSTRACT,
-          Visibilities.Public.toEffectiveVisibility(targetClass, forClass = true),
-        )
-
-      dispatchReceiverType = targetClass.constructType()
-
-      // TODO type params?
-
-      returnTypeRef = targetClass.constructType().toFirResolvedTypeRef()
-
-      for (original in assistedParams) {
-        valueParameters +=
-          buildValueParameterCopy(original.fir) {
-            origin = LatticeKey.origin
-            symbol = FirValueParameterSymbol(original.name)
-            containingFunctionSymbol = functionSymbol
-            // TODO default values are copied over in this case, is that enough or do they need
-            //  references transformed? We should also check they're not referencing non-assisted
-            //  params
-          }
-      }
+    return generateMemberFunction(
+      targetClass = targetClass,
+      returnTypeRef = targetClass.constructType().toFirResolvedTypeRef(),
+      modality = Modality.ABSTRACT,
+      callableId = callableId,
+    ) {
+      copyParameters(
+        functionBuilder = this,
+        sourceParameters = assistedParams,
+        copyParameterDefaults = true,
+      )
     }
   }
 
@@ -189,7 +164,7 @@ internal class LatticeFirAssistedFactoryGenerator(session: FirSession) :
       val existingFactory =
         classSymbol.declarationSymbols.filterIsInstance<FirClassSymbol<*>>().singleOrNull {
           // TODO also check for factory annotation? Not sure what else we'd do anyway though
-          it.name == LatticeSymbols.Names.Factory
+          it.name == LatticeSymbols.Names.factoryClassName
         }
       if (existingFactory != null) {
         // TODO test this case
@@ -198,7 +173,7 @@ internal class LatticeFirAssistedFactoryGenerator(session: FirSession) :
 
       assistedInjectClasses[classSymbol] = constructor
       // We want to generate an assisted factory
-      return setOf(LatticeSymbols.Names.Factory)
+      return setOf(LatticeSymbols.Names.factoryClassName)
     }
     return super.getNestedClassifiersNames(classSymbol, context)
   }
@@ -212,7 +187,7 @@ internal class LatticeFirAssistedFactoryGenerator(session: FirSession) :
     if (owner !is FirRegularClassSymbol) return null
     // This assumes that all callbacks are for assisted. If we ever make this broader in scope then
     // need to track their combos somewhere to check here
-    return createNestedClass(owner, name, LatticeKey, classKind = ClassKind.INTERFACE) {
+    return createNestedClass(owner, name, LatticeKeys.Default, classKind = ClassKind.INTERFACE) {
         status { isFun = true }
       }
       .apply {

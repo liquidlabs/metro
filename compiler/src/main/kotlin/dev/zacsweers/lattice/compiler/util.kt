@@ -27,7 +27,13 @@ internal fun <T> unsafeLazy(initializer: () -> T) = lazy(LazyThreadSafetyMode.NO
 @OptIn(ExperimentalContracts::class)
 internal inline fun <reified T : Any> Any.expectAs(): T {
   contract { returns() implies (this@expectAs is T) }
-  check(this is T) { "Expected $this to be of type ${T::class.qualifiedName}" }
+  return expectAsOrNull<T>() ?: error("Expected $this to be of type ${T::class.qualifiedName}")
+}
+
+@OptIn(ExperimentalContracts::class)
+internal inline fun <reified T : Any> Any.expectAsOrNull(): T? {
+  contract { returnsNotNull() implies (this@expectAsOrNull is T) }
+  if (this !is T) return null
   return this
 }
 
@@ -49,6 +55,10 @@ internal fun String.decapitalizeUS() = replaceFirstChar { it.lowercase(Locale.US
 
 internal fun <T, R> Iterable<T>.mapToSet(transform: (T) -> R): Set<R> {
   return mapTo(mutableSetOf(), transform)
+}
+
+internal fun <T, R : Any> Iterable<T>.mapNotNullToSet(transform: (T) -> R?): Set<R> {
+  return mapNotNullTo(mutableSetOf(), transform)
 }
 
 internal fun <T, R> Iterable<T>.mapToSetWithDupes(transform: (T) -> R): Pair<Set<R>, Set<R>> {
@@ -95,3 +105,7 @@ internal inline fun <T, C : Collection<T>, O> C.ifNotEmpty(body: C.() -> O?): O?
 
 internal val String.withoutLineBreaks: String
   get() = lineSequence().joinToString(" ") { it.trim() }
+
+internal infix operator fun Name.plus(other: String) = (asString() + other).asName()
+
+internal infix operator fun Name.plus(other: Name) = (asString() + other.asString()).asName()

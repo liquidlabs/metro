@@ -21,6 +21,7 @@ import com.tschuchort.compiletesting.SourceFile.Companion.kotlin
 import dev.zacsweers.lattice.compiler.ExampleGraph
 import dev.zacsweers.lattice.compiler.LatticeCompilerTest
 import dev.zacsweers.lattice.compiler.assertDiagnostics
+import dev.zacsweers.lattice.compiler.callProperty
 import dev.zacsweers.lattice.compiler.createGraphWithNoArgs
 import dev.zacsweers.lattice.compiler.generatedLatticeGraphClass
 import dev.zacsweers.lattice.compiler.invokeCreateAs
@@ -28,6 +29,7 @@ import dev.zacsweers.lattice.compiler.provideValueAs
 import dev.zacsweers.lattice.compiler.providesFactoryClass
 import dev.zacsweers.lattice.internal.Factory
 import dev.zacsweers.lattice.provider
+import org.junit.Ignore
 import org.junit.Test
 
 class ProvidesTransformerTest : LatticeCompilerTest() {
@@ -102,14 +104,8 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   fun `simple function provider in a companion object`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
+        source(
           """
-            package test
-
-            import dev.zacsweers.lattice.Provides
-            import dev.zacsweers.lattice.DependencyGraph
-
             @DependencyGraph
             interface ExampleGraph {
               companion object {
@@ -118,7 +114,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
               }
             }
           """
-            .trimIndent(),
+            .trimIndent()
         )
       )
 
@@ -139,14 +135,8 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   fun `simple property provider in a companion object`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
+        source(
           """
-            package test
-
-            import dev.zacsweers.lattice.Provides
-            import dev.zacsweers.lattice.DependencyGraph
-
             @DependencyGraph
             interface ExampleGraph {
               companion object {
@@ -155,7 +145,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
               }
             }
           """
-            .trimIndent(),
+            .trimIndent()
         )
       )
 
@@ -343,39 +333,6 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   }
 
   @Test
-  fun `providers cannot have type parameters`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleGraph.kt",
-          """
-            package test
-
-            import dev.zacsweers.lattice.Provides
-            import dev.zacsweers.lattice.DependencyGraph
-            import dev.zacsweers.lattice.Named
-
-            @DependencyGraph
-            interface ExampleGraph {
-              @Provides
-              fun <T> provideValue(): Int = 1
-            }
-          """
-            .trimIndent(),
-        ),
-        expectedExitCode = ExitCode.COMPILATION_ERROR,
-      )
-
-    assertThat(result.messages)
-      .contains(
-        """
-        ExampleGraph.kt:9:3 @Provides functions may not have type parameters
-      """
-          .trimIndent()
-      )
-  }
-
-  @Test
   fun `function with receivers are not currently supported`() {
     val result =
       compile(
@@ -398,6 +355,132 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
       """
         .trimIndent()
     )
+  }
+
+  @Test
+  fun `a provider is visible from a supertype in another module`() {
+    val otherModuleResult =
+      compile(
+        source(
+          """
+            interface Base {
+              @Provides fun provideInt(): Int = 2
+            }
+          """
+            .trimIndent()
+        )
+      )
+
+    compile(
+      source(
+        """
+          @DependencyGraph
+          interface ExampleGraph : Base {
+            val int: Int
+          }
+        """
+          .trimIndent()
+      ),
+      previousCompilationResult = otherModuleResult,
+    ) {
+      val graph = ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+      assertThat(graph.callProperty<Int>("int")).isEqualTo(2)
+    }
+  }
+
+  @Test
+  fun `a qualified provider is visible from a supertype in another module`() {
+    val otherModuleResult =
+      compile(
+        source(
+          """
+            interface Base {
+              @Provides @Named("int") fun provideInt(): Int = 2
+            }
+          """
+            .trimIndent()
+        )
+      )
+
+    compile(
+      source(
+        """
+          @DependencyGraph
+          interface ExampleGraph : Base {
+            @Named("int")
+            val int: Int
+          }
+        """
+          .trimIndent()
+      ),
+      previousCompilationResult = otherModuleResult,
+    ) {
+      val graph = ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+      assertThat(graph.callProperty<Int>("int")).isEqualTo(2)
+    }
+  }
+
+  @Test
+  fun `a provider with a default is visible from a supertype in another module`() {
+    val otherModuleResult =
+      compile(
+        source(
+          """
+            interface Base {
+              @Provides fun provideString(value: Int = 2): String = value.toString()
+            }
+          """
+            .trimIndent()
+        )
+      )
+
+    compile(
+      source(
+        """
+          @DependencyGraph
+          interface ExampleGraph : Base {
+            val string: String
+          }
+        """
+          .trimIndent()
+      ),
+      previousCompilationResult = otherModuleResult,
+    ) {
+      val graph = ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+      assertThat(graph.callProperty<String>("string")).isEqualTo("2")
+    }
+  }
+
+  @Ignore("Won't work until we support propagating metadata info")
+  @Test
+  fun `a private provider is visible from a supertype in another module`() {
+    val otherModuleResult =
+      compile(
+        source(
+          """
+            interface Base {
+              @Provides private fun provideInt(): Int = 2
+            }
+          """
+            .trimIndent()
+        )
+      )
+
+    compile(
+      source(
+        """
+          @DependencyGraph
+          interface ExampleGraph : Base {
+            val int: Int
+          }
+        """
+          .trimIndent()
+      ),
+      previousCompilationResult = otherModuleResult,
+    ) {
+      val graph = ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+      assertThat(graph.callProperty<Int>("int")).isEqualTo(2)
+    }
   }
 
   // TODO

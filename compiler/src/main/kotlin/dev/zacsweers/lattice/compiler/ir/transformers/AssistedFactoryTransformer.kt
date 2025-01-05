@@ -22,7 +22,7 @@ import dev.zacsweers.lattice.compiler.ir.LatticeTransformerContext
 import dev.zacsweers.lattice.compiler.ir.addCompanionObject
 import dev.zacsweers.lattice.compiler.ir.addOverride
 import dev.zacsweers.lattice.compiler.ir.createIrBuilder
-import dev.zacsweers.lattice.compiler.ir.irBlockBody
+import dev.zacsweers.lattice.compiler.ir.irExprBodySafe
 import dev.zacsweers.lattice.compiler.ir.irInvoke
 import dev.zacsweers.lattice.compiler.ir.isAnnotatedWithAny
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameter
@@ -30,6 +30,7 @@ import dev.zacsweers.lattice.compiler.ir.parameters.Parameter.AssistedParameterK
 import dev.zacsweers.lattice.compiler.ir.parameters.parameters
 import dev.zacsweers.lattice.compiler.ir.parameters.wrapInProvider
 import dev.zacsweers.lattice.compiler.ir.rawType
+import dev.zacsweers.lattice.compiler.ir.requireSimpleFunction
 import dev.zacsweers.lattice.compiler.ir.singleAbstractFunction
 import dev.zacsweers.lattice.compiler.ir.thisReceiverOrFail
 import dev.zacsweers.lattice.compiler.ir.transformers.AssistedFactoryTransformer.AssistedFactoryFunction.Companion.toAssistedFactoryFunction
@@ -53,7 +54,6 @@ import org.jetbrains.kotlin.ir.util.addSimpleDelegatingConstructor
 import org.jetbrains.kotlin.ir.util.classIdOrFail
 import org.jetbrains.kotlin.ir.util.copyTypeParametersFrom
 import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
-import org.jetbrains.kotlin.ir.util.getSimpleFunction
 import org.jetbrains.kotlin.ir.util.isInterface
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.primaryConstructor
@@ -112,7 +112,7 @@ internal class AssistedFactoryTransformer(
     val implClass =
       pluginContext.irFactory
         .buildClass {
-          name = LatticeSymbols.Names.LatticeImpl
+          name = LatticeSymbols.Names.latticeImpl
           origin = LatticeOrigin
         }
         .apply {
@@ -160,12 +160,12 @@ internal class AssistedFactoryTransformer(
                     irGet(functionParams.getValue(assistedParameterKey))
                   }
 
-                irBlockBody(
+                irExprBodySafe(
                   symbol,
                   irInvoke(
                     dispatchReceiver =
                       irGetField(irGet(dispatchReceiverParameter!!), delegateFactoryField),
-                    callee = generatedFactory.getSimpleFunction("get")!!,
+                    callee = generatedFactory.requireSimpleFunction("get"),
                     args = argumentList,
                   ),
                 )
@@ -189,7 +189,7 @@ internal class AssistedFactoryTransformer(
     generatedFactoryType: IrClass,
   ) {
     addFunction(
-        LatticeSymbols.StringNames.Create,
+        LatticeSymbols.StringNames.create,
         originClassName.wrapInProvider(symbols.latticeProvider),
       )
       .apply {
@@ -201,7 +201,7 @@ internal class AssistedFactoryTransformer(
         // InstanceFactory.create(Impl(delegateFactory))
         body =
           pluginContext.createIrBuilder(symbol).run {
-            irBlockBody(
+            irExprBodySafe(
               symbol,
               irInvoke(
                   dispatchReceiver = irGetObject(symbols.instanceFactoryCompanionObject),

@@ -15,7 +15,6 @@
  */
 package dev.zacsweers.lattice.compiler.ir
 
-import dev.zacsweers.lattice.compiler.ExitProcessingException
 import dev.zacsweers.lattice.compiler.LatticeClassIds
 import dev.zacsweers.lattice.compiler.LatticeOptions
 import dev.zacsweers.lattice.compiler.LatticeSymbols
@@ -38,10 +37,6 @@ internal class LatticeIrGenerationExtension(
     val dependencyGraphTransformer = DependencyGraphTransformer(context)
     // TODO is this really necessary?
     val dependencyGraphData = DependencyGraphData()
-    try {
-      moduleFragment.transform(dependencyGraphTransformer, dependencyGraphData)
-    } catch (_: ExitProcessingException) {
-      // End processing, don't fail up because this would've been warned before
-    }
+    moduleFragment.transform(dependencyGraphTransformer, dependencyGraphData)
   }
 }

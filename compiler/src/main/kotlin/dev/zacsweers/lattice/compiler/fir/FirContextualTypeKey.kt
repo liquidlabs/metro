@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Zac Sweers
+ * Copyright (C) 2025 Zac Sweers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,25 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice.compiler.ir
+package dev.zacsweers.lattice.compiler.fir
 
 import dev.drewhamilton.poko.Poko
 import dev.zacsweers.lattice.compiler.LatticeAnnotations
 import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.expectAs
-import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
-import org.jetbrains.kotlin.ir.declarations.IrValueParameter
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
-import org.jetbrains.kotlin.ir.types.IrSimpleType
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.typeOrFail
-import org.jetbrains.kotlin.ir.util.classId
-import org.jetbrains.kotlin.ir.util.render
+import dev.zacsweers.lattice.compiler.expectAsOrNull
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.propertyIfAccessor
+import org.jetbrains.kotlin.fir.symbols.SymbolInternals
+import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeKotlinTypeProjection
+import org.jetbrains.kotlin.fir.types.classId
 
-// TODO refactor/merge with FirContextualTypeKey
 @Poko
-internal class ContextualTypeKey(
-  val typeKey: TypeKey,
+internal class FirContextualTypeKey(
+  val typeKey: FirTypeKey,
   val isWrappedInProvider: Boolean = false,
   val isWrappedInLazy: Boolean = false,
   val isLazyWrappedInProvider: Boolean = false,
@@ -42,6 +42,15 @@ internal class ContextualTypeKey(
 
   val requiresProviderInstance: Boolean =
     isWrappedInProvider || isLazyWrappedInProvider || isWrappedInLazy
+
+  val originalType: ConeKotlinType
+    get() =
+      when {
+        isLazyWrappedInProvider -> typeKey.type.wrapInLazy().wrapInProvider()
+        isWrappedInProvider -> typeKey.type.wrapInProvider()
+        isWrappedInLazy -> typeKey.type.wrapInLazy()
+        else -> typeKey.type
+      }
 
   override fun toString(): String = render(short = true)
 
@@ -70,79 +79,65 @@ internal class ContextualTypeKey(
     }
   }
 
-  // TODO cache these in DependencyGraphTransformer or shared transformer data
+  // TODO cache these?
   companion object {
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
+    @OptIn(SymbolInternals::class)
     fun from(
-      context: LatticeTransformerContext,
-      function: IrSimpleFunction,
-      annotations: LatticeAnnotations<IrAnnotation>,
-      type: IrType = function.returnType,
-    ): ContextualTypeKey =
-      type.asContextualTypeKey(
-        context,
-        with(context) {
-          function.correspondingPropertySymbol?.owner?.qualifierAnnotation()
-            ?: function.qualifierAnnotation()
-        },
+      session: FirSession,
+      function: FirFunctionSymbol<*>,
+      annotations: LatticeAnnotations<LatticeFirAnnotation>,
+      type: ConeKotlinType = function.resolvedReturnTypeRef.coneType,
+    ): FirContextualTypeKey =
+      type.asFirContextualTypeKey(
+        session,
+        function.fir.propertyIfAccessor.annotations.qualifierAnnotation(session),
         false,
         annotations.isIntoMultibinding,
       )
 
     fun from(
-      context: LatticeTransformerContext,
-      parameter: IrValueParameter,
-      type: IrType = parameter.type,
-    ): ContextualTypeKey =
-      type.asContextualTypeKey(
-        context = context,
-        qualifierAnnotation = with(context) { parameter.qualifierAnnotation() },
-        hasDefault = parameter.defaultValue != null,
+      session: FirSession,
+      parameter: FirValueParameterSymbol,
+      type: ConeKotlinType = parameter.resolvedReturnTypeRef.coneType,
+    ): FirContextualTypeKey =
+      type.asFirContextualTypeKey(
+        session = session,
+        qualifierAnnotation = parameter.annotations.qualifierAnnotation(session),
+        hasDefault = parameter.hasDefaultValue,
         isIntoMultibinding = false,
       )
   }
 }
 
-@OptIn(UnsafeDuringIrConstructionAPI::class)
-internal fun IrType.isLatticeProviderType(context: LatticeTransformerContext): Boolean {
-  check(this is IrSimpleType) { "Unrecognized IrType '${javaClass}': ${render()}" }
-
-  val declaredType = this
-  val rawTypeClass = declaredType.rawTypeOrNull()
-
-  return rawTypeClass!!.implementsAny(context.pluginContext, context.symbols.providerTypes)
-}
-
-@OptIn(UnsafeDuringIrConstructionAPI::class)
-internal fun IrType.asContextualTypeKey(
-  context: LatticeTransformerContext,
-  qualifierAnnotation: IrAnnotation?,
+internal fun ConeKotlinType.asFirContextualTypeKey(
+  session: FirSession,
+  qualifierAnnotation: LatticeFirAnnotation?,
   hasDefault: Boolean,
   isIntoMultibinding: Boolean,
-): ContextualTypeKey {
-  check(this is IrSimpleType) { "Unrecognized IrType '${javaClass}': ${render()}" }
-
+): FirContextualTypeKey {
   val declaredType = this
-  val rawClass = declaredType.rawTypeOrNull()
-  val rawClassId = rawClass?.classId
+  val rawClass = declaredType
+  val rawClassId = rawClass.classId
 
-  val isWrappedInProvider = rawClassId in context.symbols.providerTypes
-  val isWrappedInLazy = rawClassId in context.symbols.lazyTypes
+  val isWrappedInProvider = rawClassId in session.latticeClassIds.providerTypes
+  val isWrappedInLazy = rawClassId in session.latticeClassIds.lazyTypes
   val isLazyWrappedInProvider =
     isWrappedInProvider &&
-      declaredType.arguments[0].typeOrFail.rawTypeOrNull()?.classId in context.symbols.lazyTypes
+      declaredType.typeArguments[0].expectAsOrNull<ConeKotlinTypeProjection>()?.type?.classId in
+        session.latticeClassIds.lazyTypes
 
   val type =
     when {
       isLazyWrappedInProvider ->
-        declaredType.arguments
+        declaredType.typeArguments[0]
+          .expectAs<ConeKotlinTypeProjection>()
+          .type
+          .typeArguments
           .single()
-          .typeOrFail
-          .expectAs<IrSimpleType>()
-          .arguments
-          .single()
-          .typeOrFail
-      isWrappedInProvider || isWrappedInLazy -> declaredType.arguments.single().typeOrFail
+          .expectAs<ConeKotlinTypeProjection>()
+          .type
+      isWrappedInProvider || isWrappedInLazy ->
+        declaredType.typeArguments[0].expectAs<ConeKotlinTypeProjection>().type
       else -> declaredType
     }
 
@@ -153,25 +148,27 @@ internal fun IrType.asContextualTypeKey(
       run {
         // Check if this is a Map<Key, Provider<Value>>
         // If it has no type args we can skip
-        if (declaredType.arguments.size != 2) return@run false
+        if (declaredType.typeArguments.size != 2) return@run false
+        // TODO check implements instead?
         val isMap = rawClassId == LatticeSymbols.ClassIds.map
         if (!isMap) return@run false
         val valueTypeContextKey =
-          declaredType.arguments[1]
-            .typeOrFail
-            .asContextualTypeKey(
-              context,
+          declaredType.typeArguments[1]
+            .expectAs<ConeKotlinTypeProjection>()
+            .type
+            .asFirContextualTypeKey(
+              session,
               // TODO could we actually support these?
               qualifierAnnotation = null,
               hasDefault = false,
               isIntoMultibinding = false,
             )
 
-        valueTypeContextKey.isDeferrable
+        valueTypeContextKey.isDeferrable == true
       }
 
-  val typeKey = TypeKey(type, qualifierAnnotation)
-  return ContextualTypeKey(
+  val typeKey = FirTypeKey(type, qualifierAnnotation)
+  return FirContextualTypeKey(
     typeKey = typeKey,
     isWrappedInProvider = isWrappedInProvider,
     isWrappedInLazy = isWrappedInLazy,

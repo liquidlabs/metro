@@ -90,12 +90,12 @@ fun Class<*>.generatedFactoryClass(): Class<Factory<*>> {
 }
 
 fun Class<*>.generatedFactoryClassAssisted(): Class<*> {
-  val expectedName = LatticeSymbols.Names.LatticeFactory.asString()
+  val expectedName = LatticeSymbols.Names.latticeFactory.asString()
   return classes.single { it.simpleName == expectedName }
 }
 
 fun Class<*>.generatedMembersInjector(): Class<MembersInjector<*>> {
-  val expectedName = LatticeSymbols.Names.LatticeMembersInjector.asString()
+  val expectedName = LatticeSymbols.Names.latticeMembersInjector.asString()
   val nestedClass =
     declaredClasses.singleOrNull { it.simpleName == expectedName }
       ?: error(
@@ -106,7 +106,7 @@ fun Class<*>.generatedMembersInjector(): Class<MembersInjector<*>> {
 }
 
 fun Class<*>.generatedAssistedFactoryImpl(): Class<*> {
-  val expectedName = LatticeSymbols.Names.LatticeImpl.asString()
+  val expectedName = LatticeSymbols.Names.latticeImpl.asString()
   return classes.single { it.simpleName == expectedName }
 }
 
@@ -114,8 +114,6 @@ fun Class<*>.providesFactoryClass(
   providerCallableName: String? = null,
   companion: Boolean = false,
 ): Class<Factory<*>> {
-  val companionString = if (companion) "Companion_" else ""
-
   val callables: List<KCallable<*>> =
     if (companion) {
       kotlin.companionObject!!.let { companionObject ->
@@ -156,10 +154,12 @@ fun Class<*>.providesFactoryClass(
 
   val methodName = providerCallableName ?: providesCallables.single()
 
-  val expectedName =
-    "${companionString}${methodName.capitalizeUS()}${LatticeSymbols.Names.LatticeFactory.asString()}"
+  val expectedName = "${methodName.capitalizeUS()}${LatticeSymbols.Names.latticeFactory.asString()}"
+
+  val classToSearch = if (companion) companionObjectClass else this
+
   @Suppress("UNCHECKED_CAST")
-  return this.classes.singleOrNull { it.simpleName == expectedName } as Class<Factory<*>>?
+  return classToSearch.classes.singleOrNull { it.simpleName == expectedName } as Class<Factory<*>>?
     ?: error("Could not find nested class $this.$expectedName")
 }
 
@@ -233,7 +233,7 @@ fun Class<*>.staticMethods(
 // Cannot confine to Class<Factory<*>> because this is also used for assisted factories
 fun Class<*>.invokeCreate(vararg args: Any): Any {
   val createFunctions =
-    staticMethods().filter { it.name == LatticeSymbols.StringNames.Create }.toList()
+    staticMethods().filter { it.name == LatticeSymbols.StringNames.create }.toList()
 
   return when (createFunctions.size) {
     0 -> error("No create functions found in $this")
@@ -292,9 +292,9 @@ val JvmCompilationResult.ExampleGraph: Class<*>
   get() = classLoader.loadClass("test.ExampleGraph")
 
 fun Class<*>.generatedLatticeGraphClass(): Class<*> {
-  return classes.singleOrNull { it.simpleName == LatticeSymbols.Names.LatticeGraph.asString() }
+  return classes.singleOrNull { it.simpleName == LatticeSymbols.Names.latticeGraph.asString() }
     ?: error(
-      "Could not find nested class $this.${LatticeSymbols.Names.LatticeGraph.asString()}. Available: ${classes.joinToString { it.simpleName }}"
+      "Could not find nested class $this.${LatticeSymbols.Names.latticeGraph.asString()}. Available: ${classes.joinToString { it.simpleName }}"
     )
 }
 
@@ -336,12 +336,12 @@ fun Class<*>.createGraphWithNoArgs(): Any {
 /**
  * Invokes a generated Graph Factory class's create() function with the supplied [args].
  *
- * Note the function must be called [LatticeSymbols.StringNames.Create].
+ * Note the function must be called [LatticeSymbols.StringNames.create].
  */
 fun Class<*>.createGraphViaFactory(vararg args: Any): Any {
   val factoryInstance = invokeGraphFactory()
   return factoryInstance.javaClass.declaredMethods
-    .single { it.name == LatticeSymbols.StringNames.Create }
+    .single { it.name == LatticeSymbols.StringNames.create }
     .invoke(factoryInstance, *args)
 }
 
@@ -415,16 +415,18 @@ val CompilationResult.cleanedDiagnostics: Map<DiagnosticSeverity, List<String>>
   }
 
 // Shorten messages, removing the intermediary temp dir and just printing the file name
-private fun String.parseDiagnostics() =
-  lineSequence()
-    .filterNot { it.isBlank() }
-    .mapNotNull { line ->
-      if (line.startsWith("e: ")) {
-        DiagnosticMessage(DiagnosticSeverity.ERROR, line.substring(3).trim())
-      } else if (line.startsWith("w: ")) {
-        DiagnosticMessage(DiagnosticSeverity.WARNING, line.substring(3).trim())
-      } else if (line.startsWith("i: ")) {
-        DiagnosticMessage(DiagnosticSeverity.INFO, line.substring(3).trim())
+// Note diagnostics may be multi-line, so we chunk by severity prefixes
+private fun String.parseDiagnostics(): Map<DiagnosticSeverity, List<String>> {
+  return lineSequence()
+    .chunkedLinesBy { it.startsWith("e: ") || it.startsWith("w: ") || it.startsWith("i: ") }
+    .map { it.trim() }
+    .mapNotNull { text ->
+      if (text.startsWith("e: ")) {
+        DiagnosticMessage(DiagnosticSeverity.ERROR, text.substring(3).trim())
+      } else if (text.startsWith("w: ")) {
+        DiagnosticMessage(DiagnosticSeverity.WARNING, text.substring(3).trim())
+      } else if (text.startsWith("i: ")) {
+        DiagnosticMessage(DiagnosticSeverity.INFO, text.substring(3).trim())
       } else {
         null
       }
@@ -433,6 +435,7 @@ private fun String.parseDiagnostics() =
     .mapValues { (_, messages) ->
       messages.map { it.message.cleanOutputLine(includeSeverity = false) }
     }
+}
 
 fun String.cleanOutputLine(includeSeverity: Boolean): String {
   val trimmed = trimEnd()
@@ -455,4 +458,22 @@ fun String.cleanOutputLine(includeSeverity: Boolean): String {
 inline fun <reified T : Throwable> assertThrows(block: () -> Unit): ThrowableSubject {
   val throwable = assertFailsWith(T::class, block)
   return assertThat(throwable)
+}
+
+fun Sequence<String>.chunkedLinesBy(predicate: (String) -> Boolean): Sequence<String> {
+  return chunkedBy(predicate).map { it.joinToString("\n") }
+}
+
+fun <T> Sequence<T>.chunkedBy(predicate: (T) -> Boolean): Sequence<List<T>> = sequence {
+  val current = mutableListOf<T>()
+  for (item in this@chunkedBy) {
+    if (predicate(item) && current.isNotEmpty()) {
+      yield(current.toList())
+      current.clear()
+    }
+    current.add(item)
+  }
+  if (current.isNotEmpty()) {
+    yield(current)
+  }
 }

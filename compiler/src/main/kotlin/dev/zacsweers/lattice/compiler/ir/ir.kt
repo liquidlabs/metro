@@ -16,6 +16,7 @@
 package dev.zacsweers.lattice.compiler.ir
 
 import dev.zacsweers.lattice.compiler.LatticeOrigin
+import dev.zacsweers.lattice.compiler.LatticeOrigins
 import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameters
@@ -119,6 +120,7 @@ import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import org.jetbrains.kotlin.ir.util.fileOrNull
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.functions
+import org.jetbrains.kotlin.ir.util.getSimpleFunction
 import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.kotlinFqName
@@ -378,7 +380,7 @@ internal fun IrClass.allCallableMembers(
       // TODO does this even work
       it.filterNot { function ->
         function.overriddenSymbols.any { symbol ->
-          symbol.owner.parentClassId == LatticeSymbols.ClassIds.AnyClass
+          symbol.owner.parentClassId == LatticeSymbols.ClassIds.anyClass
         }
       }
     }
@@ -449,7 +451,7 @@ internal fun irLambda(
 internal fun IrFactory.addCompanionObject(
   symbols: LatticeSymbols,
   parent: IrClass,
-  name: Name = LatticeSymbols.Names.CompanionObject,
+  name: Name = LatticeSymbols.Names.companionObject,
   body: IrClass.() -> Unit = {},
 ): IrClass {
   return buildClass {
@@ -498,10 +500,7 @@ internal fun IrBuilderWithScope.irCallWithSameParameters(
   }
 }
 
-/**
- * For use with generated factory create() functions, converts parameters to Provider<T> types + any
- * bitmasks for default functions.
- */
+/** For use with generated factory creator functions, converts parameters to Provider<T> types. */
 internal fun IrBuilderWithScope.parametersAsProviderArguments(
   context: LatticeTransformerContext,
   parameters: Parameters<out Parameter>,
@@ -605,13 +604,33 @@ internal fun LatticeTransformerContext.assignConstructorParamsToFields(
   for (parameter in parameters) {
     if (parameter.isAssisted) continue
     val irParameter =
-      constructor.addValueParameter(parameter.name, parameter.providerType, LatticeOrigin)
+      constructor.addValueParameter(
+        parameter.name,
+        parameter.providerType,
+        LatticeOrigins.ValueParameter,
+      )
     val irField =
       clazz.addField(irParameter.name, irParameter.type, DescriptorVisibilities.PRIVATE).apply {
         isFinal = true
         initializer = pluginContext.createIrBuilder(symbol).run { irExprBody(irGet(irParameter)) }
       }
     parametersToFields[parameter] = irField
+  }
+  return parametersToFields
+}
+
+internal fun LatticeTransformerContext.assignConstructorParamsToFields(
+  constructor: IrConstructor,
+  clazz: IrClass,
+): Map<IrValueParameter, IrField> {
+  val parametersToFields = mutableMapOf<IrValueParameter, IrField>()
+  for (irParameter in constructor.valueParameters) {
+    val irField =
+      clazz.addField(irParameter.name, irParameter.type, DescriptorVisibilities.PRIVATE).apply {
+        isFinal = true
+        initializer = pluginContext.createIrBuilder(symbol).run { irExprBody(irGet(irParameter)) }
+      }
+    parametersToFields[irParameter] = irField
   }
   return parametersToFields
 }
@@ -794,7 +813,7 @@ internal val IrDeclarationParent.isExternalParent: Boolean
  * serializable in IR and cannot be used in some places like function bodies. This replicates that
  * ease of use.
  */
-internal fun IrBuilderWithScope.irBlockBody(symbol: IrSymbol, expression: IrExpression) =
+internal fun IrBuilderWithScope.irExprBodySafe(symbol: IrSymbol, expression: IrExpression) =
   context.createIrBuilder(symbol).irBlockBody { +irReturn(expression) }
 
 internal fun IrFunction.buildBlockBody(
@@ -831,3 +850,10 @@ internal val IrProperty.allAnnotations: List<IrConstructorCall>
 
 internal fun LatticeTransformerContext.latticeAnnotationsOf(ir: IrAnnotationContainer) =
   ir.latticeAnnotations(symbols.latticeClassIds)
+
+internal fun IrClass.requireSimpleFunction(name: String) =
+  getSimpleFunction(name) ?: error("No function $name in class $classId")
+
+@OptIn(UnsafeDuringIrConstructionAPI::class)
+internal fun IrClassSymbol.requireSimpleFunction(name: String) =
+  getSimpleFunction(name) ?: error("No function $name in class ${owner.classId}")

@@ -16,7 +16,7 @@
 package dev.zacsweers.lattice.compiler.ir.transformers
 
 import dev.zacsweers.lattice.compiler.LatticeAnnotations
-import dev.zacsweers.lattice.compiler.LatticeOrigin
+import dev.zacsweers.lattice.compiler.LatticeOrigins
 import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.capitalizeUS
 import dev.zacsweers.lattice.compiler.exitProcessing
@@ -26,31 +26,30 @@ import dev.zacsweers.lattice.compiler.ir.ContextualTypeKey
 import dev.zacsweers.lattice.compiler.ir.IrAnnotation
 import dev.zacsweers.lattice.compiler.ir.LatticeTransformerContext
 import dev.zacsweers.lattice.compiler.ir.TypeKey
-import dev.zacsweers.lattice.compiler.ir.addCompanionObject
-import dev.zacsweers.lattice.compiler.ir.addOverride
 import dev.zacsweers.lattice.compiler.ir.assignConstructorParamsToFields
 import dev.zacsweers.lattice.compiler.ir.checkNotNullCall
 import dev.zacsweers.lattice.compiler.ir.createIrBuilder
 import dev.zacsweers.lattice.compiler.ir.dispatchReceiverFor
-import dev.zacsweers.lattice.compiler.ir.irBlockBody
+import dev.zacsweers.lattice.compiler.ir.irExprBodySafe
 import dev.zacsweers.lattice.compiler.ir.irInvoke
 import dev.zacsweers.lattice.compiler.ir.isCompanionObject
+import dev.zacsweers.lattice.compiler.ir.isExternalParent
 import dev.zacsweers.lattice.compiler.ir.latticeAnnotationsOf
 import dev.zacsweers.lattice.compiler.ir.parameters.ConstructorParameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameters
 import dev.zacsweers.lattice.compiler.ir.parameters.parameters
 import dev.zacsweers.lattice.compiler.ir.parametersAsProviderArguments
-import dev.zacsweers.lattice.compiler.ir.thisReceiverOrFail
+import dev.zacsweers.lattice.compiler.ir.requireSimpleFunction
 import dev.zacsweers.lattice.compiler.isWordPrefixRegex
 import dev.zacsweers.lattice.compiler.unsafeLazy
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
-import org.jetbrains.kotlin.ir.builders.declarations.buildClass
 import org.jetbrains.kotlin.ir.builders.irGet
 import org.jetbrains.kotlin.ir.builders.irGetObject
 import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.IrExpression
@@ -61,20 +60,22 @@ import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.isMarkedNullable
 import org.jetbrains.kotlin.ir.types.typeWith
-import org.jetbrains.kotlin.ir.util.addChild
-import org.jetbrains.kotlin.ir.util.addSimpleDelegatingConstructor
 import org.jetbrains.kotlin.ir.util.callableId
 import org.jetbrains.kotlin.ir.util.classIdOrFail
-import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
+import org.jetbrains.kotlin.ir.util.companionObject
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.ir.util.isFakeOverride
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.kotlinFqName
+import org.jetbrains.kotlin.ir.util.nestedClasses
 import org.jetbrains.kotlin.ir.util.packageFqName
 import org.jetbrains.kotlin.ir.util.parentAsClass
+import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.synthetic.isVisibleOutside
 
 internal class ProvidesTransformer(context: LatticeTransformerContext) :
   LatticeTransformerContext by context {
@@ -135,89 +136,60 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
     // If it's from another module, look up its already-generated factory
     // TODO this doesn't work as expected in KMP, where things compiled in common are seen as
     //  external but no factory is found?
-    //    if (binding.providerFunction.origin == IR_EXTERNAL_DECLARATION_STUB) {
-    //      // Look up the external class
-    //      // TODO do we generate it here + warn like dagger does?
-    //      val generatedClass =
-    //        pluginContext.referenceClass(reference.generatedClassId)
-    //          ?: error(
-    //            "Could not find generated factory for ${reference.fqName} in upstream module where
-    // it's defined. Run the Lattice compiler over that module too."
-    //          )
-    //      generatedFactories[reference.fqName] = generatedClass.owner
-    //      generatedClass.owner
-    //    }
+    if (binding.providerFunction.parentAsClass.isExternalParent) {
+      // Look up the external class
+      // TODO do we generate it here + warn like dagger does?
+      val generatedClass =
+        pluginContext.referenceClass(reference.generatedClassId)
+          ?: error(
+            "Could not find generated factory for ${reference.fqName} in upstream module where it's defined. Run the Lattice compiler over that module too."
+          )
+      generatedFactories[reference.fqName] = generatedClass.owner
+      generatedClass.owner
+    }
     return getOrGenerateFactoryClass(reference)
   }
 
   @OptIn(UnsafeDuringIrConstructionAPI::class)
   fun getOrGenerateFactoryClass(reference: CallableReference): IrClass {
-    // TODO if declaration is external to this compilation, look
-    //  up its factory or warn if it doesn't exist
     generatedFactories[reference.fqName]?.let {
       return it
     }
 
-    // TODO unimplemented for now
-    if (reference.parameters.extensionReceiver != null) {
-      // Checked in FIR
-      reference.parameters.ir!!.reportError(
-        "Unexpected extension receiver. This is a bug in Lattice, please file a bug report at https://github.com/zacsweers/lattice/issues/new"
-      )
-      exitProcessing()
-    }
-
-    // TODO FIR check parent class (if any) is a graph. What about (companion) objects?
     // TODO FIR check function is not abstract
     // TODO FIR check for duplicate functions (by name, params don't count). Does this matter in FIR
     //  tho
 
     // TODO Private functions need to be visible downstream. To do this we use a new API to add
-    // custom metadata
-    //    if (!reference.callee.owner.visibility.isVisibleOutside()) {
-    //      pluginContext.metadataDeclarationRegistrar
-    //    }
+    //  custom metadata
+    if (!reference.callee.owner.visibility.isVisibleOutside()) {
+      // TODO properties?
+      // TODO registerFunctionAsMetadataVisible doesn't appear to work unless the function is public
+      //  ... so I don't understand what it's for
+      //      pluginContext.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(
+      //        reference.callee.owner as IrSimpleFunction
+      //      )
+    }
 
-    val valueParameters = reference.parameters.valueParameters
-
-    val returnType = reference.typeKey.type
+    val sourceValueParameters = reference.parameters.valueParameters
 
     val generatedClassId = reference.generatedClassId
 
-    val byteCodeFunctionName =
-      when {
-        reference.useGetPrefix -> "get" + reference.name.capitalizeUS()
-        else -> reference.name.asString()
-      }
-
-    val canGenerateAnObject = reference.isInObject && valueParameters.isEmpty()
     val factoryCls =
-      pluginContext.irFactory
-        .buildClass {
-          name = generatedClassId.relativeClassName.shortName()
-          kind = if (canGenerateAnObject) ClassKind.OBJECT else ClassKind.CLASS
-          visibility = DescriptorVisibilities.PUBLIC
-          origin = LatticeOrigin
-        }
-        .apply {
-          // Add as a nested class of the origin graph. This is important so that default value
-          // expressions can access private members.
-          reference.graphParent.addChild(this)
-
-          createImplicitParameterDeclarationWithWrappedDescriptor()
-          superTypes += symbols.latticeFactory.typeWith(returnType)
+      reference.parent.owner.nestedClasses.singleOrNull {
+        it.origin == LatticeOrigins.ProviderFactoryClassDeclaration &&
+          it.classIdOrFail == generatedClassId
+      }
+        ?: run {
+          error(
+            "No factory class generated for ${reference.fqName}. Report this bug with a repro case at https://github.com/zacsweers/lattice/issues/new"
+          )
         }
 
     val factoryClassParameterized = factoryCls.typeWith()
 
     // Implement constructor w/ params if necessary
-    val ctor =
-      factoryCls.addSimpleDelegatingConstructor(
-        symbols.anyConstructor,
-        pluginContext.irBuiltIns,
-        isPrimary = true,
-        origin = LatticeOrigin,
-      )
+    val ctor = factoryCls.primaryConstructor!!
 
     val graphType = reference.graphParent.typeWith()
 
@@ -253,56 +225,57 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
         null
       }
 
-    val factoryParameters =
+    val sourceParameters =
       Parameters(
         reference.callee.owner.callableId,
         instance = instanceParam,
         extensionReceiver = null,
-        valueParameters = valueParameters,
+        valueParameters = sourceValueParameters,
         ir = null, // Will set later
       )
 
-    val parametersToFields =
-      assignConstructorParamsToFields(ctor, factoryCls, factoryParameters.allParameters)
+    val constructorParametersToFields = assignConstructorParamsToFields(ctor, factoryCls)
+
+    // TODO This is ugly
+    val sourceParametersToFields: Map<Parameter, IrField> =
+      constructorParametersToFields.entries.associate { (irParam, field) ->
+        val sourceParam =
+          if (irParam.origin == LatticeOrigins.InstanceParameter) {
+            sourceParameters.instance!!
+          } else {
+            sourceParameters.valueParameters[irParam.index - 1]
+          }
+        sourceParam to field
+      }
 
     val bytecodeFunction =
-      generateCreators(
+      implementCreatorBodies(
         factoryCls,
         ctor.symbol,
         reference,
         factoryClassParameterized,
-        factoryParameters,
-        byteCodeFunctionName,
+        sourceParameters,
       )
 
     // Implement invoke()
     // TODO DRY this up with the constructor injection override
-    factoryCls
-      .addOverride(
-        baseFqName = symbols.providerInvoke.owner.kotlinFqName,
-        simpleName = symbols.providerInvoke.owner.name,
-        returnType = returnType,
-        overriddenSymbols = listOf(symbols.providerInvoke),
-      )
-      .apply {
-        this.dispatchReceiverParameter = factoryCls.thisReceiverOrFail
-        body =
-          pluginContext.createIrBuilder(symbol).run {
-            irBlockBody(
-              symbol,
-              irInvoke(
-                dispatchReceiver = dispatchReceiverFor(bytecodeFunction),
-                callee = bytecodeFunction.symbol,
-                args =
-                  parametersAsProviderArguments(
-                    latticeContext,
-                    parameters = factoryParameters,
-                    receiver = factoryCls.thisReceiverOrFail,
-                    parametersToFields = parametersToFields,
-                  ),
+    val invokeFunction = factoryCls.requireSimpleFunction(LatticeSymbols.StringNames.invoke)
+    invokeFunction.owner.body =
+      pluginContext.createIrBuilder(invokeFunction).run {
+        irExprBodySafe(
+          invokeFunction,
+          irInvoke(
+            dispatchReceiver = dispatchReceiverFor(bytecodeFunction),
+            callee = bytecodeFunction.symbol,
+            args =
+              parametersAsProviderArguments(
+                latticeContext,
+                parameters = sourceParameters,
+                receiver = invokeFunction.owner.dispatchReceiverParameter!!,
+                parametersToFields = sourceParametersToFields,
               ),
-            )
-          }
+          ),
+        )
       }
 
     factoryCls.dumpToLatticeLog()
@@ -335,7 +308,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
         parameters = function.parameters(this),
         typeKey = typeKey,
         isNullable = typeKey.type.isMarkedNullable(),
-        isPublishedApi = function.hasAnnotation(LatticeSymbols.ClassIds.PublishedApi),
+        isPublishedApi = function.hasAnnotation(LatticeSymbols.ClassIds.publishedApi),
         reportableNode = function,
         parent = parent.symbol,
         callee = function.symbol,
@@ -373,7 +346,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
         parameters = property.getter?.parameters(this) ?: Parameters.empty(),
         typeKey = typeKey,
         isNullable = typeKey.type.isMarkedNullable(),
-        isPublishedApi = property.hasAnnotation(LatticeSymbols.ClassIds.PublishedApi),
+        isPublishedApi = property.hasAnnotation(LatticeSymbols.ClassIds.publishedApi),
         reportableNode = property,
         parent = parent.symbol,
         callee = property.getter!!.symbol,
@@ -383,13 +356,12 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
   }
 
   @OptIn(UnsafeDuringIrConstructionAPI::class)
-  private fun generateCreators(
+  private fun implementCreatorBodies(
     factoryCls: IrClass,
     factoryConstructor: IrConstructorSymbol,
     reference: CallableReference,
     factoryClassParameterized: IrType,
     factoryParameters: Parameters<ConstructorParameter>,
-    byteCodeFunctionName: String,
   ): IrSimpleFunction {
     val targetTypeParameterized = reference.typeKey.type
     val returnTypeIsNullable = reference.isNullable
@@ -400,7 +372,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
       if (isObject) {
         factoryCls
       } else {
-        pluginContext.irFactory.addCompanionObject(symbols, parent = factoryCls)
+        factoryCls.companionObject()!!
       }
 
     // Generate create()
@@ -419,7 +391,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
       generateStaticNewInstanceFunction(
         latticeContext,
         classToGenerateCreatorsIn,
-        byteCodeFunctionName,
+        SpecialNames.NO_NAME_PROVIDED.asString(), // TODO remove
         targetTypeParameterized,
         factoryParameters,
         targetFunction = reference.callee.owner,
@@ -533,19 +505,17 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     val simpleName by lazy {
       buildString {
-        if (isInCompanionObject) {
-          append("Companion_")
-        }
         if (useGetPrefix) {
           append("Get")
         }
         append(name.capitalizeUS())
-        append(LatticeSymbols.Names.LatticeFactory.asString())
+        append(LatticeSymbols.Names.latticeFactory.asString())
       }
     }
 
+    @OptIn(UnsafeDuringIrConstructionAPI::class)
     val generatedClassId by lazy {
-      graphParent.classIdOrFail.createNestedClassId(Name.identifier(simpleName))
+      parent.owner.classIdOrFail.createNestedClassId(Name.identifier(simpleName))
     }
 
     private val cachedToString by lazy {

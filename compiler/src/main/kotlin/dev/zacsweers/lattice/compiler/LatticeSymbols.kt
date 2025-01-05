@@ -18,6 +18,7 @@ package dev.zacsweers.lattice.compiler
 import dev.zacsweers.lattice.compiler.LatticeSymbols.FqNames.kotlinCollectionsPackageFqn
 import dev.zacsweers.lattice.compiler.LatticeSymbols.StringNames.latticeRuntimeInternalPackage
 import dev.zacsweers.lattice.compiler.LatticeSymbols.StringNames.latticeRuntimePackage
+import dev.zacsweers.lattice.compiler.ir.requireSimpleFunction
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
@@ -31,7 +32,6 @@ import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.companionObject
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.explicitParametersCount
-import org.jetbrains.kotlin.ir.util.getSimpleFunction
 import org.jetbrains.kotlin.ir.util.kotlinPackageFqn
 import org.jetbrains.kotlin.ir.util.nestedClasses
 import org.jetbrains.kotlin.name.CallableId
@@ -47,35 +47,49 @@ internal class LatticeSymbols(
 ) {
 
   object StringNames {
-    const val Create = "create"
-    const val NewInstance = "newInstance"
-    const val latticeRuntimePackage = "dev.zacsweers.lattice"
+    const val create = "create"
+    const val factory = "factory"
+    const val invoke = "invoke"
+    const val latticeFactory = "\$\$LatticeFactory"
     const val latticeRuntimeInternalPackage = "dev.zacsweers.lattice.internal"
+    const val latticeRuntimePackage = "dev.zacsweers.lattice"
+    const val newInstance = "newInstance"
+    const val provider = "provider"
   }
 
   object FqNames {
     val kotlinCollectionsPackageFqn = FqName("kotlin.collections")
+    val latticeRuntimePackage = FqName(StringNames.latticeRuntimePackage)
+    val latticeRuntimeInternalPackage = FqName(StringNames.latticeRuntimeInternalPackage)
   }
 
   object ClassIds {
-    val AnyClass = ClassId(kotlinPackageFqn, Name.identifier("Any"))
-    val PublishedApi = ClassId(kotlinPackageFqn, Name.identifier("PublishedApi"))
-    val Set = ClassId(kotlinCollectionsPackageFqn, Name.identifier("Set"))
-    val Map = ClassId(kotlinCollectionsPackageFqn, Name.identifier("Map"))
+    val anyClass = ClassId(kotlinPackageFqn, Name.identifier("Any"))
+    val jsExportIgnore = ClassId.fromString("kotlin/js/JsExport.Ignore")
+    val latticeFactory = ClassId(FqNames.latticeRuntimeInternalPackage, Names.factoryClassName)
+    val latticeProvider = ClassId(FqNames.latticeRuntimePackage, Names.providerClassName)
+    val lazy = ClassId(kotlinPackageFqn, Name.identifier("Lazy"))
+    val map = ClassId(kotlinCollectionsPackageFqn, Name.identifier("Map"))
+    val publishedApi = ClassId(kotlinPackageFqn, Name.identifier("PublishedApi"))
+    val set = ClassId(kotlinCollectionsPackageFqn, Name.identifier("Set"))
   }
 
   object Names {
-    val CompanionObject = Name.identifier("Companion")
-    val Create = StringNames.Create.asName()
-    val Factory = Name.identifier("Factory")
-    val Instance = Name.identifier("instance")
-    val LatticeGraph = Name.identifier("\$\$LatticeGraph")
-    val LatticeFactory = Name.identifier("\$\$LatticeFactory")
-    val LatticeImpl = Name.identifier("\$\$Impl")
-    val LatticeMembersInjector = Name.identifier("\$\$LatticeMembersInjector")
-    val NewInstanceFunction = StringNames.NewInstance.asName()
+    val companionObject = Name.identifier("Companion")
+    val create = StringNames.create.asName()
+    val factoryClassName = Name.identifier("Factory")
+    val instance = Name.identifier("instance")
+    val invoke = Name.identifier(StringNames.invoke)
+    val latticeFactory = Name.identifier(StringNames.latticeFactory)
+    val latticeGraph = Name.identifier("\$\$LatticeGraph")
+    val latticeImpl = Name.identifier("\$\$Impl")
+    val latticeMembersInjector = Name.identifier("\$\$LatticeMembersInjector")
+    val newInstanceFunction = StringNames.newInstance.asName()
+    val providerClassName = Name.identifier("Provider")
+    val providerFunction = Name.identifier(StringNames.provider)
+    val receiver = Name.identifier("receiver")
     // Used in @Assisted.value
-    val Value = Name.identifier("value")
+    val value = Name.identifier("value")
   }
 
   // TODO use more constants from StandardNames.FqNames
@@ -149,8 +163,8 @@ internal class LatticeSymbols(
     )!!
   }
   val doubleCheckCompanionObject by lazy { doubleCheck.owner.companionObject()!!.symbol }
-  val doubleCheckProvider by lazy { doubleCheckCompanionObject.getSimpleFunction("provider")!! }
-  val doubleCheckLazy by lazy { doubleCheckCompanionObject.getSimpleFunction("lazy")!! }
+  val doubleCheckProvider by lazy { doubleCheckCompanionObject.requireSimpleFunction("provider") }
+  val doubleCheckLazy by lazy { doubleCheckCompanionObject.requireSimpleFunction("lazy") }
 
   val providerOfLazy: IrClassSymbol by lazy {
     pluginContext.referenceClass(
@@ -159,7 +173,7 @@ internal class LatticeSymbols(
   }
   val providerOfLazyCompanionObject by lazy { providerOfLazy.owner.companionObject()!!.symbol }
   val providerOfLazyCreate: IrFunctionSymbol by lazy {
-    providerOfLazyCompanionObject.getSimpleFunction(StringNames.Create)!!
+    providerOfLazyCompanionObject.requireSimpleFunction(StringNames.create)
   }
 
   val instanceFactory: IrClassSymbol by lazy {
@@ -169,7 +183,7 @@ internal class LatticeSymbols(
   }
   val instanceFactoryCompanionObject by lazy { instanceFactory.owner.companionObject()!!.symbol }
   val instanceFactoryCreate: IrFunctionSymbol by lazy {
-    instanceFactoryCompanionObject.getSimpleFunction(StringNames.Create)!!
+    instanceFactoryCompanionObject.requireSimpleFunction(StringNames.create)
   }
 
   val latticeProvider: IrClassSymbol by lazy {
@@ -185,7 +199,7 @@ internal class LatticeSymbols(
   }
 
   val providerInvoke: IrSimpleFunctionSymbol by lazy {
-    latticeProvider.getSimpleFunction("invoke")!!
+    latticeProvider.requireSimpleFunction("invoke")
   }
 
   val latticeDelegateFactory: IrClassSymbol by lazy {
@@ -203,7 +217,7 @@ internal class LatticeSymbols(
   }
 
   val latticeDelegateFactorySetDelegate: IrFunctionSymbol by lazy {
-    latticeDelegateFactoryCompanion.getSimpleFunction("setDelegate")!!
+    latticeDelegateFactoryCompanion.requireSimpleFunction("setDelegate")
   }
 
   val latticeMembersInjector: IrClassSymbol by lazy {
@@ -213,7 +227,7 @@ internal class LatticeSymbols(
   }
 
   val latticeMembersInjectorInjectMembers: IrSimpleFunctionSymbol by lazy {
-    latticeMembersInjector.getSimpleFunction("injectMembers")!!
+    this@LatticeSymbols.latticeMembersInjector.requireSimpleFunction("injectMembers")
   }
 
   val latticeMembersInjectors: IrClassSymbol by lazy {
@@ -223,7 +237,7 @@ internal class LatticeSymbols(
   }
 
   val latticeMembersInjectorsNoOp: IrSimpleFunctionSymbol by lazy {
-    latticeMembersInjectors.getSimpleFunction("noOp")!!
+    latticeMembersInjectors.requireSimpleFunction("noOp")
   }
 
   val latticeFactory: IrClassSymbol by lazy {
@@ -247,19 +261,19 @@ internal class LatticeSymbols(
   }
 
   val setFactoryBuilderFunction: IrSimpleFunctionSymbol by lazy {
-    setFactoryCompanionObject.getSimpleFunction("builder")!!
+    setFactoryCompanionObject.requireSimpleFunction("builder")
   }
 
   val setFactoryBuilderAddProviderFunction: IrSimpleFunctionSymbol by lazy {
-    setFactoryBuilder.getSimpleFunction("addProvider")!!
+    setFactoryBuilder.requireSimpleFunction("addProvider")
   }
 
   val setFactoryBuilderAddCollectionProviderFunction: IrSimpleFunctionSymbol by lazy {
-    setFactoryBuilder.getSimpleFunction("addCollectionProvider")!!
+    setFactoryBuilder.requireSimpleFunction("addCollectionProvider")
   }
 
   val setFactoryBuilderBuildFunction: IrSimpleFunctionSymbol by lazy {
-    setFactoryBuilder.getSimpleFunction("build")!!
+    setFactoryBuilder.requireSimpleFunction("build")
   }
 
   val mapFactory: IrClassSymbol by lazy {
@@ -277,19 +291,19 @@ internal class LatticeSymbols(
   }
 
   val mapFactoryBuilderFunction: IrSimpleFunctionSymbol by lazy {
-    mapFactoryCompanionObject.getSimpleFunction("builder")!!
+    mapFactoryCompanionObject.requireSimpleFunction("builder")
   }
 
   val mapFactoryBuilderPutFunction: IrSimpleFunctionSymbol by lazy {
-    mapFactoryBuilder.getSimpleFunction("put")!!
+    mapFactoryBuilder.requireSimpleFunction("put")
   }
 
   val mapFactoryBuilderPutAllFunction: IrSimpleFunctionSymbol by lazy {
-    mapFactoryBuilder.getSimpleFunction("putAll")!!
+    mapFactoryBuilder.requireSimpleFunction("putAll")
   }
 
   val mapFactoryBuilderBuildFunction: IrSimpleFunctionSymbol by lazy {
-    mapFactoryBuilder.getSimpleFunction("build")!!
+    mapFactoryBuilder.requireSimpleFunction("build")
   }
 
   val mapProviderFactory: IrClassSymbol by lazy {
@@ -307,19 +321,19 @@ internal class LatticeSymbols(
   }
 
   val mapProviderFactoryBuilderFunction: IrSimpleFunctionSymbol by lazy {
-    mapProviderFactoryCompanionObject.getSimpleFunction("builder")!!
+    mapProviderFactoryCompanionObject.requireSimpleFunction("builder")
   }
 
   val mapProviderFactoryBuilderPutFunction: IrSimpleFunctionSymbol by lazy {
-    mapProviderFactoryBuilder.getSimpleFunction("put")!!
+    mapProviderFactoryBuilder.requireSimpleFunction("put")
   }
 
   val mapProviderFactoryBuilderPutAllFunction: IrSimpleFunctionSymbol by lazy {
-    mapProviderFactoryBuilder.getSimpleFunction("putAll")!!
+    mapProviderFactoryBuilder.requireSimpleFunction("putAll")
   }
 
   val mapProviderFactoryBuilderBuildFunction: IrSimpleFunctionSymbol by lazy {
-    mapProviderFactoryBuilder.getSimpleFunction("build")!!
+    mapProviderFactoryBuilder.requireSimpleFunction("build")
   }
 
   val stdlibLazy: IrClassSymbol by lazy {
@@ -427,6 +441,6 @@ internal class LatticeSymbols(
   val lazyTypes
     get() = latticeClassIds.lazyTypes
 
-  protected fun createPackage(packageName: String): IrPackageFragment =
+  private fun createPackage(packageName: String): IrPackageFragment =
     createEmptyExternalPackageFragment(moduleFragment.descriptor, FqName(packageName))
 }
