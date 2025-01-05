@@ -25,7 +25,6 @@ import dev.zacsweers.lattice.compiler.ir.createIrBuilder
 import dev.zacsweers.lattice.compiler.ir.dispatchReceiverFor
 import dev.zacsweers.lattice.compiler.ir.irInvoke
 import dev.zacsweers.lattice.compiler.ir.irTemporary
-import dev.zacsweers.lattice.compiler.ir.isAnnotatedWithAny
 import dev.zacsweers.lattice.compiler.ir.parameters.ConstructorParameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameters
@@ -97,8 +96,6 @@ internal class InjectConstructorTransformer(
         memberInjectParameters.all { it.valueParameters.isEmpty() } &&
         targetTypeParameters.isEmpty()
 
-    val isAssistedInject = targetConstructor.isAnnotatedWithAny(symbols.assistedInjectAnnotations)
-
     /*
     Create a simple Factory class that takes all injected values as providers
 
@@ -135,6 +132,7 @@ internal class InjectConstructorTransformer(
 
     factoryCls.createImplicitParameterDeclarationWithWrappedDescriptor()
 
+    val isAssistedInject = constructorParameters.valueParameters.any { it.isAssisted }
     if (!isAssistedInject) {
       factoryCls.superTypes =
         listOf(

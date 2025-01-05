@@ -18,7 +18,6 @@ package dev.zacsweers.lattice.test.integration
 import dev.zacsweers.lattice.AppScope
 import dev.zacsweers.lattice.Assisted
 import dev.zacsweers.lattice.AssistedFactory
-import dev.zacsweers.lattice.AssistedInject
 import dev.zacsweers.lattice.Binds
 import dev.zacsweers.lattice.BindsInstance
 import dev.zacsweers.lattice.ClassKey
@@ -357,9 +356,7 @@ class DependencyGraphProcessingTest {
       fun create(@BindsInstance message: String): AssistedInjectGraph
     }
 
-    class ExampleClass
-    @AssistedInject
-    constructor(@Assisted val intValue: Int, val message: String) {
+    class ExampleClass @Inject constructor(@Assisted val intValue: Int, val message: String) {
       @AssistedFactory
       fun interface Factory {
         fun create(intValue: Int): ExampleClass
@@ -387,7 +384,7 @@ class DependencyGraphProcessingTest {
     val factory: ExampleClass.Factory
 
     class ExampleClass
-    @AssistedInject
+    @Inject
     constructor(@Assisted("1") val intValue1: Int, @Assisted("2") val intValue2: Int) {
       @AssistedFactory
       fun interface Factory {
@@ -408,7 +405,7 @@ class DependencyGraphProcessingTest {
   interface AssistedInjectGraphWithGenericFactorySupertype {
     val factory: ExampleClass.Factory
 
-    class ExampleClass @AssistedInject constructor(@Assisted val intValue: Int) {
+    class ExampleClass @Inject constructor(@Assisted val intValue: Int) {
       fun interface BaseFactory<T> {
         fun create(intValue: Int): T
       }
@@ -432,7 +429,7 @@ class DependencyGraphProcessingTest {
   interface AssistedInjectGraphDiamondInheritance {
     val factory: ExampleClass.Factory
 
-    class ExampleClass @AssistedInject constructor(@Assisted val intValue: Int) {
+    class ExampleClass @Inject constructor(@Assisted val intValue: Int) {
       fun interface GrandParentBaseFactory<T> {
         fun create(intValue: Int): T
       }
@@ -469,9 +466,7 @@ class DependencyGraphProcessingTest {
       fun create(dependentGraph: DependentGraph): GraphUsingDepFromDependentGraph
     }
 
-    class ExampleClass
-    @AssistedInject
-    constructor(@Assisted val intValue: Int, val message: String) {
+    class ExampleClass @Inject constructor(@Assisted val intValue: Int, val message: String) {
       @AssistedFactory
       fun interface Factory {
         fun create(intValue: Int): ExampleClass
