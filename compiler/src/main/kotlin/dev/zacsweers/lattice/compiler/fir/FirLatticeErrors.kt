@@ -124,8 +124,8 @@ internal object FirLatticeErrors : BaseDiagnosticRendererFactory() {
   val INJECTED_CLASSES_MUST_BE_VISIBLE by error0(VISIBILITY_MODIFIER)
 
   // Assisted factory/inject errors
-  // All errors are just passed through this one
-  val ASSISTED_INJECTION by error1<String>(NAME_IDENTIFIER)
+  val ASSISTED_INJECTION_ERROR by error1<String>(NAME_IDENTIFIER)
+  val ASSISTED_INJECTION_TYPE_PARAMETERS_ERROR by error1<String>(TYPE_PARAMETERS_LIST)
 
   // Provides errors
   val PROVIDES_OR_BINDS_SHOULD_BE_PRIVATE by warning1<String>(VISIBILITY_MODIFIER)
@@ -146,7 +146,7 @@ internal object FirLatticeErrors : BaseDiagnosticRendererFactory() {
       )
       put(
         LOCAL_CLASSES_CANNOT_BE_INJECTED,
-        "Local classes cannot be annotated with @Inject or have @(Assisted)Inject-constructors.",
+        "Local classes cannot be annotated with @Inject or have @Inject-annotated constructors.",
       )
       put(LATTICE_DECLARATION_ERROR, "{0}", TO_STRING)
       put(LATTICE_DECLARATION_VISIBILITY_ERROR, "{0} must be public or internal.", TO_STRING)
@@ -180,17 +180,18 @@ internal object FirLatticeErrors : BaseDiagnosticRendererFactory() {
       // TODO eventually this will change to allow function injection
       put(
         ONLY_CLASSES_CAN_BE_INJECTED,
-        "Only classes can be annotated with @Inject or have @(Assisted)Inject-constructors.",
+        "Only classes can be annotated with @Inject or have @Inject-annotated constructors.",
       )
       put(
         ONLY_FINAL_CLASSES_CAN_BE_INJECTED,
-        "Only final classes be annotated with @Inject or have @(Assisted)Inject-constructors.",
+        "Only final classes be annotated with @Inject or have @Inject-annotated constructors.",
       )
       put(
         INJECTED_CLASSES_MUST_BE_VISIBLE,
         "Injected classes must be visible, either `public` or `internal`.",
       )
-      put(ASSISTED_INJECTION, "{0}", STRING)
+      put(ASSISTED_INJECTION_ERROR, "{0}", STRING)
+      put(ASSISTED_INJECTION_TYPE_PARAMETERS_ERROR, "{0}", STRING)
       put(PROVIDES_ERROR, "{0}", STRING)
       put(BINDS_ERROR, "{0}", STRING)
       put(PROVIDES_COULD_BE_BINDS, "{0}", STRING)

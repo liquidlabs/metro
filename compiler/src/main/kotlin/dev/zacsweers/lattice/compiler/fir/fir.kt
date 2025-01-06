@@ -17,7 +17,9 @@ package dev.zacsweers.lattice.compiler.fir
 
 import dev.zacsweers.lattice.compiler.LatticeClassIds
 import dev.zacsweers.lattice.compiler.LatticeSymbols
+import dev.zacsweers.lattice.compiler.mapToArray
 import java.util.Objects
+import org.jetbrains.kotlin.GeneratedDeclarationKey
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
@@ -28,20 +30,24 @@ import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirFunction
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirProperty
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.constructors
 import org.jetbrains.kotlin.fir.declarations.getDeprecationsProvider
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
+import org.jetbrains.kotlin.fir.declarations.origin
 import org.jetbrains.kotlin.fir.declarations.primaryConstructorIfAny
 import org.jetbrains.kotlin.fir.declarations.toAnnotationClassIdSafe
 import org.jetbrains.kotlin.fir.declarations.utils.isAbstract
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
+import org.jetbrains.kotlin.fir.declarations.utils.isOverride
 import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
@@ -65,14 +71,17 @@ import org.jetbrains.kotlin.fir.references.toResolvedPropertySymbol
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.getSuperTypes
+import org.jetbrains.kotlin.fir.resolve.lookupSuperTypes
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.toClassSymbol
+import org.jetbrains.kotlin.fir.scopes.impl.toConeType
 import org.jetbrains.kotlin.fir.scopes.jvm.computeJvmDescriptor
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
@@ -82,6 +91,7 @@ import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.coneTypeOrNull
 import org.jetbrains.kotlin.fir.types.coneTypeSafe
 import org.jetbrains.kotlin.fir.types.constructClassLikeType
+import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
@@ -176,13 +186,12 @@ internal fun FirClass.allSuperTypeConeRefs(session: FirSession): Sequence<ConeCl
   }
 }
 
-@OptIn(SymbolInternals::class) // TODO is there a non-internal API?
-internal fun FirClass.allFunctions(session: FirSession): Sequence<FirFunction> {
+internal fun FirClassSymbol<*>.allFunctions(session: FirSession): Sequence<FirNamedFunctionSymbol> {
   return sequence {
-    yieldAll(declarations.filterIsInstance<FirFunction>())
+    yieldAll(declarationSymbols.filterIsInstance<FirNamedFunctionSymbol>())
     yieldAll(
-      allSuperTypeConeRefs(session)
-        .mapNotNull { it.toClassSymbol(session)?.fir }
+      lookupSuperTypes(this@allFunctions, true, true, session)
+        .mapNotNull { it.toClassSymbol(session) }
         .flatMap { it.allFunctions(session) }
     )
   }
@@ -213,18 +222,21 @@ internal fun FirClassSymbol<*>.allCallableMembers(
   }
 }
 
-internal fun FirClass.abstractFunctions(session: FirSession): List<FirFunction> {
+@OptIn(SymbolInternals::class) // TODO is there a non-internal API?
+internal fun FirClassSymbol<*>.abstractFunctions(
+  session: FirSession
+): List<FirNamedFunctionSymbol> {
   return allFunctions(session)
     // Merge inherited functions with matching signatures
     .groupBy {
       // Don't include the return type because overrides may have different ones
-      it.computeJvmDescriptor(includeReturnType = false)
+      it.fir.computeJvmDescriptor(includeReturnType = false)
     }
     .mapValues { (_, functions) ->
       val (abstract, implemented) =
         functions.partition {
           it.modality == Modality.ABSTRACT &&
-            it.body == null &&
+            it.fir.body == null &&
             (it.visibility == Visibilities.Public || it.visibility == Visibilities.Protected)
         }
       if (abstract.isEmpty()) {
@@ -235,7 +247,11 @@ internal fun FirClass.abstractFunctions(session: FirSession): List<FirFunction> 
         null
       } else {
         // Only need one for the rest of this
-        abstract[0]
+        abstract.first {
+          // If it's declared in our class, grab that one. Otherwise grab the first non-overridden
+          // one
+          it.getContainingClassSymbol() == this || !it.isOverride
+        }
       }
     }
     .values
@@ -248,8 +264,8 @@ internal inline fun FirClass.singleAbstractFunction(
   reporter: DiagnosticReporter,
   type: String,
   onError: () -> Nothing,
-): FirFunction {
-  val abstractFunctions = abstractFunctions(session)
+): FirNamedFunctionSymbol {
+  val abstractFunctions = symbol.abstractFunctions(session)
   if (abstractFunctions.size != 1) {
     if (abstractFunctions.isEmpty()) {
       reporter.reportOn(
@@ -596,3 +612,23 @@ internal fun ConeTypeProjection.wrapInProvider() =
 
 internal fun ConeTypeProjection.wrapInLazy() =
   LatticeSymbols.ClassIds.lazy.constructClassLikeType(arrayOf(this))
+
+internal fun FirClassSymbol<*>.constructType(
+  typeParameterRefs: List<FirTypeParameterRef>
+): ConeClassLikeType {
+  return constructType(typeParameterRefs.mapToArray { it.symbol.toConeType() })
+}
+
+// Annoyingly, FirDeclarationOrigin.Plugin does not implement equals()
+internal fun FirBasedSymbol<*>.hasOrigin(key: GeneratedDeclarationKey): Boolean =
+  hasOrigin(key.origin)
+
+internal fun FirBasedSymbol<*>.hasOrigin(o: FirDeclarationOrigin): Boolean {
+  val thisOrigin = origin
+
+  if (thisOrigin == o) return true
+  if (thisOrigin is FirDeclarationOrigin.Plugin && o is FirDeclarationOrigin.Plugin) {
+    return thisOrigin.key == o.key
+  }
+  return false
+}

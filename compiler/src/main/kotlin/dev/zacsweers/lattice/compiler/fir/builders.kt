@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.builder.FirSimpleFunctionBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirValueParameterBuilder
@@ -48,7 +49,10 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.toEffectiveVisibility
+import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
@@ -56,8 +60,30 @@ import org.jetbrains.kotlin.types.ConstantValueKind
 
 @OptIn(ExperimentalContracts::class)
 internal fun FirExtension.generateMemberFunction(
-  targetClass: FirClassLikeSymbol<*>,
+  owner: FirClassLikeSymbol<*>,
   returnTypeRef: FirTypeRef,
+  callableId: CallableId,
+  origin: FirDeclarationOrigin = LatticeKeys.Default.origin,
+  visibility: Visibility = Visibilities.Public,
+  modality: Modality = Modality.FINAL,
+  body: FirSimpleFunctionBuilder.() -> Unit = {},
+): FirSimpleFunction {
+  contract { callsInPlace(body, InvocationKind.EXACTLY_ONCE) }
+  return generateMemberFunction(
+    owner,
+    { returnTypeRef.coneType },
+    callableId,
+    origin,
+    visibility,
+    modality,
+    body,
+  )
+}
+
+@OptIn(ExperimentalContracts::class, SymbolInternals::class)
+internal fun FirExtension.generateMemberFunction(
+  owner: FirClassLikeSymbol<*>,
+  returnTypeProvider: (List<FirTypeParameterRef>) -> ConeKotlinType,
   callableId: CallableId,
   origin: FirDeclarationOrigin = LatticeKeys.Default.origin,
   visibility: Visibility = Visibilities.Public,
@@ -70,7 +96,7 @@ internal fun FirExtension.generateMemberFunction(
     moduleData = session.moduleData
     this.origin = origin
 
-    source = targetClass.source?.fakeElement(KtFakeSourceElementKind.PluginGenerated)
+    source = owner.source?.fakeElement(KtFakeSourceElementKind.PluginGenerated)
 
     val functionSymbol = FirNamedFunctionSymbol(callableId)
     symbol = functionSymbol
@@ -81,14 +107,12 @@ internal fun FirExtension.generateMemberFunction(
       FirResolvedDeclarationStatusImpl(
         visibility,
         modality,
-        Visibilities.Public.toEffectiveVisibility(targetClass, forClass = true),
+        Visibilities.Public.toEffectiveVisibility(owner, forClass = true),
       )
 
-    dispatchReceiverType = targetClass.constructType()
+    dispatchReceiverType = owner.constructType()
 
-    // TODO type params?
-
-    this.returnTypeRef = returnTypeRef
+    this.returnTypeRef = returnTypeProvider(owner.fir.typeParameters).toFirResolvedTypeRef()
 
     body()
   }

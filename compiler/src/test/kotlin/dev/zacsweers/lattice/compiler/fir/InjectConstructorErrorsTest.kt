@@ -16,105 +16,70 @@
 package dev.zacsweers.lattice.compiler.fir
 
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
-import com.tschuchort.compiletesting.SourceFile.Companion.kotlin
 import dev.zacsweers.lattice.compiler.LatticeCompilerTest
-import dev.zacsweers.lattice.compiler.assertContainsAll
+import dev.zacsweers.lattice.compiler.assertDiagnostics
 import org.junit.Test
 
 class InjectConstructorErrorsTest : LatticeCompilerTest() {
 
   @Test
   fun `cannot have multiple inject targets`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleClass.kt",
-          """
-            package test
-
-            import dev.zacsweers.lattice.Inject
-
+    compile(
+      source(
+        """
             @Inject
             class ExampleClass @Inject constructor(private val value: String)
-
           """
-            .trimIndent(),
-        ),
-        expectedExitCode = ExitCode.COMPILATION_ERROR,
+          .trimIndent()
+      ),
+      expectedExitCode = ExitCode.COMPILATION_ERROR,
+    ) {
+      assertDiagnostics(
+        "e: ExampleClass.kt:7:20 You should annotate either a class XOR constructor with `@Inject` but not both."
       )
-    result.assertContains(
-      """
-        ExampleClass.kt:6:20 You should annotate either a class XOR constructor with `@Inject` but not both.
-      """
-        .trimIndent()
-    )
+    }
   }
 
   @Test
   fun `suggest moving inject annotation to class if constructor is empty`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleClass.kt",
-          """
-            package test
-
-            import dev.zacsweers.lattice.Inject
-
+    compile(
+      source(
+        """
             class ExampleClass @Inject constructor()
-
           """
-            .trimIndent(),
-        )
+          .trimIndent()
       )
-    result.assertContains(
-      """
-        ExampleClass.kt:5:20 There are no parameters on the @Inject-annotated constructor. Consider moving the annotation to the class instead.
-      """
-        .trimIndent()
-    )
+    ) {
+      assertDiagnostics(
+        "w: ExampleClass.kt:6:20 There are no parameters on the @Inject-annotated constructor. Consider moving the annotation to the class instead."
+      )
+    }
   }
 
   @Test
   fun `cannot have multiple inject constructors`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleClass.kt",
-          """
-            package test
-
-            import dev.zacsweers.lattice.Inject
-
+    compile(
+      source(
+        """
             class ExampleClass @Inject constructor() {
               @Inject constructor(value: String) : this()
             }
-
           """
-            .trimIndent(),
-        ),
-        expectedExitCode = ExitCode.COMPILATION_ERROR,
-      )
-
-    result.assertContains(
-      """
-        ExampleClass.kt:5:20 Only one `@Inject` constructor is allowed.
-      """
-        .trimIndent()
-    )
+          .trimIndent()
+      ),
+      expectedExitCode = ExitCode.COMPILATION_ERROR,
+    ) {
+      assertDiagnostics("e: ExampleClass.kt:6:20 Only one `@Inject` constructor is allowed.")
+    }
   }
 
   @Test
   fun `only classes can be injected`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleClass.kt",
+    compile(
+      source(
+        fileNameWithoutExtension = "OnlyClasses",
+        source =
           """
-            package test
-
-            import dev.zacsweers.lattice.Inject
-
             @Inject
             enum class EnumExampleClass {
               @Inject
@@ -132,31 +97,30 @@ class InjectConstructorErrorsTest : LatticeCompilerTest() {
 
             @Inject
             class HappyClass
-
           """
             .trimIndent(),
-        ),
-        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      ),
+      expectedExitCode = ExitCode.COMPILATION_ERROR,
+    ) {
+      assertDiagnostics(
+        """
+            e: OnlyClasses.kt:7:12 Only classes can be annotated with @Inject or have @Inject-annotated constructors.
+            e: OnlyClasses.kt:13:8 Only classes can be annotated with @Inject or have @Inject-annotated constructors.
+            e: OnlyClasses.kt:16:11 Only classes can be annotated with @Inject or have @Inject-annotated constructors.
+            e: OnlyClasses.kt:19:18 Only classes can be annotated with @Inject or have @Inject-annotated constructors.
+          """
+          .trimIndent()
       )
-    result.assertContainsAll(
-      "ExampleClass.kt:6:12 Only classes can be annotated with @Inject or have @(Assisted)Inject-constructors.",
-      "ExampleClass.kt:12:8 Only classes can be annotated with @Inject or have @(Assisted)Inject-constructors.",
-      "ExampleClass.kt:15:11 Only classes can be annotated with @Inject or have @(Assisted)Inject-constructors.",
-      "ExampleClass.kt:18:18 Only classes can be annotated with @Inject or have @(Assisted)Inject-constructors.",
-    )
+    }
   }
 
   @Test
   fun `only final classes can be injected`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleClass.kt",
+    compile(
+      source(
+        fileNameWithoutExtension = "FinalClasses",
+        source =
           """
-            package test
-
-            import dev.zacsweers.lattice.Inject
-
             @Inject
             open class OpenExampleClass
 
@@ -170,55 +134,47 @@ class InjectConstructorErrorsTest : LatticeCompilerTest() {
             class HappyClass
           """
             .trimIndent(),
-        ),
-        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      ),
+      expectedExitCode = ExitCode.COMPILATION_ERROR,
+    ) {
+      assertDiagnostics(
+        """
+            e: FinalClasses.kt:7:1 Only final classes be annotated with @Inject or have @Inject-annotated constructors.
+            e: FinalClasses.kt:10:1 Only final classes be annotated with @Inject or have @Inject-annotated constructors.
+            e: FinalClasses.kt:13:1 Only final classes be annotated with @Inject or have @Inject-annotated constructors.
+          """
+          .trimIndent()
       )
-    result.assertContainsAll(
-      "ExampleClass.kt:6:1 Only final classes be annotated with @Inject or have @(Assisted)Inject-constructors.",
-      "ExampleClass.kt:9:1 Only final classes be annotated with @Inject or have @(Assisted)Inject-constructors.",
-      "ExampleClass.kt:12:1 Only final classes be annotated with @Inject or have @(Assisted)Inject-constructors.",
-    )
+    }
   }
 
   @Test
   fun `local classes cannot be injected`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleClass.kt",
-          """
-            package test
-
-            import dev.zacsweers.lattice.Inject
-
+    compile(
+      source(
+        """
             fun example() {
               @Inject
               class ExampleClass
             }
           """
-            .trimIndent(),
-        ),
-        expectedExitCode = ExitCode.COMPILATION_ERROR,
+          .trimIndent()
+      ),
+      expectedExitCode = ExitCode.COMPILATION_ERROR,
+    ) {
+      assertDiagnostics(
+        "e: ExampleClass.kt:8:9 Local classes cannot be annotated with @Inject or have @Inject-annotated constructors."
       )
-    result.assertContains(
-      """
-        ExampleClass.kt:7:9 Local classes cannot be annotated with @Inject or have @(Assisted)Inject-constructors.
-      """
-        .trimIndent()
-    )
+    }
   }
 
   @Test
   fun `injected classes must be visible`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleClass.kt",
+    compile(
+      source(
+        fileNameWithoutExtension = "VisibleClasses",
+        source =
           """
-            package test
-
-            import dev.zacsweers.lattice.Inject
-
             @Inject
             private class PrivateClass
 
@@ -234,26 +190,26 @@ class InjectConstructorErrorsTest : LatticeCompilerTest() {
             public class HappyPublicClass
           """
             .trimIndent(),
-        ),
-        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      ),
+      expectedExitCode = ExitCode.COMPILATION_ERROR,
+    ) {
+      assertDiagnostics(
+        """
+            e: VisibleClasses.kt:7:1 Injected classes must be visible, either `public` or `internal`.
+            e: VisibleClasses.kt:11:3 Injected classes must be visible, either `public` or `internal`.
+          """
+          .trimIndent()
       )
-    result.assertContainsAll(
-      "ExampleClass.kt:6:1 Injected classes must be visible, either `public` or `internal`.",
-      "ExampleClass.kt:10:3 Injected classes must be visible, either `public` or `internal`.",
-    )
+    }
   }
 
   @Test
   fun `injected constructors must be visible`() {
-    val result =
-      compile(
-        kotlin(
-          "ExampleClass.kt",
+    compile(
+      source(
+        fileNameWithoutExtension = "InjectedConstructors",
+        source =
           """
-            package test
-
-            import dev.zacsweers.lattice.Inject
-
             @Inject
             class ClassWithPrivateConstructor private constructor()
 
@@ -271,13 +227,40 @@ class InjectConstructorErrorsTest : LatticeCompilerTest() {
             class HappyClassWithNoConstructor
           """
             .trimIndent(),
-        ),
-        expectedExitCode = ExitCode.COMPILATION_ERROR,
+      ),
+      expectedExitCode = ExitCode.COMPILATION_ERROR,
+    ) {
+      assertDiagnostics(
+        """
+            e: InjectedConstructors.kt:7:35 Injected constructors must be public or internal.
+            e: InjectedConstructors.kt:9:51 Injected constructors must be public or internal.
+            e: InjectedConstructors.kt:11:53 Injected constructors must be public or internal.
+          """
+          .trimIndent()
       )
-    result.assertContainsAll(
-      "ExampleClass.kt:6:35 Injected constructors must be public or internal.",
-      "ExampleClass.kt:8:51 Injected constructors must be public or internal.",
-      "ExampleClass.kt:10:53 Injected constructors must be public or internal.",
-    )
+    }
+  }
+
+  @Test
+  fun `assisted factories cannot have type params`() {
+    compile(
+      source(
+        """
+            @Inject
+            class ExampleClass<T> {
+              @AssistedFactory
+              interface Factory {
+                fun <T> create(): ExampleClass<T>
+              }
+            }
+          """
+          .trimIndent()
+      ),
+      expectedExitCode = ExitCode.COMPILATION_ERROR,
+    ) {
+      assertDiagnostics(
+        "e: ExampleClass.kt:10:13 `@AssistedFactory` functions cannot have type parameters."
+      )
+    }
   }
 }

@@ -18,6 +18,7 @@ package dev.zacsweers.lattice.compiler.fir
 import dev.zacsweers.lattice.compiler.LatticeClassIds
 import dev.zacsweers.lattice.compiler.LatticeOptions
 import dev.zacsweers.lattice.compiler.fir.generators.AssistedFactoryFirGenerator
+import dev.zacsweers.lattice.compiler.fir.generators.AssistedFactoryImplFirGenerator
 import dev.zacsweers.lattice.compiler.fir.generators.InjectConstructorFactoryFirGenerator
 import dev.zacsweers.lattice.compiler.fir.generators.ProvidesFactoryFirGenerator
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
@@ -32,9 +33,10 @@ internal class LatticeFirExtensionRegistrar(
     // TODO enable once we support metadata propagation
     //    +::FirProvidesStatusTransformer
     +::InjectConstructorFactoryFirGenerator
-    +::ProvidesFactoryFirGenerator
     if (options.generateAssistedFactories) {
       +::AssistedFactoryFirGenerator
     }
+    +::AssistedFactoryImplFirGenerator
+    +::ProvidesFactoryFirGenerator
   }
 }
