@@ -15,13 +15,12 @@
  */
 package dev.zacsweers.lattice.compiler.ir.transformers
 
-import dev.zacsweers.lattice.compiler.LatticeOrigin
+import dev.zacsweers.lattice.compiler.LatticeOrigins
 import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.NameAllocator
 import dev.zacsweers.lattice.compiler.capitalizeUS
+import dev.zacsweers.lattice.compiler.exitProcessing
 import dev.zacsweers.lattice.compiler.ir.LatticeTransformerContext
-import dev.zacsweers.lattice.compiler.ir.addCompanionObject
-import dev.zacsweers.lattice.compiler.ir.addOverride
 import dev.zacsweers.lattice.compiler.ir.assignConstructorParamsToFields
 import dev.zacsweers.lattice.compiler.ir.createIrBuilder
 import dev.zacsweers.lattice.compiler.ir.declaredCallableMembers
@@ -36,13 +35,10 @@ import dev.zacsweers.lattice.compiler.ir.parameters.Parameters
 import dev.zacsweers.lattice.compiler.ir.parameters.memberInjectParameters
 import dev.zacsweers.lattice.compiler.ir.parametersAsProviderArguments
 import dev.zacsweers.lattice.compiler.ir.rawTypeOrNull
-import dev.zacsweers.lattice.compiler.ir.thisReceiverOrFail
-import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
+import dev.zacsweers.lattice.compiler.ir.requireSimpleFunction
+import kotlin.collections.component1
+import kotlin.collections.component2
 import org.jetbrains.kotlin.ir.builders.IrBlockBodyBuilder
-import org.jetbrains.kotlin.ir.builders.declarations.addFunction
-import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
-import org.jetbrains.kotlin.ir.builders.declarations.buildClass
 import org.jetbrains.kotlin.ir.builders.irBlockBody
 import org.jetbrains.kotlin.ir.builders.irGet
 import org.jetbrains.kotlin.ir.builders.irGetObject
@@ -50,22 +46,17 @@ import org.jetbrains.kotlin.ir.builders.irSetField
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
-import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.classOrNull
-import org.jetbrains.kotlin.ir.types.typeWith
-import org.jetbrains.kotlin.ir.types.typeWithParameters
-import org.jetbrains.kotlin.ir.util.addChild
-import org.jetbrains.kotlin.ir.util.addSimpleDelegatingConstructor
 import org.jetbrains.kotlin.ir.util.classIdOrFail
-import org.jetbrains.kotlin.ir.util.copyTypeParameters
-import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
+import org.jetbrains.kotlin.ir.util.companionObject
 import org.jetbrains.kotlin.ir.util.isInterface
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.nestedClasses
 import org.jetbrains.kotlin.ir.util.parentAsClass
+import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.ClassId
 
 internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
@@ -108,56 +99,7 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
       return it
     }
 
-    if (declaration.isExternalParent) {
-      // Externally compiled, look up its generated class
-      // TODO won't be visible until we add metadata to generated classes
-      val generatedInjector =
-        declaration.nestedClasses.singleOrNull {
-          it.name == LatticeSymbols.Names.latticeMembersInjector
-        }
-
-      return if (generatedInjector == null) {
-        null
-      } else {
-        //        val params = TODO()
-        //
-        //        val allParams =
-        //          injectedMembers.flatMap { it.valueParameters }.associateBy { it.name.asString()
-        // }
-        //        val functions =
-        //          declaration
-        //            .companionObject()!!
-        //            .simpleFunctions()
-        //            .mapNotNull { function ->
-        //              val name = function.name.asString()
-        //              // TODO generate a better marker annotation? Or use attributes?
-        //              if (!name.startsWith("inject")) return@mapNotNull null
-        //              val paramName = name.removePrefix("inject").decapitalizeUS()
-        //              val param =
-        //                allParams[paramName]
-        //                  ?: error("Could not find param with name $paramName for
-        // $injectedClassId")
-        //              param to function
-        //            }
-        //            .associate { it.first to it.second }
-        MemberInjectClass(generatedInjector, TODO(), TODO()).also {
-          generatedInjectors[injectedClassId] = it
-        }
-      }
-    }
-
-    val injectedTypeParameters: List<IrTypeParameter> = declaration.typeParameters
-
-    // Loop through _declared_ member inject params. Collect and use to create unique names
-
-    val injectedMembersByClass = declaration.memberInjectParameters(this)
-
-    if (injectedMembersByClass.isEmpty() || injectedMembersByClass.values.all { it.isEmpty() }) {
-      return null
-    }
-
-    val injectedTypeParameterized = declaration.symbol.typeWithParameters(injectedTypeParameters)
-    val membersInjectorType = symbols.latticeMembersInjector.typeWith(injectedTypeParameterized)
+    val isExternal = declaration.isExternalParent
 
     /*
     Generates an implementation of a MembersInjector for the given target type. This includes
@@ -167,49 +109,70 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
     - Static inject* functions for each member of the target class's _declared_ members.
     */
     val injectorClass =
-      pluginContext.irFactory
-        .buildClass {
-          name = LatticeSymbols.Names.latticeMembersInjector
-          kind = ClassKind.CLASS
-          visibility = DescriptorVisibilities.PUBLIC
-          origin = LatticeOrigin
+      declaration.nestedClasses.singleOrNull {
+        val isLatticeImpl = it.name == LatticeSymbols.Names.latticeMembersInjector
+        // If not external, double check its origin
+        if (isLatticeImpl && !isExternal) {
+          if (it.origin != LatticeOrigins.MembersInjectorClassDeclaration) {
+            declaration.reportError(
+              "Found a Lattice members injector declaration in ${declaration.kotlinFqName} but with an unexpected origin ${it.origin}"
+            )
+            exitProcessing()
+          }
         }
-        .apply {
-          superTypes = listOf(membersInjectorType)
+        isLatticeImpl
+      }
 
-          // Add as a nested class of the origin class. This is important so that default value
-          // expressions can access private members and private properties/functions can be
-          // injected.
-          declaration.addChild(this)
-        }
+    if (injectorClass == null) {
+      // For now, assume there's no members to inject. Would be nice if we could better check this
+      // in the future
+      generatedInjectors[injectedClassId] = null
+      return null
+    }
 
-    val typeParameters = injectorClass.copyTypeParameters(injectedTypeParameters)
+    val companionObject = injectorClass.companionObject()!!
 
-    injectorClass.createImplicitParameterDeclarationWithWrappedDescriptor()
-    val injectorClassReceiver = injectorClass.thisReceiverOrFail
+    // TODO this is expensive can we store it somewhere from FIR via metadata?
+    // Loop through _declared_ member inject params. Collect and use to create unique names
+    val injectedMembersByClass = declaration.memberInjectParameters(this)
+    val parameterGroupsForClass = injectedMembersByClass.getValue(injectedClassId)
+    val declaredInjectFunctions: Map<IrSimpleFunction, Parameters<MembersInjectParameter>> =
+      parameterGroupsForClass.associate { params ->
+        val name =
+          if (params.isProperty) {
+            params.irProperty!!.name
+          } else {
+            params.callableId.callableName
+          }
+        val function =
+          companionObject.requireSimpleFunction("inject${name.capitalizeUS().asString()}").owner
+        function to params
+      }
 
-    val injectorClassParameterized = injectorClass.symbol.typeWithParameters(typeParameters)
+    if (declaration.isExternalParent) {
+      return MemberInjectClass(injectorClass, injectedMembersByClass, declaredInjectFunctions)
+        .also { generatedInjectors[injectedClassId] = it }
+    }
 
-    val ctor =
-      injectorClass.addSimpleDelegatingConstructor(
-        symbols.anyConstructor,
-        pluginContext.irBuiltIns,
-        isPrimary = true,
-        origin = LatticeOrigin,
-      )
+    val ctor = injectorClass.primaryConstructor!!
 
     val allParameters = injectedMembersByClass.values.flatMap { it.flatMap { it.valueParameters } }
-    val parametersToFields = assignConstructorParamsToFields(ctor, injectorClass, allParameters)
 
-    val companionObject =
-      pluginContext.irFactory.addCompanionObject(symbols, parent = injectorClass)
+    val constructorParametersToFields = assignConstructorParamsToFields(ctor, injectorClass)
+
+    // TODO This is ugly. Can we just source all the params directly from the FIR class now?
+    val sourceParametersToFields: Map<Parameter, IrField> =
+      constructorParametersToFields.entries.withIndex().associate { (index, pair) ->
+        val (_, field) = pair
+        val sourceParam = allParameters[index]
+        sourceParam to field
+      }
 
     // Static create()
     generateStaticCreateFunction(
       context = latticeContext,
       parentClass = companionObject,
       targetClass = injectorClass,
-      targetClassParameterized = injectorClassParameterized,
       targetConstructor = ctor.symbol,
       parameters =
         injectedMembersByClass.values
@@ -229,59 +192,36 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
     )
 
     // Implement static inject{name}() for each declared callable in this class
-    val parameterGroupsForClass = injectedMembersByClass.getValue(injectedClassId)
-    val declaredInjectFunctions: Map<IrSimpleFunction, Parameters<MembersInjectParameter>> =
-      parameterGroupsForClass.associate { params ->
-        val name =
-          if (params.isProperty) {
-            params.irProperty!!.name
-          } else {
-            params.callableId.callableName
-          }
-        val function =
-          companionObject
-            .addFunction(
-              "inject${name.capitalizeUS().asString()}",
-              pluginContext.irBuiltIns.unitType,
-              origin = LatticeOrigin,
-            )
-            .apply {
-              // Params
-              // Add instance
-              val instanceParam =
-                addValueParameter(LatticeSymbols.Names.instance, injectedTypeParameterized)
+    for ((function, params) in declaredInjectFunctions) {
+      function.apply {
+        val instanceParam = valueParameters[0]
 
-              for (parameter in params.valueParameters) {
-                addValueParameter(parameter.name, parameter.originalType, LatticeOrigin)
-              }
-
-              body =
-                pluginContext.createIrBuilder(symbol).run {
-                  val bodyExpression: IrExpression =
-                    if (params.isProperty) {
-                      val value = valueParameters[1]
-                      val irField = params.irProperty!!.backingField
-                      if (irField == null) {
-                        irInvoke(
-                          irGet(instanceParam),
-                          callee = params.ir!!.symbol,
-                          args = listOf(irGet(value)),
-                        )
-                      } else {
-                        irSetField(irGet(instanceParam), irField, irGet(value))
-                      }
-                    } else {
-                      irInvoke(
-                        irGet(instanceParam),
-                        callee = params.ir!!.symbol,
-                        args = valueParameters.drop(1).map { irGet(it) },
-                      )
-                    }
-                  irExprBodySafe(symbol, bodyExpression)
+        body =
+          pluginContext.createIrBuilder(symbol).run {
+            val bodyExpression: IrExpression =
+              if (params.isProperty) {
+                val value = valueParameters[1]
+                val irField = params.irProperty!!.backingField
+                if (irField == null) {
+                  irInvoke(
+                    irGet(instanceParam),
+                    callee = params.ir!!.symbol,
+                    args = listOf(irGet(value)),
+                  )
+                } else {
+                  irSetField(irGet(instanceParam), irField, irGet(value))
                 }
-            }
-        function to params
+              } else {
+                irInvoke(
+                  irGet(instanceParam),
+                  callee = params.ir!!.symbol,
+                  args = valueParameters.drop(1).map { irGet(it) },
+                )
+              }
+            irExprBodySafe(symbol, bodyExpression)
+          }
       }
+    }
 
     val inheritedInjectFunctions: Map<IrSimpleFunction, Parameters<MembersInjectParameter>> =
       buildMap {
@@ -292,7 +232,7 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
 
           // This is what generates supertypes lazily as needed
           val functions =
-            requireInjector(pluginContext.referenceClass(classId)!!.owner)!!.injectFunctions
+            requireInjector(pluginContext.referenceClass(classId)!!.owner).injectFunctions
 
           putAll(functions)
         }
@@ -301,28 +241,20 @@ internal class MembersInjectorTransformer(context: LatticeTransformerContext) :
     val injectFunctions = inheritedInjectFunctions + declaredInjectFunctions
 
     // Override injectMembers()
-    injectorClass
-      .addOverride(
-        baseFqName = symbols.latticeMembersInjectorInjectMembers.owner.kotlinFqName,
-        simpleName = symbols.latticeMembersInjectorInjectMembers.owner.name,
-        returnType = pluginContext.irBuiltIns.unitType,
-        overriddenSymbols = listOf(symbols.latticeMembersInjectorInjectMembers),
-      )
-      .apply {
-        this.dispatchReceiverParameter = injectorClass.thisReceiverOrFail
-        val instanceParam =
-          addValueParameter(LatticeSymbols.Names.instance, injectedTypeParameterized)
-        body =
-          pluginContext.createIrBuilder(symbol).irBlockBody {
-            addMemberInjection(
-              context = latticeContext,
-              instanceReceiver = instanceParam,
-              injectorReceiver = injectorClassReceiver,
-              injectFunctions = injectFunctions,
-              parametersToFields = parametersToFields,
-            )
-          }
-      }
+    injectorClass.requireSimpleFunction(LatticeSymbols.StringNames.injectMembers).owner.apply {
+      val functionReceiver = dispatchReceiverParameter!!
+      val instanceParam = valueParameters[0]
+      body =
+        pluginContext.createIrBuilder(symbol).irBlockBody {
+          addMemberInjection(
+            context = latticeContext,
+            instanceReceiver = instanceParam,
+            injectorReceiver = functionReceiver,
+            injectFunctions = injectFunctions,
+            parametersToFields = sourceParametersToFields,
+          )
+        }
+    }
 
     injectorClass.dumpToLatticeLog()
 

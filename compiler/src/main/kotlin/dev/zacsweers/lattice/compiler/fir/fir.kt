@@ -78,10 +78,13 @@ import org.jetbrains.kotlin.fir.scopes.impl.toConeType
 import org.jetbrains.kotlin.fir.scopes.jvm.computeJvmDescriptor
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
+import org.jetbrains.kotlin.fir.symbols.impl.FirBackingFieldSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
@@ -197,26 +200,38 @@ internal fun FirClassSymbol<*>.allFunctions(session: FirSession): Sequence<FirNa
   }
 }
 
-internal fun FirClassSymbol<*>.allCallableMembers(
+internal fun FirClassSymbol<*>.callableDeclarations(
   session: FirSession,
-  /** Member injection wants to yield ancestor members first */
+  includeSelf: Boolean,
+  includeAncestors: Boolean,
   yieldAncestorsFirst: Boolean = true,
 ): Sequence<FirCallableSymbol<*>> {
   return sequence {
     val declaredMembers =
-      declarationSymbols.asSequence().filterIsInstance<FirCallableSymbol<*>>().filterNot {
-        it is FirConstructorSymbol
+      if (includeSelf) {
+        declarationSymbols.asSequence().filterIsInstance<FirCallableSymbol<*>>().filterNot {
+          it is FirConstructorSymbol
+        }
+      } else {
+        emptySequence()
       }
 
-    if (!yieldAncestorsFirst) {
+    if (includeSelf && !yieldAncestorsFirst) {
       yieldAll(declaredMembers)
     }
-    yieldAll(
-      getSuperTypes(session)
-        .mapNotNull { it.toClassSymbol(session) }
-        .flatMap { it.allCallableMembers(session) }
-    )
-    if (yieldAncestorsFirst) {
+    if (includeAncestors) {
+      yieldAll(
+        getSuperTypes(session)
+          .asSequence()
+          .mapNotNull { it.toClassSymbol(session) }
+          .flatMap {
+            // If we're recursing up, we no longer want to include ancestors because we're handling
+            // that here
+            it.callableDeclarations(session, true, false, yieldAncestorsFirst)
+          }
+      )
+    }
+    if (includeSelf && yieldAncestorsFirst) {
       yieldAll(declaredMembers)
     }
   }
@@ -521,6 +536,9 @@ internal inline fun FirConstructorSymbol.validateVisibility(
   }
 }
 
+internal fun FirBasedSymbol<*>.qualifierAnnotation(session: FirSession): LatticeFirAnnotation? =
+  annotations.qualifierAnnotation(session)
+
 internal fun List<FirAnnotation>.qualifierAnnotation(session: FirSession): LatticeFirAnnotation? =
   asSequence().annotationAnnotatedWithAny(session, session.latticeClassIds.qualifierAnnotations)
 
@@ -620,8 +638,12 @@ internal fun FirClassSymbol<*>.constructType(
 }
 
 // Annoyingly, FirDeclarationOrigin.Plugin does not implement equals()
-internal fun FirBasedSymbol<*>.hasOrigin(key: GeneratedDeclarationKey): Boolean =
-  hasOrigin(key.origin)
+internal fun FirBasedSymbol<*>.hasOrigin(vararg keys: GeneratedDeclarationKey): Boolean {
+  for (key in keys) {
+    if (hasOrigin(key.origin)) return true
+  }
+  return false
+}
 
 internal fun FirBasedSymbol<*>.hasOrigin(o: FirDeclarationOrigin): Boolean {
   val thisOrigin = origin
@@ -631,4 +653,45 @@ internal fun FirBasedSymbol<*>.hasOrigin(o: FirDeclarationOrigin): Boolean {
     return thisOrigin.key == o.key
   }
   return false
+}
+
+/** Properties can store annotations in SO many places */
+internal fun FirCallableSymbol<*>.findAnnotation(
+  session: FirSession,
+  findAnnotation: FirBasedSymbol<*>.(FirSession) -> LatticeFirAnnotation?,
+  callingAccessor: FirCallableSymbol<*>? = null,
+): LatticeFirAnnotation? {
+  findAnnotation(session)?.let {
+    return it
+  }
+  when (this) {
+    is FirPropertySymbol -> {
+      getterSymbol
+        ?.takeUnless { it == callingAccessor }
+        ?.findAnnotation(session)
+        ?.let {
+          return it
+        }
+      setterSymbol
+        ?.takeUnless { it == callingAccessor }
+        ?.findAnnotation(session)
+        ?.let {
+          return it
+        }
+      backingFieldSymbol
+        ?.takeUnless { it == callingAccessor }
+        ?.findAnnotation(session)
+        ?.let {
+          return it
+        }
+    }
+    is FirPropertyAccessorSymbol -> {
+      return propertySymbol.findAnnotation(session, findAnnotation, this)
+    }
+    is FirBackingFieldSymbol -> {
+      return propertySymbol.findAnnotation(session, findAnnotation, this)
+    }
+  // else it's a function, covered by the above
+  }
+  return null
 }

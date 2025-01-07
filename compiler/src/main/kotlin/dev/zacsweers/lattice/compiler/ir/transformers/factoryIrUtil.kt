@@ -15,9 +15,7 @@
  */
 package dev.zacsweers.lattice.compiler.ir.transformers
 
-import dev.zacsweers.lattice.compiler.LatticeOrigin
 import dev.zacsweers.lattice.compiler.LatticeOrigins
-import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.ir.LatticeTransformerContext
 import dev.zacsweers.lattice.compiler.ir.copyParameterDefaultValues
 import dev.zacsweers.lattice.compiler.ir.createIrBuilder
@@ -25,10 +23,7 @@ import dev.zacsweers.lattice.compiler.ir.irCallConstructorWithSameParameters
 import dev.zacsweers.lattice.compiler.ir.irExprBodySafe
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameters
-import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
-import org.jetbrains.kotlin.ir.builders.declarations.addFunction
-import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.irGetObject
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFunction
@@ -37,10 +32,7 @@ import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.util.copyTypeParameters
 import org.jetbrains.kotlin.ir.util.functions
-import org.jetbrains.kotlin.ir.util.getSimpleFunction
 import org.jetbrains.kotlin.ir.util.isObject
 
 /**
@@ -59,43 +51,12 @@ internal fun generateStaticCreateFunction(
   context: LatticeTransformerContext,
   parentClass: IrClass,
   targetClass: IrClass,
-  targetClassParameterized: IrType,
   targetConstructor: IrConstructorSymbol,
   parameters: Parameters<out Parameter>,
   providerFunction: IrFunction?,
   patchCreationParams: Boolean = true,
 ): IrSimpleFunction {
-  // TODO remove the run block once all factory gen is in FIR
-  val function =
-    parentClass.getSimpleFunction(LatticeSymbols.StringNames.create)?.owner.takeIf {
-      it?.origin == LatticeOrigins.Default
-    }
-      ?: run {
-        parentClass.addFunction(LatticeSymbols.StringNames.create, targetClassParameterized).apply {
-          this.copyTypeParameters(targetClass.typeParameters)
-          this.origin = LatticeOrigin
-          this.visibility = DescriptorVisibilities.PUBLIC
-
-          parameters.instance?.let {
-            addValueParameter(it.name, it.providerType, LatticeOrigins.InstanceParameter)
-          }
-          parameters.extensionReceiver?.let {
-            addValueParameter(it.name, it.providerType, LatticeOrigins.ReceiverParameter)
-          }
-          parameters.valueParameters
-            .filterNot { it.isAssisted }
-            .map {
-              addValueParameter(it.name, it.providerType, LatticeOrigins.ValueParameter).also {
-                irParam ->
-                it.typeKey.qualifier?.let {
-                  // Copy any qualifiers over so they're retrievable during dependency graph
-                  // resolution
-                  irParam.annotations += it.ir
-                }
-              }
-            }
-        }
-      }
+  val function = parentClass.functions.first { it.origin == LatticeOrigins.FactoryCreateFunction }
 
   return function.apply {
     if (patchCreationParams) {

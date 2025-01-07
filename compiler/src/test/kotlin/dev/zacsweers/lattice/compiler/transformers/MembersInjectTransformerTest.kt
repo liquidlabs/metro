@@ -34,7 +34,6 @@ import dev.zacsweers.lattice.compiler.invokeNewInstance
 import dev.zacsweers.lattice.compiler.newInstanceStrict
 import dev.zacsweers.lattice.compiler.staticInjectMethod
 import dev.zacsweers.lattice.providerOf
-import org.junit.Ignore
 import org.junit.Test
 
 class MembersInjectTransformerTest : LatticeCompilerTest() {
@@ -514,7 +513,6 @@ class MembersInjectTransformerTest : LatticeCompilerTest() {
     }
   }
 
-  @Ignore("Won't work until we support multi-module compilation, requires metadata")
   @Test
   fun `a member injector is generated for a class with a super class in another module`() {
     val otherModuleResult =
