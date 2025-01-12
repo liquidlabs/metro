@@ -17,7 +17,7 @@ package dev.zacsweers.lattice.compiler.ir.transformers
 
 import dev.zacsweers.lattice.compiler.ExitProcessingException
 import dev.zacsweers.lattice.compiler.LatticeLogger
-import dev.zacsweers.lattice.compiler.LatticeOrigin
+import dev.zacsweers.lattice.compiler.LatticeOrigins
 import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.NameAllocator
 import dev.zacsweers.lattice.compiler.decapitalizeUS
@@ -31,21 +31,22 @@ import dev.zacsweers.lattice.compiler.ir.IrAnnotation
 import dev.zacsweers.lattice.compiler.ir.LatticeSimpleFunction
 import dev.zacsweers.lattice.compiler.ir.LatticeTransformerContext
 import dev.zacsweers.lattice.compiler.ir.TypeKey
-import dev.zacsweers.lattice.compiler.ir.addCompanionObject
-import dev.zacsweers.lattice.compiler.ir.addOverride
 import dev.zacsweers.lattice.compiler.ir.allCallableMembers
 import dev.zacsweers.lattice.compiler.ir.appendBindingStack
 import dev.zacsweers.lattice.compiler.ir.asContextualTypeKey
 import dev.zacsweers.lattice.compiler.ir.buildBlockBody
 import dev.zacsweers.lattice.compiler.ir.createIrBuilder
+import dev.zacsweers.lattice.compiler.ir.declaredCallableMembers
 import dev.zacsweers.lattice.compiler.ir.doubleCheck
 import dev.zacsweers.lattice.compiler.ir.getAllSuperTypes
 import dev.zacsweers.lattice.compiler.ir.getSingleConstBooleanArgumentOrNull
+import dev.zacsweers.lattice.compiler.ir.implements
 import dev.zacsweers.lattice.compiler.ir.irExprBodySafe
 import dev.zacsweers.lattice.compiler.ir.irInvoke
 import dev.zacsweers.lattice.compiler.ir.irLambda
 import dev.zacsweers.lattice.compiler.ir.isAnnotatedWithAny
 import dev.zacsweers.lattice.compiler.ir.isExternalParent
+import dev.zacsweers.lattice.compiler.ir.latticeFunctionOf
 import dev.zacsweers.lattice.compiler.ir.location
 import dev.zacsweers.lattice.compiler.ir.parameters.ConstructorParameter
 import dev.zacsweers.lattice.compiler.ir.parameters.Parameter
@@ -54,25 +55,21 @@ import dev.zacsweers.lattice.compiler.ir.parameters.parameters
 import dev.zacsweers.lattice.compiler.ir.parameters.wrapInProvider
 import dev.zacsweers.lattice.compiler.ir.rawType
 import dev.zacsweers.lattice.compiler.ir.rawTypeOrNull
+import dev.zacsweers.lattice.compiler.ir.requireNestedClass
 import dev.zacsweers.lattice.compiler.ir.requireSimpleFunction
 import dev.zacsweers.lattice.compiler.ir.singleAbstractFunction
 import dev.zacsweers.lattice.compiler.ir.thisReceiverOrFail
 import dev.zacsweers.lattice.compiler.ir.typeAsProviderArgument
 import dev.zacsweers.lattice.compiler.ir.withEntry
 import dev.zacsweers.lattice.compiler.letIf
+import kotlin.collections.component1
+import kotlin.collections.component2
 import org.jetbrains.kotlin.backend.jvm.codegen.AnnotationCodegen.Companion.annotationClass
-import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
 import org.jetbrains.kotlin.ir.builders.declarations.addField
-import org.jetbrains.kotlin.ir.builders.declarations.addFunction
-import org.jetbrains.kotlin.ir.builders.declarations.addGetter
-import org.jetbrains.kotlin.ir.builders.declarations.addProperty
-import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
-import org.jetbrains.kotlin.ir.builders.declarations.buildClass
 import org.jetbrains.kotlin.ir.builders.irBlockBody
 import org.jetbrains.kotlin.ir.builders.irCall
 import org.jetbrains.kotlin.ir.builders.irCallConstructor
@@ -87,6 +84,8 @@ import org.jetbrains.kotlin.ir.builders.parent
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.IrProperty
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrClassReference
@@ -100,26 +99,21 @@ import org.jetbrains.kotlin.ir.types.classOrFail
 import org.jetbrains.kotlin.ir.types.starProjectedType
 import org.jetbrains.kotlin.ir.types.typeOrFail
 import org.jetbrains.kotlin.ir.types.typeWith
-import org.jetbrains.kotlin.ir.util.addChild
-import org.jetbrains.kotlin.ir.util.addSimpleDelegatingConstructor
+import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.classIdOrFail
 import org.jetbrains.kotlin.ir.util.companionObject
-import org.jetbrains.kotlin.ir.util.copyTo
-import org.jetbrains.kotlin.ir.util.copyTypeParameters
-import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.dumpKotlinLike
+import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.ir.util.isInterface
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.nestedClasses
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.primaryConstructor
-import org.jetbrains.kotlin.ir.util.setDeclarationsParent
 import org.jetbrains.kotlin.ir.util.statements
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.Name
 
 internal class DependencyGraphData {
   val graphs = mutableMapOf<ClassId, DependencyGraphNode>()
@@ -159,14 +153,32 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           )
         }
         val parentDeclaration = rawType.parentAsClass
-        val graphClass = getOrBuildDependencyGraph(parentDeclaration)
-        val graphCompanion = graphClass.companionObject()!!
-        val factoryFunction =
-          graphCompanion.requireSimpleFunction(LatticeSymbols.StringNames.factory)
-        // Replace it with a call directly to the factory function
-        return pluginContext.createIrBuilder(expression.symbol).run {
-          irCall(callee = factoryFunction, type = type).apply {
-            dispatchReceiver = irGetObject(graphCompanion.symbol)
+        val companion = parentDeclaration.companionObject()!!
+
+        // If there's no $$Impl class, the companion object is the impl
+        val companionIsTheFactory =
+          companion.implements(pluginContext, rawType.classIdOrFail) &&
+            rawType.nestedClasses.singleOrNull { it.name == LatticeSymbols.Names.latticeImpl } ==
+              null
+
+        if (companionIsTheFactory) {
+          return pluginContext.createIrBuilder(expression.symbol).run {
+            irGetObject(companion.symbol)
+          }
+        } else {
+          val factoryFunction =
+            companion.functions.single {
+              // Note we don't filter on LatticeOrigins.LatticeGraphFactoryCompanionGetter, because
+              // sometimes a user may have already defined one. An FIR checker will validate that
+              // any such function is
+              // valid, so just trust it if one is found
+              it.name == LatticeSymbols.Names.factoryFunctionName
+            }
+          // Replace it with a call directly to the factory function
+          return pluginContext.createIrBuilder(expression.symbol).run {
+            irCall(callee = factoryFunction.symbol, type = type).apply {
+              dispatchReceiver = irGetObject(companion.symbol)
+            }
           }
         }
       }
@@ -182,14 +194,15 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
             "Cannot create an dependency graph instance of non-graph type ${rawType.kotlinFqName}"
           )
         }
-        val graphClass = getOrBuildDependencyGraph(rawType)
-        val graphCompanion = graphClass.companionObject()!!
+        val companion = rawType.companionObject()!!
         val factoryFunction =
-          graphCompanion.requireSimpleFunction(LatticeSymbols.StringNames.create)
+          companion.functions.single {
+            it.origin == LatticeOrigins.LatticeGraphCreatorsObjectInvokeDeclaration
+          }
         // Replace it with a call directly to the create function
         return pluginContext.createIrBuilder(expression.symbol).run {
-          irCall(callee = factoryFunction, type = type).apply {
-            dispatchReceiver = irGetObject(graphCompanion.symbol)
+          irCall(callee = factoryFunction.symbol, type = type).apply {
+            dispatchReceiver = irGetObject(companion.symbol)
           }
         }
       }
@@ -226,67 +239,123 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
   private fun getOrComputeDependencyGraphNode(
     graphDeclaration: IrClass,
     bindingStack: BindingStack,
-    generatedGraphId: ClassId =
-      graphDeclaration.classIdOrFail.createNestedClassId(LatticeSymbols.Names.latticeGraph),
+    latticeGraph: IrClass = graphDeclaration.requireNestedClass(LatticeSymbols.Names.latticeGraph),
   ): DependencyGraphNode {
     val graphClassId = graphDeclaration.classIdOrFail
     dependencyGraphNodesByClass[graphClassId]?.let {
       return it
     }
 
-    val graphTypeKey = TypeKey(graphDeclaration.typeWith())
-    val graphContextKey = ContextualTypeKey(graphTypeKey, false, false, false, false)
-    if (bindingStack.entryFor(graphTypeKey) != null) {
-      // TODO dagger doesn't appear to error for this case to model off of
-      val message = buildString {
-        if (bindingStack.entries.size == 1) {
-          // If there's just one entry, specify that it's a self-referencing cycle for clarity
-          appendLine(
-            "[Lattice/GraphDependencyCycle] Graph dependency cycle detected! The below graph depends on itself."
-          )
-        } else {
-          appendLine("[Lattice/GraphDependencyCycle] Graph dependency cycle detected!")
-        }
-        appendBindingStack(bindingStack, short = false)
-      }
-      graphDeclaration.reportError(message)
-      exitProcessing()
+    if (graphDeclaration.isExternalParent) {
+      // FIR checker ensures this is a valid graph dep
+      val accessors =
+        latticeGraph
+          .declaredCallableMembers(latticeContext)
+          .filterNot { it.annotations.isBinds }
+          .toList()
+
+      val dependentNode =
+        DependencyGraphNode(
+          sourceGraph = graphDeclaration,
+          dependencies = emptyList(),
+          scopes = emptySet(),
+          providerFunctions = emptyList(),
+          exposedTypes =
+            accessors.associateWith {
+              ContextualTypeKey.from(latticeContext, it.ir, it.annotations)
+            },
+          bindsFunctions = emptyMap(),
+          injectors = emptyMap(),
+          isExternal = true,
+          creator = null,
+          typeKey = TypeKey(graphDeclaration.typeWith()),
+        )
+
+      dependencyGraphNodesByClass[graphClassId] = dependentNode
+
+      return dependentNode
     }
 
-    val scopes = mutableSetOf<IrAnnotation>()
-    val providerFunctions = mutableListOf<Pair<TypeKey, LatticeSimpleFunction>>()
+    checkNotNull(latticeGraph) { "Expected latticeGraph for $graphClassId" }
+
+    val graphTypeKey = TypeKey(graphDeclaration.typeWith())
+    val graphContextKey =
+      ContextualTypeKey(
+        graphTypeKey,
+        isWrappedInProvider = false,
+        isWrappedInLazy = false,
+        isLazyWrappedInProvider = false,
+        hasDefault = false,
+      )
+
     val exposedTypes = mutableMapOf<LatticeSimpleFunction, ContextualTypeKey>()
+    val bindsFunctions = mutableMapOf<LatticeSimpleFunction, ContextualTypeKey>()
     val injectors = mutableMapOf<LatticeSimpleFunction, ContextualTypeKey>()
 
-    for (type in graphDeclaration.getAllSuperTypes(pluginContext, excludeSelf = false)) {
-      val clazz = type.classOrFail.owner
-      scopes += clazz.scopeAnnotations()
+    for (declaration in latticeGraph.declarations) {
+      when (declaration) {
+        is IrSimpleFunction ->
+          // Could be an injector or accessor
+          when (declaration.origin) {
+            LatticeOrigins.LatticeGraphAccessorCallableOverride -> {
+              val latticeFunction = latticeFunctionOf(declaration)
+              val contextKey =
+                ContextualTypeKey.from(this, declaration, latticeFunction.annotations)
+              val collection =
+                if (latticeFunction.annotations.isBinds) {
+                  bindsFunctions
+                } else {
+                  exposedTypes
+                }
+              collection[latticeFunction] = contextKey
+            }
+            LatticeOrigins.LatticeGraphInjectorCallableOverride -> {
+              val latticeFunction = latticeFunctionOf(declaration)
+              val contextKey =
+                ContextualTypeKey.from(this, declaration, latticeFunction.annotations)
+              injectors[latticeFunction] = contextKey
+            }
+          }
 
-      for (function in clazz.allCallableMembers(latticeContext, excludeInheritedMembers = true)) {
-        if (function.annotations.isProvides || function.annotations.isBinds) {
-          providerFunctions +=
-            ContextualTypeKey.from(this, function.ir, function.annotations).typeKey to function
-        } else {
-          // Abstract check is important. We leave alone any non-providers/injectors
-          val isCandidate =
-            function.ir.modality == Modality.ABSTRACT &&
-              function.ir.body == null &&
-              !function.annotations.isBinds &&
-              !function.annotations.isProvides
-          if (isCandidate) {
-            if (function.ir.valueParameters.isEmpty()) {
-              val contextKey = ContextualTypeKey.from(this, function.ir, function.annotations)
-              exposedTypes[function] = contextKey
-            } else {
-              // TODO FIR check only one param, no intrinsics, no return type
-              val target = function.ir.parameters(this).valueParameters.single()
-              injectors[function] = target.contextualTypeKey
+        is IrProperty -> {
+          when (declaration.origin) {
+            LatticeOrigins.LatticeGraphAccessorCallableOverride -> {
+              val getter = declaration.getter!!
+              val latticeFunction = latticeFunctionOf(getter)
+              val contextKey = ContextualTypeKey.from(this, getter, latticeFunction.annotations)
+              val collection =
+                if (latticeFunction.annotations.isBinds) {
+                  bindsFunctions
+                } else {
+                  exposedTypes
+                }
+              collection[latticeFunction] = contextKey
             }
           }
         }
       }
     }
 
+    val scopes = mutableSetOf<IrAnnotation>()
+    val providerFunctions = mutableListOf<Pair<TypeKey, LatticeSimpleFunction>>()
+    // Add all our binds
+    providerFunctions +=
+      bindsFunctions.entries.map { (function, contextKey) -> contextKey.typeKey to function }
+    for (type in graphDeclaration.getAllSuperTypes(pluginContext, excludeSelf = false)) {
+      val clazz = type.classOrFail.owner
+      scopes += clazz.scopeAnnotations()
+
+      // TODO no need to do all the conversions here
+      // TODO if we write all providers as custom metadata, could read that from latticeGraph too
+      for (function in clazz.allCallableMembers(latticeContext, excludeInheritedMembers = true)) {
+        if (function.annotations.isProvides) {
+          providerFunctions +=
+            ContextualTypeKey.from(this, function.ir, function.annotations).typeKey to function
+        }
+      }
+    }
+
+    // TODO source this from FIR-generated
     val creator =
       graphDeclaration.nestedClasses
         .singleOrNull { klass ->
@@ -297,6 +366,14 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           val createFunction = factory.singleAbstractFunction(this)
           DependencyGraphNode.Creator(factory, createFunction, createFunction.parameters(this))
         }
+
+    try {
+      checkGraphSelfCycle(graphDeclaration, graphTypeKey, bindingStack)
+    } catch (e: ExitProcessingException) {
+      implementCreatorFunctions(graphDeclaration, creator, latticeGraph)
+      implementFirStubs(exposedTypes, bindsFunctions, injectors, context = null)
+      throw e
+    }
 
     val graphDependencies =
       creator
@@ -316,10 +393,9 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     val dependencyGraphNode =
       DependencyGraphNode(
         sourceGraph = graphDeclaration,
-        generatedGraphId = generatedGraphId,
-        isAnnotatedWithDependencyGraph = true,
         dependencies = graphDependencies,
         scopes = scopes,
+        bindsFunctions = bindsFunctions,
         providerFunctions = providerFunctions,
         exposedTypes = exposedTypes,
         injectors = injectors,
@@ -338,19 +414,14 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
       return it
     }
 
+    val latticeGraph =
+      dependencyGraphDeclaration.nestedClasses.singleOrNull {
+        it.name == LatticeSymbols.Names.latticeGraph
+      } ?: error("Expected generated dependency graph for $graphClassId")
+
     if (dependencyGraphDeclaration.isExternalParent) {
       // Externally compiled, look up its generated class
-      // TODO won't be visible until we add metadata to generated classes
-      val generatedGraph =
-        dependencyGraphDeclaration.nestedClasses.singleOrNull {
-          it.name == LatticeSymbols.Names.latticeGraph
-        }
-      if (generatedGraph == null) {
-        error("Expected generated dependency graph for $graphClassId")
-      } else {
-        latticeDependencyGraphsByClass[graphClassId] = generatedGraph
-        return generatedGraph
-      }
+      latticeDependencyGraphsByClass[graphClassId] = latticeGraph
     }
 
     val node =
@@ -360,32 +431,71 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           dependencyGraphDeclaration,
           latticeContext.loggerFor(LatticeLogger.Type.GraphNodeConstruction),
         ),
+        latticeGraph,
       )
 
+    // Generate creator functions
+    implementCreatorFunctions(node.sourceGraph, node.creator, latticeGraph)
+
     val bindingGraph = createBindingGraph(node)
-    val deferredTypes =
-      bindingGraph.validate(node) { message ->
-        dependencyGraphDeclaration.reportError(message)
-        exitProcessing()
-      }
 
-    val latticeGraph =
-      try {
-        generateLatticeGraph(node, bindingGraph, deferredTypes)
-      } catch (e: Exception) {
-        if (e is ExitProcessingException) throw e
-        throw AssertionError(
-          "Code gen exception while processing ${dependencyGraphDeclaration.classIdOrFail}",
-          e,
+    try {
+      checkGraphSelfCycle(dependencyGraphDeclaration, node.typeKey, BindingStack.empty())
+
+      val deferredTypes =
+        bindingGraph.validate(node) { message ->
+          dependencyGraphDeclaration.reportError(message)
+          exitProcessing()
+        }
+
+      generateLatticeGraph(node, latticeGraph, bindingGraph, deferredTypes)
+    } catch (e: Exception) {
+      if (e is ExitProcessingException) {
+        // Annoyingly, if we leave any unimplemented bodies then the compilation failure
+        // will be an INTERNAL_ERROR with a bunch of noisy logs. So, we need to run through
+        // and still implement the bodies with stubs to keep things clean.
+        implementFirStubs(
+          exposedTypes = node.exposedTypes,
+          bindsFunctions = node.bindsFunctions,
+          injectors = node.injectors,
+          context = null,
         )
+        throw e
       }
+      throw AssertionError(
+        "Code gen exception while processing ${dependencyGraphDeclaration.classIdOrFail}",
+        e,
+      )
+    }
 
-    dependencyGraphDeclaration.addChild(latticeGraph)
     latticeDependencyGraphsByClass[graphClassId] = latticeGraph
 
     latticeGraph.dumpToLatticeLog()
 
     return latticeGraph
+  }
+
+  private fun checkGraphSelfCycle(
+    graphDeclaration: IrClass,
+    graphTypeKey: TypeKey,
+    bindingStack: BindingStack,
+  ) {
+    if (bindingStack.entryFor(graphTypeKey) != null) {
+      // TODO dagger doesn't appear to error for this case to model off of
+      val message = buildString {
+        if (bindingStack.entries.size == 1) {
+          // If there's just one entry, specify that it's a self-referencing cycle for clarity
+          appendLine(
+            "[Lattice/GraphDependencyCycle] Graph dependency cycle detected! The below graph depends on itself."
+          )
+        } else {
+          appendLine("[Lattice/GraphDependencyCycle] Graph dependency cycle detected!")
+        }
+        appendBindingStack(bindingStack, short = false)
+      }
+      graphDeclaration.reportError(message)
+      exitProcessing()
+    }
   }
 
   @OptIn(UnsafeDuringIrConstructionAPI::class)
@@ -406,16 +516,17 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
       // TODO what about T -> T but into multibinding
       val bindsImplType =
         if (annotations.isBinds) {
-          parameters.extensionOrFirstParameter!!.contextualTypeKey
+          parameters.extensionOrFirstParameter?.contextualTypeKey
+            ?: error(
+              "Missing receiver parameter for @Binds function: ${function.ir.dumpKotlinLike()} in class ${function.ir.parentAsClass.classId}"
+            )
         } else {
           null
         }
 
       if (bindsImplType != null) {
         if (bindsImplType.typeKey == contextKey.typeKey) {
-          // TODO check in FIR
           check(annotations.isIntoMultibinding) { "Checked in FIR" }
-          //          error("Binds into multibinding is unsupported")
         }
       }
 
@@ -482,7 +593,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
       graph.addBinding(it.typeKey, Binding.BoundInstance(it), bindingStack)
     }
 
-    node.exposedTypes.forEach { getter, contextualTypeKey ->
+    node.exposedTypes.forEach { (getter, contextualTypeKey) ->
       val isMultibindingDeclaration = getter.annotations.isMultibinds
 
       if (isMultibindingDeclaration) {
@@ -563,90 +674,44 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
   }
 
   @OptIn(UnsafeDuringIrConstructionAPI::class)
-  private fun generateLatticeGraph(
-    node: DependencyGraphNode,
-    graph: BindingGraph,
-    deferredTypes: Set<TypeKey>,
-  ): IrClass {
-    /*
-    Simple object that exposes a factory function
-
-    public static ExampleGraph.Factory factory() {
-      return new Factory();
-    }
-
-    public static ExampleGraph create() {
-      return new Factory().create();
-    }
-
-    private static final class Factory implements ExampleGraph.Factory {
-      @Override
-      public ExampleGraph create() {
-        return new ExampleGraphImpl();
+  private fun implementCreatorFunctions(
+    sourceGraph: IrClass,
+    creator: DependencyGraphNode.Creator?,
+    latticeGraph: IrClass,
+  ) {
+    val companionObject = sourceGraph.companionObject()!!
+    if (creator != null) {
+      val implementFactoryFunction: IrClass.() -> Unit = {
+        requireSimpleFunction(creator.createFunction.name.asString()).owner.apply {
+          val createFunction = this
+          body =
+            pluginContext.createIrBuilder(symbol).run {
+              irExprBodySafe(
+                symbol,
+                irCall(latticeGraph.primaryConstructor!!.symbol).apply {
+                  for (param in createFunction.valueParameters) {
+                    putValueArgument(param.index, irGet(param))
+                  }
+                },
+              )
+            }
+        }
       }
-    }
-    */
-    return pluginContext.irFactory
-      .buildClass {
-        name = node.generatedGraphId.shortClassName
-        kind = ClassKind.OBJECT
-        origin = LatticeOrigin
-      }
-      .apply {
-        createImplicitParameterDeclarationWithWrappedDescriptor()
-        addSimpleDelegatingConstructor(
-          symbols.anyConstructor,
-          pluginContext.irBuiltIns,
-          isPrimary = true,
-          origin = LatticeOrigin,
-        )
 
-        val graphImpl = generateGraphImpl(node, graph, deferredTypes)
-        addChild(graphImpl)
-
-        val creator = node.creator
-        if (creator != null) {
+      companionObject.apply {
+        if (creator.type.isInterface) {
+          // Implement the interface creator function directly in this companion object
+          implementFactoryFunction()
+        } else {
+          // Implement the factory's $$Impl class
           val factoryClass =
-            pluginContext.irFactory
-              .buildClass { name = LatticeSymbols.Names.factoryClassName }
-              .apply {
-                this.origin = LatticeOrigin
-                superTypes += node.creator.type.symbol.typeWith()
-                createImplicitParameterDeclarationWithWrappedDescriptor()
-                addSimpleDelegatingConstructor(
-                  if (!node.creator.type.isInterface) {
-                    node.creator.type.primaryConstructor!!
-                  } else {
-                    symbols.anyConstructor
-                  },
-                  pluginContext.irBuiltIns,
-                  isPrimary = true,
-                  origin = LatticeOrigin,
-                )
+            creator.type
+              .requireNestedClass(LatticeSymbols.Names.latticeImpl)
+              .apply(implementFactoryFunction)
 
-                addOverride(node.creator.createFunction).apply {
-                  body =
-                    pluginContext.createIrBuilder(symbol).run {
-                      irExprBodySafe(
-                        symbol,
-                        irCall(graphImpl.primaryConstructor!!.symbol).apply {
-                          for (param in valueParameters) {
-                            putValueArgument(param.index, irGet(param))
-                          }
-                        },
-                      )
-                    }
-                }
-              }
-
-          addChild(factoryClass)
-
-          pluginContext.irFactory.addCompanionObject(symbols, parent = this) {
-            addFunction("factory", factoryClass.typeWith()).apply {
-              this.copyTypeParameters(typeParameters)
-              this.dispatchReceiverParameter = thisReceiver?.copyTo(this)
-              this.origin = LatticeOrigin
-              this.visibility = DescriptorVisibilities.PUBLIC
+          // Implement a factory() function that returns the factory impl instance
+          requireSimpleFunction(LatticeSymbols.StringNames.factory).owner.apply {
+            if (origin == LatticeOrigins.LatticeGraphFactoryCompanionGetter) {
               body =
                 pluginContext.createIrBuilder(symbol).run {
                   irExprBodySafe(
@@ -656,457 +721,411 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
                 }
             }
           }
-        } else {
-          // Generate a no-arg create() function
-          pluginContext.irFactory.addCompanionObject(symbols, parent = this) {
-            addFunction(LatticeSymbols.StringNames.create, node.sourceGraph.typeWith()).apply {
-              this.origin = LatticeOrigin
-              this.visibility = DescriptorVisibilities.PUBLIC
-              body =
-                pluginContext.createIrBuilder(symbol).run {
-                  irExprBodySafe(
-                    symbol,
-                    irCallConstructor(graphImpl.primaryConstructor!!.symbol, emptyList()),
-                  )
-                }
-            }
-          }
         }
       }
+    } else {
+      // Generate a no-arg invoke() function
+      companionObject.apply {
+        requireSimpleFunction(LatticeSymbols.StringNames.invoke).owner.apply {
+          body =
+            pluginContext.createIrBuilder(symbol).run {
+              irExprBodySafe(
+                symbol,
+                irCallConstructor(latticeGraph.primaryConstructor!!.symbol, emptyList()),
+              )
+            }
+        }
+      }
+    }
+
+    companionObject.dumpToLatticeLog()
   }
 
   @OptIn(UnsafeDuringIrConstructionAPI::class)
-  private fun generateGraphImpl(
+  private fun generateLatticeGraph(
     node: DependencyGraphNode,
+    graphClass: IrClass,
     bindingGraph: BindingGraph,
     deferredTypes: Set<TypeKey>,
   ): IrClass {
-    val graphImplName = "${node.sourceGraph.name.asString()}Impl"
-    return pluginContext.irFactory
-      .buildClass { name = Name.identifier(graphImplName) }
-      .apply {
-        superTypes += node.sourceGraph.typeWith()
-        origin = LatticeOrigin
+    return graphClass.apply {
+      val ctor = primaryConstructor!!
 
-        val graphImpl = this
+      // Add fields for providers. May include both scoped and unscoped providers as well as bound
+      // instances
+      val providerFields = mutableMapOf<TypeKey, IrField>()
+      val multibindingProviderFields = mutableMapOf<Binding.Provided, IrField>()
+      val graphTypesToCtorParams = mutableMapOf<TypeKey, IrValueParameter>()
+      val fieldNameAllocator = NameAllocator()
 
-        createImplicitParameterDeclarationWithWrappedDescriptor()
-        val ctor =
-          addSimpleDelegatingConstructor(
-            node.sourceGraph.primaryConstructor ?: symbols.anyConstructor,
-            pluginContext.irBuiltIns,
-            isPrimary = true,
-            origin = LatticeOrigin,
-          )
+      node.creator?.let { creator ->
+        for ((i, param) in creator.parameters.valueParameters.withIndex()) {
+          val isBindsInstance = param.isBindsInstance
 
-        // Add fields for providers. May include both scoped and unscoped providers as well as bound
-        // instances
-        val providerFields = mutableMapOf<TypeKey, IrField>()
-        val multibindingProviderFields = mutableMapOf<Binding.Provided, IrField>()
-        val graphTypesToCtorParams = mutableMapOf<TypeKey, IrValueParameter>()
-        val fieldNameAllocator = NameAllocator()
+          // TODO if we copy the annotations over in FIR we can skip this creator lookup all
+          // together
+          val irParam = ctor.valueParameters[i]
 
-        node.creator?.let { creator ->
-          for (param in creator.parameters.valueParameters) {
-            val isBindsInstance = param.isBindsInstance
-
-            val irParam = ctor.addValueParameter(param.name.asString(), param.type)
-
-            if (isBindsInstance) {
-              providerFields[param.typeKey] =
-                addField(
-                    fieldName = fieldNameAllocator.newName("${param.name}Instance"),
-                    fieldType = symbols.latticeProvider.typeWith(param.type),
-                    fieldVisibility = DescriptorVisibilities.PRIVATE,
-                  )
-                  .apply {
-                    isFinal = true
-                    initializer =
-                      pluginContext.createIrBuilder(symbol).run {
-                        irExprBody(instanceFactory(param.type, irGet(irParam)))
-                      }
-                  }
-            } else {
-              // It's a graph dep. Add all its exposed types as available keys and point them at
-              // this constructor parameter for provider field initialization
-              for (graphDep in node.allDependencies) {
-                for ((_, contextualTypeKey) in graphDep.exposedTypes) {
-                  graphTypesToCtorParams[contextualTypeKey.typeKey] = irParam
-                }
-              }
-            }
-          }
-        }
-
-        // Add fields for this graph and other instance params
-        val instanceFields = mutableMapOf<TypeKey, IrField>()
-        val thisReceiverParameter = thisReceiverOrFail
-        val thisGraphField =
-          addField(
-              fieldName = fieldNameAllocator.newName(graphImplName.decapitalizeUS()),
-              fieldType = thisReceiverParameter.type,
-              fieldVisibility = DescriptorVisibilities.PRIVATE,
-            )
-            .apply {
-              isFinal = true
-              initializer =
-                pluginContext.createIrBuilder(symbol).run {
-                  irExprBody(irGet(thisReceiverParameter))
-                }
-            }
-
-        instanceFields[node.typeKey] = thisGraphField
-        // Add convenience mappings for all supertypes to this field so
-        // instance providers from inherited types use this instance
-        for (superType in node.sourceGraph.getAllSuperTypes(pluginContext)) {
-          instanceFields[TypeKey(superType)] = thisGraphField
-        }
-
-        // Expose the graph as a provider binding
-        // TODO can we just add a binding instead and store a
-        //  field only if requested more than once?
-        providerFields[node.typeKey] =
-          addField(
-              fieldName =
-                fieldNameAllocator.newName(
-                  "${node.sourceGraph.name.asString().decapitalizeUS()}Provider"
-                ),
-              fieldType = symbols.latticeProvider.typeWith(node.typeKey.type),
-              fieldVisibility = DescriptorVisibilities.PRIVATE,
-            )
-            .apply {
-              isFinal = true
-              initializer =
-                pluginContext.createIrBuilder(symbol).run {
-                  irExprBody(
-                    instanceFactory(
-                      node.typeKey.type,
-                      irGetField(irGet(thisReceiverParameter), thisGraphField),
-                    )
-                  )
-                }
-            }
-
-        // Track a stack for bindings
-        val bindingStack =
-          BindingStack(
-            node.sourceGraph,
-            latticeContext.loggerFor(LatticeLogger.Type.GraphImplCodeGen),
-          )
-
-        // First pass: collect bindings and their dependencies for provider field ordering
-        // Note we do this in two passes rather than keep a TreeMap because otherwise we'd be doing
-        // dependency lookups at each insertion
-        val bindingDependencies = collectBindings(node, bindingGraph, bindingStack)
-
-        // Compute safe initialization order
-        val initOrder =
-          bindingDependencies.keys
-            .sortedWith { a, b ->
-              when {
-                // If b depends on a, a should be initialized first
-                a in (bindingDependencies[b]?.dependencies.orEmpty()) -> -1
-                // If a depends on b, b should be initialized first
-                b in (bindingDependencies[a]?.dependencies.orEmpty()) -> 1
-                // Otherwise order doesn't matter, fall back to just type order for idempotence
-                else -> a.compareTo(b)
-              }
-            }
-            .map { bindingDependencies.getValue(it) }
-            .distinct()
-
-        val generationContext =
-          GraphGenerationContext(
-            bindingGraph,
-            thisReceiverParameter,
-            instanceFields,
-            graphTypesToCtorParams,
-            providerFields,
-            multibindingProviderFields,
-            bindingStack,
-          )
-
-        // For all deferred types, assign them first as factories
-        // TODO For any types that depend on deferred types, they need providers too?
-        @Suppress("UNCHECKED_CAST")
-        val deferredFields: Map<TypeKey, IrField> =
-          deferredTypes
-            .associateWith { deferredTypeKey ->
-              val binding = bindingDependencies[deferredTypeKey] ?: return@associateWith null
-              val field =
-                addField(
-                    fieldNameAllocator.newName(binding.nameHint.decapitalizeUS() + "Provider"),
-                    deferredTypeKey.type.wrapInProvider(symbols.latticeProvider),
-                  )
-                  .apply {
-                    isFinal = true
-                    initializer =
-                      pluginContext.createIrBuilder(symbol).run {
-                        irExprBody(
-                          irInvoke(callee = symbols.latticeDelegateFactoryConstructor).apply {
-                            putTypeArgument(0, deferredTypeKey.type)
-                          }
-                        )
-                      }
-                  }
-
-              providerFields[deferredTypeKey] = field
-              field
-            }
-            .filterValues { it != null } as Map<TypeKey, IrField>
-
-        // Create fields in dependency-order
-        initOrder
-          .filterNot { it.typeKey in deferredFields }
-          .forEach { binding ->
-            val key = binding.typeKey
-            // Since assisted injections don't implement Factory, we can't just type these as
-            // Provider<*> fields
-            val fieldType =
-              if (binding is Binding.ConstructorInjected && binding.isAssisted) {
-                injectConstructorTransformer
-                  .getOrGenerateFactoryClass(binding.type, binding.injectedConstructor)
-                  .typeWith() // TODO generic factories?
-              } else {
-                symbols.latticeProvider.typeWith(key.type)
-              }
-
-            val field =
+          if (isBindsInstance) {
+            providerFields[param.typeKey] =
               addField(
-                  fieldName =
-                    fieldNameAllocator.newName(binding.nameHint.decapitalizeUS() + "Provider"),
-                  fieldType = fieldType,
+                  fieldName = fieldNameAllocator.newName("${param.name}Instance"),
+                  fieldType = symbols.latticeProvider.typeWith(param.type),
                   fieldVisibility = DescriptorVisibilities.PRIVATE,
                 )
                 .apply {
                   isFinal = true
                   initializer =
                     pluginContext.createIrBuilder(symbol).run {
-                      val provider =
-                        generateBindingCode(binding, generationContext).letIf(
-                          binding.scope != null
-                        ) {
+                      irExprBody(instanceFactory(param.type, irGet(irParam)))
+                    }
+                }
+          } else {
+            // It's a graph dep. Add all its exposed types as available keys and point them at
+            // this constructor parameter for provider field initialization
+            for (graphDep in node.allDependencies) {
+              for ((_, contextualTypeKey) in graphDep.exposedTypes) {
+                graphTypesToCtorParams[contextualTypeKey.typeKey] = irParam
+              }
+            }
+          }
+        }
+      }
+
+      // Add fields for this graph and other instance params
+      val instanceFields = mutableMapOf<TypeKey, IrField>()
+      val thisReceiverParameter = thisReceiverOrFail
+      val thisGraphField =
+        addField(
+            fieldName = fieldNameAllocator.newName(graphClass.name.asString().decapitalizeUS()),
+            fieldType = thisReceiverParameter.type,
+            fieldVisibility = DescriptorVisibilities.PRIVATE,
+          )
+          .apply {
+            isFinal = true
+            initializer =
+              pluginContext.createIrBuilder(symbol).run { irExprBody(irGet(thisReceiverParameter)) }
+          }
+
+      instanceFields[node.typeKey] = thisGraphField
+      // Add convenience mappings for all supertypes to this field so
+      // instance providers from inherited types use this instance
+      for (superType in node.sourceGraph.getAllSuperTypes(pluginContext)) {
+        instanceFields[TypeKey(superType)] = thisGraphField
+      }
+
+      // Expose the graph as a provider binding
+      // TODO can we just add a binding instead and store a
+      //  field only if requested more than once?
+      providerFields[node.typeKey] =
+        addField(
+            fieldName =
+              fieldNameAllocator.newName(
+                "${node.sourceGraph.name.asString().decapitalizeUS()}Provider"
+              ),
+            fieldType = symbols.latticeProvider.typeWith(node.typeKey.type),
+            fieldVisibility = DescriptorVisibilities.PRIVATE,
+          )
+          .apply {
+            isFinal = true
+            initializer =
+              pluginContext.createIrBuilder(symbol).run {
+                irExprBody(
+                  instanceFactory(
+                    node.typeKey.type,
+                    irGetField(irGet(thisReceiverParameter), thisGraphField),
+                  )
+                )
+              }
+          }
+
+      // Track a stack for bindings
+      val bindingStack =
+        BindingStack(
+          node.sourceGraph,
+          latticeContext.loggerFor(LatticeLogger.Type.GraphImplCodeGen),
+        )
+
+      // First pass: collect bindings and their dependencies for provider field ordering
+      // Note we do this in two passes rather than keep a TreeMap because otherwise we'd be doing
+      // dependency lookups at each insertion
+      val bindingDependencies = collectBindings(node, bindingGraph, bindingStack)
+
+      // Compute safe initialization order
+      val initOrder =
+        bindingDependencies.keys
+          .sortedWith { a, b ->
+            when {
+              // If b depends on a, a should be initialized first
+              a in (bindingDependencies[b]?.dependencies.orEmpty()) -> -1
+              // If a depends on b, b should be initialized first
+              b in (bindingDependencies[a]?.dependencies.orEmpty()) -> 1
+              // Otherwise order doesn't matter, fall back to just type order for idempotence
+              else -> a.compareTo(b)
+            }
+          }
+          .map { bindingDependencies.getValue(it) }
+          .distinct()
+
+      val baseGenerationContext =
+        GraphGenerationContext(
+          bindingGraph,
+          thisReceiverParameter,
+          instanceFields,
+          graphTypesToCtorParams,
+          providerFields,
+          multibindingProviderFields,
+          bindingStack,
+        )
+
+      // For all deferred types, assign them first as factories
+      // TODO For any types that depend on deferred types, they need providers too?
+      @Suppress("UNCHECKED_CAST")
+      val deferredFields: Map<TypeKey, IrField> =
+        deferredTypes
+          .associateWith { deferredTypeKey ->
+            val binding = bindingDependencies[deferredTypeKey] ?: return@associateWith null
+            val field =
+              addField(
+                  fieldNameAllocator.newName(binding.nameHint.decapitalizeUS() + "Provider"),
+                  deferredTypeKey.type.wrapInProvider(symbols.latticeProvider),
+                )
+                .apply {
+                  isFinal = true
+                  initializer =
+                    pluginContext.createIrBuilder(symbol).run {
+                      irExprBody(
+                        irInvoke(callee = symbols.latticeDelegateFactoryConstructor).apply {
+                          putTypeArgument(0, deferredTypeKey.type)
+                        }
+                      )
+                    }
+                }
+
+            providerFields[deferredTypeKey] = field
+            field
+          }
+          .filterValues { it != null } as Map<TypeKey, IrField>
+
+      // Create fields in dependency-order
+      initOrder
+        .filterNot { it.typeKey in deferredFields }
+        .forEach { binding ->
+          val key = binding.typeKey
+          // Since assisted injections don't implement Factory, we can't just type these as
+          // Provider<*> fields
+          val fieldType =
+            if (binding is Binding.ConstructorInjected && binding.isAssisted) {
+              injectConstructorTransformer
+                .getOrGenerateFactoryClass(binding.type, binding.injectedConstructor)
+                .typeWith() // TODO generic factories?
+            } else {
+              symbols.latticeProvider.typeWith(key.type)
+            }
+
+          val field =
+            addField(
+                fieldName =
+                  fieldNameAllocator.newName(binding.nameHint.decapitalizeUS() + "Provider"),
+                fieldType = fieldType,
+                fieldVisibility = DescriptorVisibilities.PRIVATE,
+              )
+              .apply {
+                isFinal = true
+                initializer =
+                  pluginContext.createIrBuilder(symbol).run {
+                    val provider =
+                      generateBindingCode(binding, baseGenerationContext).letIf(
+                        binding.scope != null
+                      ) {
+                        // If it's scoped, wrap it in double-check
+                        // DoubleCheck.provider(<provider>)
+                        it.doubleCheck(this@run, symbols)
+                      }
+                    irExprBody(provider)
+                  }
+              }
+          if (binding is Binding.Provided && binding.isIntoMultibinding) {
+            multibindingProviderFields[binding] = field
+          } else {
+            providerFields[key] = field
+          }
+        }
+
+      // Add statements to our constructor's deferred fields _after_ we've added all provider
+      // fields
+      // for everything else. This is important in case they reference each other
+      for ((deferredTypeKey, field) in deferredFields) {
+        val binding = bindingGraph.requireBinding(deferredTypeKey, bindingStack)
+        with(ctor) {
+          val originalBody = checkNotNull(body)
+          buildBlockBody(pluginContext) {
+            +originalBody.statements
+            +irInvoke(
+                dispatchReceiver = irGetObject(symbols.latticeDelegateFactoryCompanion),
+                callee = symbols.latticeDelegateFactorySetDelegate,
+                // TODO de-dupe?
+                args =
+                  listOf(
+                    irGetField(irGet(thisReceiverParameter), field),
+                    pluginContext.createIrBuilder(symbol).run {
+                      generateBindingCode(
+                          binding,
+                          baseGenerationContext, // .withReceiver(this@with.dispatchReceiverParameter!!),
+                          fieldInitKey = deferredTypeKey,
+                        )
+                        .letIf(binding.scope != null) {
                           // If it's scoped, wrap it in double-check
                           // DoubleCheck.provider(<provider>)
                           it.doubleCheck(this@run, symbols)
                         }
-                      irExprBody(provider)
-                    }
-                }
-            if (binding is Binding.Provided && binding.isIntoMultibinding) {
-              multibindingProviderFields[binding] = field
-            } else {
-              providerFields[key] = field
-            }
-          }
-
-        // Add statements to our constructor's deferred fields _after_ we've added all provider
-        // fields
-        // for everything else. This is important in case they reference each other
-        for ((deferredTypeKey, field) in deferredFields) {
-          val binding = bindingGraph.requireBinding(deferredTypeKey, bindingStack)
-          with(ctor) {
-            val originalBody = checkNotNull(body)
-            buildBlockBody(pluginContext) {
-              +originalBody.statements
-              +irInvoke(
-                  dispatchReceiver = irGetObject(symbols.latticeDelegateFactoryCompanion),
-                  callee = symbols.latticeDelegateFactorySetDelegate,
-                  // TODO de-dupe?
-                  args =
-                    listOf(
-                      irGetField(irGet(thisReceiverParameter), field),
-                      pluginContext.createIrBuilder(symbol).run {
-                        generateBindingCode(
-                            binding,
-                            generationContext,
-                            fieldInitKey = deferredTypeKey,
-                          )
-                          .letIf(binding.scope != null) {
-                            // If it's scoped, wrap it in double-check
-                            // DoubleCheck.provider(<provider>)
-                            it.doubleCheck(this@run, symbols)
-                          }
-                      },
-                    ),
-                )
-                .apply { putTypeArgument(0, deferredTypeKey.type) }
-            }
+                    },
+                  ),
+              )
+              .apply { putTypeArgument(0, deferredTypeKey.type) }
           }
         }
-
-        // Implement abstract getters for exposed types
-        node.exposedTypes.entries
-          // Stable sort. First the name then the type
-          .sortedWith(
-            compareBy<Map.Entry<LatticeSimpleFunction, ContextualTypeKey>> { it.key.ir.name }
-              .thenComparing { it.value.typeKey }
-          )
-          .forEach { (function, contextualTypeKey) ->
-            val property =
-              function.ir.correspondingPropertySymbol?.owner?.let { property ->
-                addProperty { name = property.name }.apply { setDeclarationsParent(graphImpl) }
-              }
-            val getter =
-              property
-                ?.addGetter { returnType = function.ir.returnType }
-                ?.apply {
-                  this.overriddenSymbols += function.ir.symbol
-                  this.correspondingPropertySymbol = property.symbol
-                }
-                ?: addOverride(
-                  function.ir.kotlinFqName,
-                  function.ir.name,
-                  function.ir.returnType,
-                  overriddenSymbols = listOf(function.ir.symbol),
-                )
-            getter.apply {
-              this.dispatchReceiverParameter = thisReceiverParameter
-              val binding = bindingGraph.getOrCreateBinding(contextualTypeKey, BindingStack.empty())
-              bindingStack.push(BindingStack.Entry.requestedAt(contextualTypeKey, function.ir))
-              body =
-                pluginContext.createIrBuilder(symbol).run {
-                  if (binding is Binding.Multibinding) {
-                    // TODO if we have multiple exposed types pointing at the same type, implement
-                    //  one and make the rest call that one. Not multibinding specific. Maybe
-                    //  groupBy { typekey }?
-                  }
-                  irExprBodySafe(
-                    symbol,
-                    typeAsProviderArgument(
-                      latticeContext,
-                      contextualTypeKey,
-                      generateBindingCode(binding, generationContext, contextualTypeKey),
-                      isAssisted = false,
-                      isGraphInstance = false,
-                    ),
-                  )
-                }
-            }
-            bindingStack.pop()
-          }
-
-        // Implement abstract injectors
-        node.injectors.entries
-          // Stable sort. First the name then the type
-          .sortedWith(
-            compareBy<Map.Entry<LatticeSimpleFunction, ContextualTypeKey>> { it.key.ir.name }
-              .thenComparing { it.value.typeKey }
-          )
-          .forEach { (function, contextualTypeKey) ->
-            val overriddenFunction =
-              addOverride(
-                function.ir.kotlinFqName,
-                function.ir.name,
-                function.ir.returnType,
-                overriddenSymbols = listOf(function.ir.symbol),
-              )
-            overriddenFunction.apply {
-              this.dispatchReceiverParameter = thisReceiverParameter
-              val targetParam = addValueParameter("target", contextualTypeKey.typeKey.type)
-              val membersInjectorKey =
-                TypeKey(symbols.latticeMembersInjector.typeWith(contextualTypeKey.typeKey.type))
-              val binding =
-                bindingGraph.requireBinding(membersInjectorKey, bindingStack)
-                  as Binding.MembersInjected
-              bindingStack.push(BindingStack.Entry.requestedAt(contextualTypeKey, function.ir))
-
-              // We don't get a MembersInjector instance/provider from the graph. Instead, we call
-              // all the target inject functions directly
-              body =
-                pluginContext.createIrBuilder(symbol).irBlockBody {
-                  // TODO reuse, consolidate calling code with how we implement this in
-                  //  constructor inject code gen
-                  // val injectors =
-                  // membersInjectorTransformer.getOrGenerateAllInjectorsFor(declaration)
-                  // val memberInjectParameters = injectors.flatMap { it.parameters.values.flatten()
-                  // }
-
-                  for (type in
-                    pluginContext
-                      .referenceClass(binding.targetClassId)!!
-                      .owner
-                      .getAllSuperTypes(pluginContext, excludeSelf = false, excludeAny = true)) {
-                    val clazz = type.rawType()
-                    val injectors =
-                      membersInjectorTransformer.getOrGenerateInjector(clazz) ?: continue
-                    for ((function, parameters) in injectors.injectFunctions) {
-                      +irInvoke(
-                        dispatchReceiver = irGetObject(function.parentAsClass.symbol),
-                        callee = function.symbol,
-                        args =
-                          buildList {
-                            add(irGet(targetParam))
-                            for (parameter in parameters.valueParameters) {
-                              val paramBinding =
-                                bindingGraph.getOrCreateBinding(
-                                  parameter.contextualTypeKey,
-                                  bindingStack,
-                                )
-                              add(
-                                typeAsProviderArgument(
-                                  latticeContext,
-                                  parameter.contextualTypeKey,
-                                  generateBindingCode(
-                                    paramBinding,
-                                    generationContext,
-                                    parameter.contextualTypeKey,
-                                  ),
-                                  isAssisted = false,
-                                  isGraphInstance = false,
-                                )
-                              )
-                            }
-                          },
-                      )
-                    }
-                  }
-                }
-            }
-            bindingStack.pop()
-          }
-
-        // Implement no-op bodies for Binds providers
-        node.providerFunctions
-          .filter { it.second.annotations.isBinds }
-          // Stable sort. First the name then the type
-          .sortedWith(
-            compareBy<Pair<TypeKey, LatticeSimpleFunction>> { it.second.ir.name }
-              .thenComparing { it.first }
-          )
-          .forEach { (_, function) ->
-            // TODO dedupe with accessors gen
-            val property =
-              function.ir.correspondingPropertySymbol?.owner?.let { property ->
-                addProperty { name = property.name }
-              }
-            val getter =
-              property
-                ?.addGetter { returnType = function.ir.returnType }
-                ?.apply { this.overriddenSymbols += function.ir.symbol }
-                ?: addOverride(
-                  function.ir.kotlinFqName,
-                  function.ir.name,
-                  function.ir.returnType,
-                  overriddenSymbols = listOf(function.ir.symbol),
-                )
-            getter.apply {
-              this.dispatchReceiverParameter = thisReceiverParameter
-              this.extensionReceiverParameter = function.ir.extensionReceiverParameter?.copyTo(this)
-              body =
-                pluginContext.createIrBuilder(symbol).run {
-                  irExprBodySafe(
-                    symbol,
-                    irInvoke(
-                      callee = symbols.stdlibErrorFunction,
-                      args = listOf(irString("Never called")),
-                    ),
-                  )
-                }
-            }
-          }
       }
+
+      implementFirStubs(
+        node.exposedTypes,
+        node.bindsFunctions,
+        node.injectors,
+        baseGenerationContext,
+      )
+    }
   }
+
+  @OptIn(UnsafeDuringIrConstructionAPI::class)
+  private fun implementFirStubs(
+    exposedTypes: Map<LatticeSimpleFunction, ContextualTypeKey>,
+    bindsFunctions: Map<LatticeSimpleFunction, ContextualTypeKey>,
+    injectors: Map<LatticeSimpleFunction, ContextualTypeKey>,
+    // If this is null, then this is a stub-only generation
+    context: GraphGenerationContext?,
+  ) {
+    // Implement abstract getters for exposed types
+    exposedTypes.entries.forEach { (function, contextualTypeKey) ->
+      if (context == null) {
+        with(function.ir) { body = stubExpressionBody() }
+      } else {
+        function.ir.apply {
+          val irFunction = this
+          val binding = context.graph.getOrCreateBinding(contextualTypeKey, BindingStack.empty())
+          context.bindingStack.push(BindingStack.Entry.requestedAt(contextualTypeKey, function.ir))
+          body =
+            pluginContext.createIrBuilder(symbol).run {
+              if (binding is Binding.Multibinding) {
+                // TODO if we have multiple exposed types pointing at the same type, implement
+                //  one and make the rest call that one. Not multibinding specific. Maybe
+                //  groupBy { typekey }?
+              }
+              irExprBodySafe(
+                symbol,
+                typeAsProviderArgument(
+                  latticeContext,
+                  contextualTypeKey,
+                  generateBindingCode(
+                    binding,
+                    context.withReceiver(irFunction.dispatchReceiverParameter!!),
+                    contextualTypeKey,
+                  ),
+                  isAssisted = false,
+                  isGraphInstance = false,
+                ),
+              )
+            }
+        }
+        context.bindingStack.pop()
+      }
+    }
+
+    // Implement abstract injectors
+    injectors.entries.forEach { (overriddenFunction, contextualTypeKey) ->
+      if (context == null) {
+        with(overriddenFunction.ir) { body = stubExpressionBody() }
+      } else {
+        overriddenFunction.ir.apply {
+          val targetParam = valueParameters[0]
+          val membersInjectorKey =
+            TypeKey(symbols.latticeMembersInjector.typeWith(contextualTypeKey.typeKey.type))
+          val binding =
+            context.graph.requireBinding(membersInjectorKey, context.bindingStack)
+              as Binding.MembersInjected
+          context.bindingStack.push(BindingStack.Entry.requestedAt(contextualTypeKey, this))
+
+          // We don't get a MembersInjector instance/provider from the graph. Instead, we call
+          // all the target inject functions directly
+          body =
+            pluginContext.createIrBuilder(symbol).irBlockBody {
+              // TODO reuse, consolidate calling code with how we implement this in
+              //  constructor inject code gen
+              // val injectors =
+              // membersInjectorTransformer.getOrGenerateAllInjectorsFor(declaration)
+              // val memberInjectParameters = injectors.flatMap { it.parameters.values.flatten()
+              // }
+
+              for (type in
+                pluginContext
+                  .referenceClass(binding.targetClassId)!!
+                  .owner
+                  .getAllSuperTypes(pluginContext, excludeSelf = false, excludeAny = true)) {
+                val clazz = type.rawType()
+                val generatedInjector =
+                  membersInjectorTransformer.getOrGenerateInjector(clazz) ?: continue
+                for ((function, parameters) in generatedInjector.injectFunctions) {
+                  +irInvoke(
+                    dispatchReceiver = irGetObject(function.parentAsClass.symbol),
+                    callee = function.symbol,
+                    args =
+                      buildList {
+                        add(irGet(targetParam))
+                        for (parameter in parameters.valueParameters) {
+                          val paramBinding =
+                            context.graph.getOrCreateBinding(
+                              parameter.contextualTypeKey,
+                              context.bindingStack,
+                            )
+                          add(
+                            typeAsProviderArgument(
+                              latticeContext,
+                              parameter.contextualTypeKey,
+                              generateBindingCode(
+                                paramBinding,
+                                context.withReceiver(
+                                  overriddenFunction.ir.dispatchReceiverParameter!!
+                                ),
+                                parameter.contextualTypeKey,
+                              ),
+                              isAssisted = false,
+                              isGraphInstance = false,
+                            )
+                          )
+                        }
+                      },
+                  )
+                }
+              }
+            }
+        }
+        context.bindingStack.pop()
+      }
+    }
+
+    // Implement no-op bodies for Binds providers
+    bindsFunctions.forEach { (function, _) ->
+      // TODO dedupe with accessors gen?
+      function.ir.apply { body = stubExpressionBody() }
+    }
+  }
+
+  private fun IrFunction.stubExpressionBody() =
+    pluginContext.createIrBuilder(symbol).run {
+      irExprBodySafe(
+        symbol,
+        irInvoke(callee = symbols.stdlibErrorFunction, args = listOf(irString("Never called"))),
+      )
+    }
 
   private fun collectBindings(
     node: DependencyGraphNode,
@@ -1228,7 +1247,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
 
     visitedBindings += key
 
-    // Scoped, graph, and membersinjector bindings always need (provider) fields
+    // Scoped, graph, and members injector bindings always need (provider) fields
     if (
       bindingScope != null ||
         binding is Binding.GraphDependency ||
@@ -1416,17 +1435,14 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
 
   private fun IrConstructorCall.shouldUnwrapMapKeyValues(): Boolean {
     val mapKeyMapKeyAnnotation = annotationClass.mapKeyAnnotation()!!.ir
-    // TODO FIR check valid mapkey
+    // TODO FIR check valid MapKey
     //  - single arg
     //  - no generics
     val unwrapValue = mapKeyMapKeyAnnotation.getSingleConstBooleanArgumentOrNull() != false
     return unwrapValue
   }
 
-  private fun IrBuilderWithScope.generateMapKeyLiteral(
-    binding: Binding,
-    keyType: IrType,
-  ): IrExpression {
+  private fun generateMapKeyLiteral(binding: Binding, keyType: IrType): IrExpression {
     // TODO this is iffy
     val mapKey =
       when (binding) {
@@ -1645,7 +1661,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
             emptyList(),
             binding.typeKey.type,
             suspend = false,
-          ) { lambdaFunction ->
+          ) {
             +irReturn(
               irInvoke(
                 dispatchReceiver = irGet(graphParameter),
@@ -1845,7 +1861,12 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     val keyType: IrType = mapTypeArgs[0].typeOrFail
     val rawValueType = mapTypeArgs[1].typeOrFail
     val rawValueTypeMetadata =
-      rawValueType.typeOrFail.asContextualTypeKey(latticeContext, null, false, false)
+      rawValueType.typeOrFail.asContextualTypeKey(
+        latticeContext,
+        null,
+        hasDefault = false,
+        isIntoMultibinding = false,
+      )
     val useProviderFactory: Boolean = rawValueTypeMetadata.isWrappedInProvider
     val valueType: IrType = rawValueTypeMetadata.typeKey.type
 
@@ -1905,8 +1926,8 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
 
         val putter =
           if (isMap) {
+            // use putAllFunction
             // .putAll(1, FileSystemModule_Companion_ProvideMapInt1Factory.create())
-            putAllFunction
             // TODO is this only for inheriting in GraphExtensions?
             TODO("putAll isn't yet supported")
           } else {
@@ -1948,10 +1969,17 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     val bindingCode = generateBindingCode(provider, generationContext, fieldInitKey = fieldInitKey)
     return typeAsProviderArgument(
       latticeContext,
-      ContextualTypeKey(provider.typeKey, false, false, false, false),
-      bindingCode,
-      false,
-      false,
+      type =
+        ContextualTypeKey(
+          provider.typeKey,
+          isWrappedInProvider = false,
+          isWrappedInLazy = false,
+          isLazyWrappedInProvider = false,
+          hasDefault = false,
+        ),
+      bindingCode = bindingCode,
+      isAssisted = false,
+      isGraphInstance = false,
     )
   }
 }
@@ -1964,4 +1992,17 @@ internal class GraphGenerationContext(
   val providerFields: Map<TypeKey, IrField>,
   val multibindingProviderFields: Map<Binding.Provided, IrField>,
   val bindingStack: BindingStack,
-)
+) {
+  // Each declaration in FIR is actually generated with a different "this" receiver, so we
+  // need to be able to specify this per-context.
+  fun withReceiver(receiver: IrValueParameter): GraphGenerationContext =
+    GraphGenerationContext(
+      graph,
+      receiver,
+      instanceFields,
+      graphTypesToCtorParams,
+      providerFields,
+      multibindingProviderFields,
+      bindingStack,
+    )
+}

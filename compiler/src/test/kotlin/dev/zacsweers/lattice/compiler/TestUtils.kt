@@ -40,6 +40,7 @@ import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.javaMethod
 import kotlin.test.assertFailsWith
+import org.jetbrains.kotlin.descriptors.runtime.structure.primitiveByWrapper
 
 fun JvmCompilationResult.assertCallableFactory(value: String) {
   val factory = ExampleClass.generatedFactoryClass()
@@ -53,18 +54,14 @@ fun JvmCompilationResult.assertNoArgCallableFactory(expectedValue: String) {
   assertThat(callable.call()).isEqualTo(expectedValue)
 }
 
-fun <T> JvmCompilationResult.invokeTopLevel(name: String, vararg args: Any?): T {
+fun <T> JvmCompilationResult.invokeTopLevel(name: String, vararg args: Any?, clazz: String): T {
   @Suppress("UNCHECKED_CAST")
-  return classLoader
-    .loadClass("test.ExampleClassKt")!!
-    .staticMethods()
-    .single { it.name == name }
-    .invoke(*args) as T
+  return classLoader.loadClass(clazz)!!.staticMethods().single { it.name == name }.invoke(*args)
+    as T
 }
 
-fun <T> JvmCompilationResult.invokeMain(vararg args: Any?): T {
-  @Suppress("UNCHECKED_CAST")
-  return invokeTopLevel("main", *args) as T
+fun <T> JvmCompilationResult.invokeMain(vararg args: Any?, mainClass: String = "test.MainKt"): T {
+  return invokeTopLevel("main", args = args, clazz = mainClass) as T
 }
 
 val JvmCompilationResult.ExampleClass: Class<*>
@@ -214,6 +211,16 @@ val Class<*>.objectInstanceFieldOrNull: Field?
     }
   }
 
+val Class<*>.companionObjectInstance: Any
+  get() {
+    return companionObjectInstanceOrNull ?: error("No companion object instance found on $this")
+  }
+
+val Class<*>.companionObjectInstanceOrNull: Any?
+  get() {
+    return companionObjectInstanceFieldOrNull?.get(null)
+  }
+
 val Class<*>.companionObjectInstanceFieldOrNull: Field?
   get() {
     return fields.find {
@@ -249,6 +256,19 @@ fun Class<*>.invokeCreate(vararg args: Any): Any {
     1 -> createFunctions.single()(*args)
     else -> {
       error("Multiple create functions found in $this:\n${createFunctions.joinToString("\n")}")
+    }
+  }!!
+}
+
+fun Class<*>.invokeStaticInvokeOperator(vararg args: Any): Any {
+  val invokeFunctions =
+    staticMethods().filter { it.name == LatticeSymbols.StringNames.invoke }.toList()
+
+  return when (invokeFunctions.size) {
+    0 -> error("No invoke functions found in $this")
+    1 -> invokeFunctions.single()(*args)
+    else -> {
+      error("Multiple invoke functions found in $this:\n${invokeFunctions.joinToString("\n")}")
     }
   }!!
 }
@@ -311,10 +331,15 @@ fun Class<*>.graphImpl(): Class<*> {
   return declaredClasses.single { it.simpleName.endsWith("Impl") }
 }
 
-fun <T> Any.callFunction(name: String): T {
+fun <T> Any.callFunction(name: String, vararg args: Any): T {
   @Suppress("UNCHECKED_CAST")
-  return javaClass.getMethod(name).invoke(this) as T
+  return javaClass
+    .getMethod(name, *args.mapToArray { it.javaClass.unboxIfPrimitive })
+    .invoke(this, *args) as T
 }
+
+private val Class<*>.unboxIfPrimitive: Class<*>
+  get() = primitiveByWrapper ?: this
 
 fun <T> Any.callProperty(name: String): T {
   @Suppress("UNCHECKED_CAST")
@@ -334,12 +359,22 @@ fun <T> Any.invokeInstanceMethod(name: String, vararg args: Any): T {
 
 /** Returns a new instance of a graph's factory class by invoking its static "factory" function. */
 fun Class<*>.invokeGraphFactory(): Any {
-  return staticMethods().single { it.name == "factory" }.invoke()!!
+  // TODO update callers to new location
+  val staticMethod = staticMethods().singleOrNull { it.name == "factory" }
+  return if (staticMethod != null) {
+    staticMethod.invoke()!!
+  } else {
+    // We're in $$LatticeGraph right now, so go up one and then find its companion object
+    enclosingClass.companionObjectInstanceFieldOrNull?.get(null)
+      ?: error("No factory found for $this")
+  }
 }
 
 /** Creates a graph instance via its generated no-arg static create() function. */
 fun Class<*>.createGraphWithNoArgs(): Any {
-  return invokeCreate()
+  // TODO update callers to new location
+  // We're in $$LatticeGraph right now, so go up one and then find its companion object
+  return enclosingClass.invokeStaticInvokeOperator()
 }
 
 /**

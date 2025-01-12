@@ -30,6 +30,8 @@ public interface LatticeLogger {
 
   public enum class Type {
     None,
+    FirSupertypeGeneration,
+    FirDeclarationGeneration,
     GraphNodeConstruction,
     BindingGraphConstruction,
     CycleDetection,
@@ -38,17 +40,22 @@ public interface LatticeLogger {
   }
 
   public companion object {
-    public operator fun invoke(type: Type, output: (String) -> Unit): LatticeLogger {
-      return LatticeLoggerImpl(type, output)
+    public operator fun invoke(
+      type: Type,
+      output: (String) -> Unit,
+      tag: String? = null,
+    ): LatticeLogger {
+      return LatticeLoggerImpl(type, output, tag)
     }
 
-    public val NONE: LatticeLogger = LatticeLoggerImpl(Type.None) {}
+    public val NONE: LatticeLogger = LatticeLoggerImpl(Type.None, {})
   }
 }
 
 internal class LatticeLoggerImpl(
   override val type: LatticeLogger.Type,
   val output: (String) -> Unit,
+  val tag: String? = null,
 ) : LatticeLogger {
   private var indent = 0
 
@@ -60,6 +67,11 @@ internal class LatticeLoggerImpl(
   }
 
   override fun log(message: () -> String) {
-    output("  ".repeat(indent) + message())
+    val fullMessage = buildString {
+      tag?.let { append("[$it] ") }
+      append("  ".repeat(indent))
+      append(message())
+    }
+    output(fullMessage)
   }
 }

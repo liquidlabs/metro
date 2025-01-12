@@ -80,6 +80,7 @@ import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirBackingFieldSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
@@ -105,6 +106,18 @@ import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 
 internal fun FirBasedSymbol<*>.isAnnotatedInject(session: FirSession): Boolean {
   return isAnnotatedWithAny(session, session.latticeClassIds.injectAnnotations)
+}
+
+internal fun FirBasedSymbol<*>.isBinds(session: FirSession): Boolean {
+  return isAnnotatedWithAny(session, session.latticeClassIds.bindsAnnotations)
+}
+
+internal fun FirBasedSymbol<*>.isDependencyGraph(session: FirSession): Boolean {
+  return isAnnotatedWithAny(session, session.latticeClassIds.dependencyGraphAnnotations)
+}
+
+internal fun FirBasedSymbol<*>.isGraphFactory(session: FirSession): Boolean {
+  return isAnnotatedWithAny(session, session.latticeClassIds.dependencyGraphFactoryAnnotations)
 }
 
 internal fun FirAnnotationContainer.isAnnotatedWithAny(
@@ -548,6 +561,10 @@ internal fun List<FirAnnotation>.scopeAnnotation(session: FirSession): LatticeFi
 internal fun Sequence<FirAnnotation>.scopeAnnotation(session: FirSession): LatticeFirAnnotation? =
   annotationAnnotatedWithAny(session, session.latticeClassIds.scopeAnnotations)
 
+internal fun FirBasedSymbol<*>.scopeAnnotation(session: FirSession): LatticeFirAnnotation? {
+  return resolvedAnnotationsWithArguments.scopeAnnotation(session)
+}
+
 // TODO add a single = true|false param? How would we propagate errors
 internal fun Sequence<FirAnnotation>.annotationAnnotatedWithAny(
   session: FirSession,
@@ -695,3 +712,6 @@ internal fun FirCallableSymbol<*>.findAnnotation(
   }
   return null
 }
+
+internal fun FirBasedSymbol<*>.requireContainingClassSymbol(): FirClassLikeSymbol<*> =
+  getContainingClassSymbol() ?: error("No containing class symbol found for $this")

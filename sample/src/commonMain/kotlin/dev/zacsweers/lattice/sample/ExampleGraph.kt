@@ -21,7 +21,6 @@ import dev.zacsweers.lattice.Inject
 import dev.zacsweers.lattice.Provider
 import dev.zacsweers.lattice.Provides
 import dev.zacsweers.lattice.Singleton
-import dev.zacsweers.lattice.createGraphFactory
 
 @Singleton
 @DependencyGraph
@@ -35,12 +34,7 @@ interface ExampleGraph : FileSystemProviders {
 
   @DependencyGraph.Factory
   fun interface Factory {
-    fun create(@BindsInstance text: String): ExampleGraph
-  }
-
-  companion object {
-    // TODO temporary until we can move this back to the test calling this
-    fun factory() = createGraphFactory<Factory>()
+    operator fun invoke(@BindsInstance text: String): ExampleGraph
   }
 }
 

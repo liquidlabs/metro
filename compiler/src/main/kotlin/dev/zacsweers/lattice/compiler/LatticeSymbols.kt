@@ -52,6 +52,8 @@ internal class LatticeSymbols(
     const val injectMembers = "injectMembers"
     const val invoke = "invoke"
     const val latticeFactory = "\$\$LatticeFactory"
+    const val latticeHintsPackage = "lattice.hints"
+    const val latticeImpl = "\$\$Impl"
     const val latticeRuntimeInternalPackage = "dev.zacsweers.lattice.internal"
     const val latticeRuntimePackage = "dev.zacsweers.lattice"
     const val newInstance = "newInstance"
@@ -62,6 +64,14 @@ internal class LatticeSymbols(
     val kotlinCollectionsPackageFqn = FqName("kotlin.collections")
     val latticeRuntimePackage = FqName(StringNames.latticeRuntimePackage)
     val latticeRuntimeInternalPackage = FqName(StringNames.latticeRuntimeInternalPackage)
+    val latticeHintsPackage = FqName(StringNames.latticeHintsPackage)
+  }
+
+  object CallableIds {
+    val anyEquals = CallableId(ClassIds.anyClass, "equals".asName())
+    val anyToString = CallableId(ClassIds.anyClass, "toString".asName())
+    val anyHashCode = CallableId(ClassIds.anyClass, "hashCode".asName())
+    val anyCallables = setOf(anyEquals, anyToString, anyHashCode)
   }
 
   object ClassIds {
@@ -81,12 +91,13 @@ internal class LatticeSymbols(
     val create = StringNames.create.asName()
     val delegateFactory = Name.identifier("delegateFactory")
     val factoryClassName = Name.identifier("Factory")
+    val factoryFunctionName = StringNames.factory.asName()
     val instance = Name.identifier("instance")
     val injectMembers = Name.identifier(StringNames.injectMembers)
     val invoke = Name.identifier(StringNames.invoke)
     val latticeFactory = Name.identifier(StringNames.latticeFactory)
     val latticeGraph = Name.identifier("\$\$LatticeGraph")
-    val latticeImpl = Name.identifier("\$\$Impl")
+    val latticeImpl = StringNames.latticeImpl.asName()
     val latticeMembersInjector = Name.identifier("\$\$LatticeMembersInjector")
     val membersInjector = Name.identifier("MembersInjector")
     val newInstanceFunction = StringNames.newInstance.asName()
@@ -95,6 +106,8 @@ internal class LatticeSymbols(
     val receiver = Name.identifier("receiver")
     // Used in @Assisted.value
     val value = Name.identifier("value")
+
+    val latticeNames = setOf(latticeFactory, latticeGraph, latticeImpl, latticeMembersInjector)
   }
 
   // TODO use more constants from StandardNames.FqNames
