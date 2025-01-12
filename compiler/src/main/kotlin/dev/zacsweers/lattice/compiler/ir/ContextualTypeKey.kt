@@ -21,7 +21,6 @@ import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.expectAs
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.typeOrFail
@@ -72,7 +71,6 @@ internal class ContextualTypeKey(
 
   // TODO cache these in DependencyGraphTransformer or shared transformer data
   companion object {
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
     fun from(
       context: LatticeTransformerContext,
       function: IrSimpleFunction,
@@ -103,7 +101,6 @@ internal class ContextualTypeKey(
   }
 }
 
-@OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun IrType.isLatticeProviderType(context: LatticeTransformerContext): Boolean {
   check(this is IrSimpleType) { "Unrecognized IrType '${javaClass}': ${render()}" }
 
@@ -113,7 +110,6 @@ internal fun IrType.isLatticeProviderType(context: LatticeTransformerContext): B
   return rawTypeClass!!.implementsAny(context.pluginContext, context.symbols.providerTypes)
 }
 
-@OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun IrType.asContextualTypeKey(
   context: LatticeTransformerContext,
   qualifierAnnotation: IrAnnotation?,

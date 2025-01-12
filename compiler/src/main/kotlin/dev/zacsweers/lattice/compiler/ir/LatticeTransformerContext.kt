@@ -35,9 +35,7 @@ import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.IrTypeArgument
 import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.util.KotlinLikeDumpOptions
 import org.jetbrains.kotlin.ir.util.VisibilityPrintingStrategy
@@ -107,12 +105,6 @@ internal interface LatticeTransformerContext {
     }
   }
 
-  fun irType(
-    classId: ClassId,
-    nullable: Boolean = false,
-    arguments: List<IrTypeArgument> = emptyList(),
-  ) = pluginContext.irType(classId, nullable, arguments)
-
   fun IrProperty?.qualifierAnnotation(): IrAnnotation? {
     if (this == null) return null
     return allAnnotations
@@ -123,8 +115,6 @@ internal interface LatticeTransformerContext {
 
   fun IrAnnotationContainer?.qualifierAnnotation() =
     annotationsAnnotatedWith(symbols.qualifierAnnotations).singleOrNull()?.let(::IrAnnotation)
-
-  fun IrAnnotationContainer?.scopeAnnotation() = scopeAnnotations().singleOrNull()
 
   fun IrAnnotationContainer?.scopeAnnotations() =
     annotationsAnnotatedWith(symbols.scopeAnnotations).mapToSet(::IrAnnotation)
@@ -139,7 +129,6 @@ internal interface LatticeTransformerContext {
     return annotations.annotationsAnnotatedWith(annotationsToLookFor)
   }
 
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
   private fun List<IrConstructorCall>?.annotationsAnnotatedWith(
     annotationsToLookFor: Collection<ClassId>
   ): Set<IrConstructorCall> {
@@ -149,13 +138,6 @@ internal interface LatticeTransformerContext {
     }
   }
 
-  val IrClass.isQualifierAnnotation: Boolean
-    get() = isAnnotatedWithAny(symbols.qualifierAnnotations)
-
-  val IrClass.isScopeAnnotation: Boolean
-    get() = isAnnotatedWithAny(symbols.scopeAnnotations)
-
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
   fun IrClass.findInjectableConstructor(onlyUsePrimaryConstructor: Boolean): IrConstructor? {
     return if (onlyUsePrimaryConstructor || isAnnotatedWithAny(symbols.injectAnnotations)) {
       primaryConstructor

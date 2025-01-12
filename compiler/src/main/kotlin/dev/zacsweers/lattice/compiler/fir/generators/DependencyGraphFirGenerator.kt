@@ -38,6 +38,8 @@ import dev.zacsweers.lattice.compiler.unsafeLazy
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.copy
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.builder.buildReceiverParameter
 import org.jetbrains.kotlin.fir.declarations.origin
 import org.jetbrains.kotlin.fir.declarations.utils.isAbstract
@@ -204,7 +206,7 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
     annotated(
       (session.latticeClassIds.dependencyGraphAnnotations +
           session.latticeClassIds.dependencyGraphFactoryAnnotations)
-        .map { it.asSingleFqName() }
+        .map(ClassId::asSingleFqName)
     )
   }
 
@@ -283,8 +285,9 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
       putAll(
         copy
           .sortedWith(
-            compareBy<Map.Entry<Name, V>> { it.key }
-              .thenComparator { (_, v1), (_, v2) -> comparator.compare(v1, v2) }
+            compareBy(Map.Entry<Name, V>::key).thenComparator { (_, v1), (_, v2) ->
+              comparator.compare(v1, v2)
+            }
           )
           .associate { it.key to it.value }
       )
@@ -367,14 +370,14 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
             val creator = graphObject?.creator ?: return@createCompanionObject
             // If we have an interface creator, we'll implement it here
             if (creator.isInterface) {
-              superType { creator.classSymbol.constructType(it) }
+              superType(creator.classSymbol::constructType)
             }
           }
           .symbol
       }
       LatticeSymbols.Names.latticeGraph -> {
         createNestedClass(owner, name, LatticeKeys.LatticeGraphDeclaration) {
-            superType { owner.constructType(it) }
+            superType(owner::constructType)
             for (typeParam in owner.typeParameterSymbols) {
               typeParameter(typeParam.name, variance = typeParam.variance) {
                 for (bound in typeParam.resolvedBounds) {
@@ -396,7 +399,7 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
             LatticeKeys.LatticeGraphFactoryImplDeclaration,
             classKind = ClassKind.OBJECT,
           ) {
-            superType { creator.constructType(it) }
+            superType(creator::constructType)
           }
           .apply { markAsDeprecatedHidden(session) }
           .symbol
@@ -474,7 +477,7 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
                   key = LatticeKeys.ValueParameter,
                   typeProvider = {
                     valueParameterSymbol.resolvedReturnType.withArguments(
-                      it.mapToArray { it.toConeType() }
+                      it.mapToArray(FirTypeParameterRef::toConeType)
                     )
                   },
                 )
@@ -518,7 +521,7 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
                 // TODO would be nice to resolve this appropriately with the correct type arguments,
                 //  but for now we always know this returns the graph type. FIR checker will check
                 // this too
-                target.constructType(it.mapToArray { it.toConeType() })
+                target.constructType(it.mapToArray(FirTypeParameter::toConeType))
               } catch (e: Exception) {
                 throw AssertionError("Could not resolve return type for $callableId", e)
               }
@@ -538,7 +541,9 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
                 name = parameter.name,
                 key = LatticeKeys.ValueParameter,
                 typeProvider = {
-                  parameter.resolvedReturnType.withArguments(it.mapToArray { it.toConeType() })
+                  parameter.resolvedReturnType.withArguments(
+                    it.mapToArray(FirTypeParameterRef::toConeType)
+                  )
                 },
               )
             }
@@ -565,7 +570,9 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
               owner,
               LatticeKeys.LatticeGraphFactoryCompanionGetter,
               callableId.callableName,
-              returnTypeProvider = { creatorClass.constructType(it.mapToArray { it.toConeType() }) },
+              returnTypeProvider = {
+                creatorClass.constructType(it.mapToArray(FirTypeParameter::toConeType))
+              },
             )
           return listOf(generatedFunction.symbol)
         }
@@ -579,7 +586,9 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
                 owner,
                 LatticeKeys.LatticeGraphCreatorsObjectInvokeDeclaration,
                 callableId.callableName,
-                returnTypeProvider = { graphClass.constructType(it.mapToArray { it.toConeType() }) },
+                returnTypeProvider = {
+                  graphClass.constructType(it.mapToArray(FirTypeParameter::toConeType))
+                },
               ) {
                 status { isOperator = true }
               }
@@ -629,7 +638,9 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
                   name = parameter.name,
                   key = LatticeKeys.ValueParameter,
                   typeProvider = {
-                    parameter.resolvedReturnType.withArguments(it.mapToArray { it.toConeType() })
+                    parameter.resolvedReturnType.withArguments(
+                      it.mapToArray(FirTypeParameterRef::toConeType)
+                    )
                   },
                 )
               }
@@ -661,7 +672,7 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
 
               val paramsToCopy =
                 function.valueParameterSymbols.map { LatticeFirValueParameter(session, it) }
-              copyParameters(this, paramsToCopy, false, {})
+              copyParameters(this, paramsToCopy, false) {}
             }
             .symbol
       }

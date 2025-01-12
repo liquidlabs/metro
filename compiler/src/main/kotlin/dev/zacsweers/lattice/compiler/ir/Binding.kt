@@ -33,7 +33,6 @@ import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.callableId
 import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.kotlinFqName
@@ -78,7 +77,13 @@ internal sealed interface Binding {
 
     override val nameHint: String = type.name.asString()
     override val contextualTypeKey: ContextualTypeKey =
-      ContextualTypeKey(typeKey, false, false, false, false)
+      ContextualTypeKey(
+        typeKey,
+        isWrappedInProvider = false,
+        isWrappedInLazy = false,
+        isLazyWrappedInProvider = false,
+        hasDefault = false,
+      )
 
     override val reportableLocation: CompilerMessageSourceLocation
       get() = type.location()
@@ -141,7 +146,7 @@ internal sealed interface Binding {
     override val reportableLocation: CompilerMessageSourceLocation
       get() = providerFunction.location()
 
-    fun parameterFor(typeKey: TypeKey): IrValueParameter? {
+    fun parameterFor(typeKey: TypeKey): IrValueParameter {
       return parameters.allParameters.find { it.typeKey == typeKey }?.ir
         ?: error(
           "No value parameter found for key $typeKey in ${providerFunction.kotlinFqName.asString()}."
@@ -234,7 +239,6 @@ internal sealed interface Binding {
     override val typeKey: TypeKey,
   ) : Binding {
     override val scope: IrAnnotation? = null
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
     override val nameHint: String = buildString {
       append(graph.name.asString())
       val property = getter.correspondingPropertySymbol
@@ -301,7 +305,6 @@ internal sealed interface Binding {
     override val reportableLocation: CompilerMessageSourceLocation? = null
 
     companion object {
-      @OptIn(UnsafeDuringIrConstructionAPI::class)
       fun create(
         latticeContext: LatticeTransformerContext,
         typeKey: TypeKey,

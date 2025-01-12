@@ -31,7 +31,6 @@ import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.ir.util.isObject
 
@@ -46,7 +45,6 @@ import org.jetbrains.kotlin.ir.util.isObject
  * fun <T> create(valueProvider: Provider<T>): Example_Factory<T> = Example_Factory<T>(valueProvider)
  * ```
  */
-@OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun generateStaticCreateFunction(
   context: LatticeTransformerContext,
   parentClass: IrClass,
@@ -99,7 +97,6 @@ internal fun generateStaticCreateFunction(
  * fun newInstance(value: Provider<String>): Example = Example(value)
  * ```
  */
-@OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun generateStaticNewInstanceFunction(
   context: LatticeTransformerContext,
   parentClass: IrClass,

@@ -31,7 +31,6 @@ import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.declarations.isPropertyAccessor
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.propertyIfAccessor
@@ -88,7 +87,6 @@ internal interface BindingStack {
       com.slack.circuit.star.Example1 is requested at
              [com.slack.circuit.star.ExampleGraph] com.slack.circuit.star.ExampleGraph.example1()
        */
-      @OptIn(UnsafeDuringIrConstructionAPI::class)
       fun requestedAt(contextKey: ContextualTypeKey, accessor: IrSimpleFunction): Entry {
         val rawDeclaration: IrOverridableDeclaration<*> =
           accessor.correspondingPropertySymbol?.owner ?: accessor
@@ -208,7 +206,7 @@ internal interface BindingStack {
           get() = throw UnsupportedOperationException()
 
         override val entries: List<Entry>
-          get() = emptyList<Entry>()
+          get() = emptyList()
 
         override fun push(entry: Entry) {
           // Do nothing
@@ -319,7 +317,7 @@ internal class BindingStackImpl(override val graph: IrClass, private val logger:
 
   override fun toString() = renderTable()
 
-  fun renderTable(): String {
+  private fun renderTable(): String {
     return table {
         cellStyle {
           border = true

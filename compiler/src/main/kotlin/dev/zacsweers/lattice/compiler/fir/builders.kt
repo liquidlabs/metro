@@ -15,7 +15,6 @@
  */
 package dev.zacsweers.lattice.compiler.fir
 
-import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 import org.jetbrains.kotlin.KtFakeSourceElementKind
@@ -58,7 +57,6 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.types.ConstantValueKind
 
-@OptIn(ExperimentalContracts::class)
 internal fun FirExtension.generateMemberFunction(
   owner: FirClassLikeSymbol<*>,
   returnTypeRef: FirTypeRef,
@@ -80,7 +78,6 @@ internal fun FirExtension.generateMemberFunction(
   )
 }
 
-@OptIn(ExperimentalContracts::class, SymbolInternals::class)
 internal fun FirExtension.generateMemberFunction(
   owner: FirClassLikeSymbol<*>,
   returnTypeProvider: (List<FirTypeParameterRef>) -> ConeKotlinType,

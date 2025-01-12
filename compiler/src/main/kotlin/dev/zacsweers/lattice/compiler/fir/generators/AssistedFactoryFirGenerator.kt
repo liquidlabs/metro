@@ -38,7 +38,6 @@ import org.jetbrains.kotlin.fir.extensions.predicate.LookupPredicate.BuilderCont
 import org.jetbrains.kotlin.fir.plugin.createNestedClass
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
@@ -78,7 +77,7 @@ internal class AssistedFactoryFirGenerator(session: FirSession) :
     context: MemberGenerationContext,
   ): Set<Name> {
     assistedFactoriesToClasses[classSymbol]?.let { targetClass ->
-      assistedInjectClasses[targetClass]?.let { constructor ->
+      assistedInjectClasses[targetClass]?.let {
         // Need to generate a SAM create() for this
         val id = CallableId(classSymbol.classId, LatticeSymbols.Names.create)
         createIdsToFactories[id] = classSymbol
@@ -111,8 +110,7 @@ internal class AssistedFactoryFirGenerator(session: FirSession) :
                 }
                 LatticeFirValueParameter(session, param)
               }
-          val createFunction =
-            generateCreateFunction(assistedParams, targetClass, factoryClass, callableId)
+          val createFunction = generateCreateFunction(assistedParams, targetClass, callableId)
           return listOf(createFunction.symbol)
         }
       }
@@ -120,11 +118,9 @@ internal class AssistedFactoryFirGenerator(session: FirSession) :
     return super.generateFunctions(callableId, context)
   }
 
-  @OptIn(SymbolInternals::class)
   private fun FirExtension.generateCreateFunction(
     assistedParams: List<LatticeFirValueParameter>,
     targetClass: FirClassLikeSymbol<*>,
-    factoryClass: FirClassSymbol<*>,
     callableId: CallableId,
   ): FirSimpleFunction {
     return generateMemberFunction(

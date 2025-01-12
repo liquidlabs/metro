@@ -43,7 +43,6 @@ import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.classIdOrFail
 import org.jetbrains.kotlin.ir.util.companionObject
 import org.jetbrains.kotlin.ir.util.kotlinFqName
@@ -67,7 +66,6 @@ internal class InjectConstructorTransformer(
     }
   }
 
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
   fun getOrGenerateFactoryClass(declaration: IrClass, targetConstructor: IrConstructor): IrClass {
     // TODO if declaration is external to this compilation, look
     //  up its factory or warn if it doesn't exist
@@ -176,7 +174,7 @@ internal class InjectConstructorTransformer(
     // Provider<Lazy<T>>
     override fun invoke(): Example<T> = newInstance(ProviderOfLazy.create(valueProvider))
     */
-    val invoke = factoryCls.requireSimpleFunction(LatticeSymbols.StringNames.invoke)
+    val invoke = factoryCls.requireSimpleFunction(LatticeSymbols.StringNames.INVOKE)
 
     implementInvokeOrGetBody(
       invoke.owner,
@@ -251,7 +249,6 @@ internal class InjectConstructorTransformer(
       }
   }
 
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
   private fun generateCreators(
     factoryCls: IrClass,
     factoryConstructor: IrConstructorSymbol,

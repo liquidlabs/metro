@@ -44,7 +44,6 @@ import dev.zacsweers.lattice.compiler.ir.requireSimpleFunction
 import dev.zacsweers.lattice.compiler.isWordPrefixRegex
 import dev.zacsweers.lattice.compiler.unsafeLazy
 import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
 import org.jetbrains.kotlin.ir.builders.irGet
 import org.jetbrains.kotlin.ir.builders.irGetObject
@@ -56,19 +55,16 @@ import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.isMarkedNullable
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.callableId
 import org.jetbrains.kotlin.ir.util.classIdOrFail
 import org.jetbrains.kotlin.ir.util.companionObject
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
-import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.ir.util.isFakeOverride
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.nestedClasses
-import org.jetbrains.kotlin.ir.util.packageFqName
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.FqName
@@ -81,7 +77,6 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
   private val references = mutableMapOf<FqName, CallableReference>()
   private val generatedFactories = mutableMapOf<FqName, IrClass>()
 
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
   fun visitClass(declaration: IrClass) {
     // Defensive copy because we add to this class in some factories!
     val sourceDeclarations =
@@ -105,7 +100,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
     }
   }
 
-  fun visitProperty(declaration: IrProperty) {
+  private fun visitProperty(declaration: IrProperty) {
     val annotations = latticeAnnotationsOf(declaration)
     if (!annotations.isProvides) {
       return
@@ -114,7 +109,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
     getOrGenerateFactoryClass(getOrPutCallableReference(declaration, annotations))
   }
 
-  fun visitFunction(declaration: IrSimpleFunction) {
+  private fun visitFunction(declaration: IrSimpleFunction) {
     val annotations = latticeAnnotationsOf(declaration)
     if (!annotations.isProvides) {
       return
@@ -124,7 +119,6 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
 
   // TODO what about inherited/overridden providers?
   //  https://github.com/evant/kotlin-inject?tab=readme-ov-file#component-inheritance
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
   fun getOrGenerateFactoryClass(binding: Binding.Provided): IrClass {
     val reference =
       binding.providerFunction.correspondingPropertySymbol?.owner?.let {
@@ -148,12 +142,10 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
         exitProcessing()
       }
       generatedFactories[reference.fqName] = generatedClass
-      generatedClass
     }
     return getOrGenerateFactoryClass(reference)
   }
 
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
   fun getOrGenerateFactoryClass(reference: CallableReference): IrClass {
     generatedFactories[reference.fqName]?.let {
       return it
@@ -251,7 +243,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
 
     // Implement invoke()
     // TODO DRY this up with the constructor injection override
-    val invokeFunction = factoryCls.requireSimpleFunction(LatticeSymbols.StringNames.invoke)
+    val invokeFunction = factoryCls.requireSimpleFunction(LatticeSymbols.StringNames.INVOKE)
     invokeFunction.owner.body =
       pluginContext.createIrBuilder(invokeFunction).run {
         irExprBodySafe(
@@ -276,7 +268,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
     return factoryCls
   }
 
-  fun getOrPutCallableReference(
+  private fun getOrPutCallableReference(
     function: IrSimpleFunction,
     annotations: LatticeAnnotations<IrAnnotation> = latticeAnnotationsOf(function),
   ): CallableReference {
@@ -294,14 +286,11 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
       val typeKey = ContextualTypeKey.from(this, function, annotations).typeKey
       CallableReference(
         fqName = function.kotlinFqName,
-        isInternal = function.visibility == DescriptorVisibilities.INTERNAL,
         name = function.name,
         isProperty = false,
         parameters = function.parameters(this),
         typeKey = typeKey,
         isNullable = typeKey.type.isMarkedNullable(),
-        isPublishedApi = function.hasAnnotation(LatticeSymbols.ClassIds.publishedApi),
-        reportableNode = function,
         parent = parent.symbol,
         callee = function.symbol,
         annotations = annotations,
@@ -309,7 +298,7 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
     }
   }
 
-  fun getOrPutCallableReference(
+  private fun getOrPutCallableReference(
     property: IrProperty,
     annotations: LatticeAnnotations<IrAnnotation> = latticeAnnotationsOf(property),
   ): CallableReference {
@@ -332,14 +321,11 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
       val parent = property.parentAsClass
       return CallableReference(
         fqName = fqName,
-        isInternal = property.visibility == DescriptorVisibilities.INTERNAL,
         name = property.name,
         isProperty = true,
         parameters = property.getter?.parameters(this) ?: Parameters.empty(),
         typeKey = typeKey,
         isNullable = typeKey.type.isMarkedNullable(),
-        isPublishedApi = property.hasAnnotation(LatticeSymbols.ClassIds.publishedApi),
-        reportableNode = property,
         parent = parent.symbol,
         callee = property.getter!!.symbol,
         annotations = annotations,
@@ -347,7 +333,6 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
     }
   }
 
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
   private fun implementCreatorBodies(
     factoryCls: IrClass,
     factoryConstructor: IrConstructorSymbol,
@@ -454,27 +439,18 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
 
   internal class CallableReference(
     val fqName: FqName,
-    val isInternal: Boolean,
     val name: Name,
     val isProperty: Boolean,
     val parameters: Parameters<ConstructorParameter>,
     val typeKey: TypeKey,
     val isNullable: Boolean,
-    val isPublishedApi: Boolean,
-    val reportableNode: Any,
     val parent: IrClassSymbol,
     val callee: IrFunctionSymbol,
     val annotations: LatticeAnnotations<IrAnnotation>,
   ) {
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
-    val isInCompanionObject: Boolean
-      get() = parent.owner.isCompanionObject
-
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
     val isInObject: Boolean
       get() = parent.owner.isObject
 
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
     val graphParent =
       if (parent.owner.isCompanionObject) {
         parent.owner.parentAsClass
@@ -485,11 +461,11 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
     // omit the `get-` prefix for property names starting with the *word* `is`, like `isProperty`,
     // but not for names which just start with those letters, like `issues`.
     // TODO still necessary in IR?
-    val useGetPrefix by unsafeLazy { isProperty && !isWordPrefixRegex.matches(name.asString()) }
+    private val useGetPrefix by unsafeLazy {
+      isProperty && !isWordPrefixRegex.matches(name.asString())
+    }
 
-    @OptIn(UnsafeDuringIrConstructionAPI::class) val packageName = graphParent.packageFqName!!
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
-    val simpleName by lazy {
+    private val simpleName by lazy {
       buildString {
         if (useGetPrefix) {
           append("Get")
@@ -499,7 +475,6 @@ internal class ProvidesTransformer(context: LatticeTransformerContext) :
       }
     }
 
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
     val generatedClassId by lazy {
       parent.owner.classIdOrFail.createNestedClassId(Name.identifier(simpleName))
     }

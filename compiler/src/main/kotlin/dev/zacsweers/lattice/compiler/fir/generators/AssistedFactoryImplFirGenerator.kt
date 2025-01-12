@@ -34,6 +34,7 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.typeParameterSymbols
 import org.jetbrains.kotlin.fir.copy
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.origin
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
@@ -68,7 +69,7 @@ internal class AssistedFactoryImplFirGenerator(session: FirSession) :
   FirDeclarationGenerationExtension(session) {
 
   private val assistedFactoryAnnotationPredicate by unsafeLazy {
-    annotated(session.latticeClassIds.assistedFactoryAnnotations.map { it.asSingleFqName() })
+    annotated(session.latticeClassIds.assistedFactoryAnnotations.map(ClassId::asSingleFqName))
   }
 
   private val FirClassSymbol<*>.isAssistedImplClass: Boolean
@@ -167,7 +168,7 @@ internal class AssistedFactoryImplFirGenerator(session: FirSession) :
               }
             }
 
-            superType { typeParameterRefs -> owner.constructType(typeParameterRefs) }
+            superType(owner::constructType)
           }
           .symbol
       }
@@ -198,7 +199,9 @@ internal class AssistedFactoryImplFirGenerator(session: FirSession) :
             typeProvider = { typeParameterRefs ->
               implClass.injectedClass.classId
                 .createNestedClassId(LatticeSymbols.Names.latticeFactory)
-                .constructClassLikeType(typeParameterRefs.mapToArray { it.toConeType() })
+                .constructClassLikeType(
+                  typeParameterRefs.mapToArray(FirTypeParameterRef::toConeType)
+                )
             },
           )
         }
@@ -225,28 +228,27 @@ internal class AssistedFactoryImplFirGenerator(session: FirSession) :
     }
   }
 
-  @OptIn(SymbolInternals::class)
   override fun generateFunctions(
     callableId: CallableId,
     context: MemberGenerationContext?,
   ): List<FirNamedFunctionSymbol> {
-    val context = context ?: return emptyList()
-    if (!context.owner.isAssistedImplClass) return emptyList()
+    val nonNullContext = context ?: return emptyList()
+    if (!nonNullContext.owner.isAssistedImplClass) return emptyList()
 
     // implement creator, create function
     val implClassSymbol =
-      if (context.owner.isCompanion) {
-        context.owner.getContainingClassSymbol() ?: return emptyList()
+      if (nonNullContext.owner.isCompanion) {
+        nonNullContext.owner.getContainingClassSymbol() ?: return emptyList()
       } else {
-        context.owner
+        nonNullContext.owner
       }
     val implClassId = implClassSymbol.classId
     val implClass = implClasses[implClassId] ?: return emptyList()
 
     val creator =
-      if (context.owner.classKind == ClassKind.OBJECT) {
+      if (nonNullContext.owner.classKind == ClassKind.OBJECT) {
         // companion object, declare creator
-        val owner = context.owner
+        val owner = nonNullContext.owner
         createMemberFunction(
           owner,
           LatticeKeys.Default,
@@ -259,7 +261,7 @@ internal class AssistedFactoryImplFirGenerator(session: FirSession) :
             typeProvider = {
               implClass.injectedClass.classId
                 .createNestedClassId(LatticeSymbols.Names.latticeFactory)
-                .constructClassLikeType(it.mapToArray { it.toConeType() })
+                .constructClassLikeType(it.mapToArray(FirTypeParameterRef::toConeType))
             },
             key = LatticeKeys.ValueParameter,
           )
@@ -267,9 +269,9 @@ internal class AssistedFactoryImplFirGenerator(session: FirSession) :
       } else {
         // declare the function override
         generateMemberFunction(
-          context.owner,
-          returnTypeProvider = { implClass.injectedClass.constructType(it) },
-          CallableId(context.owner.classId, LatticeSymbols.Names.create),
+          nonNullContext.owner,
+          returnTypeProvider = implClass.injectedClass::constructType,
+          CallableId(nonNullContext.owner.classId, LatticeSymbols.Names.create),
           LatticeKeys.AssistedFactoryImplCreatorFunctionDeclaration.origin,
         ) {
           status = status.copy(isOverride = true)

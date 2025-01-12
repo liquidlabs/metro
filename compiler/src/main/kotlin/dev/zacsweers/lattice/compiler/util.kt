@@ -16,7 +16,6 @@
 package dev.zacsweers.lattice.compiler
 
 import java.util.Locale
-import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import org.jetbrains.kotlin.name.Name
 
@@ -24,13 +23,11 @@ internal const val LOG_PREFIX = "[LATTICE]"
 
 internal fun <T> unsafeLazy(initializer: () -> T) = lazy(LazyThreadSafetyMode.NONE, initializer)
 
-@OptIn(ExperimentalContracts::class)
 internal inline fun <reified T : Any> Any.expectAs(): T {
   contract { returns() implies (this@expectAs is T) }
   return expectAsOrNull<T>() ?: error("Expected $this to be of type ${T::class.qualifiedName}")
 }
 
-@OptIn(ExperimentalContracts::class)
 internal inline fun <reified T : Any> Any.expectAsOrNull(): T? {
   contract { returnsNotNull() implies (this@expectAsOrNull is T) }
   if (this !is T) return null
@@ -107,9 +104,6 @@ internal inline fun <T> T.letIf(condition: Boolean, block: (T) -> T): T {
 internal val isWordPrefixRegex = "^is([^a-z].*)".toRegex()
 
 internal fun String.asName(): Name = Name.identifier(this)
-
-internal inline fun <T, C : Collection<T>, O> C.ifNotEmpty(body: C.() -> O?): O? =
-  if (isNotEmpty()) this.body() else null
 
 internal val String.withoutLineBreaks: String
   get() = lineSequence().joinToString(" ") { it.trim() }

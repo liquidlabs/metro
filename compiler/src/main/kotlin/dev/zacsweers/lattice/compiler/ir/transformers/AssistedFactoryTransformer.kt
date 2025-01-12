@@ -38,7 +38,6 @@ import org.jetbrains.kotlin.ir.builders.irGetField
 import org.jetbrains.kotlin.ir.builders.irGetObject
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.classIdOrFail
@@ -63,7 +62,6 @@ internal class AssistedFactoryTransformer(
     }
   }
 
-  @OptIn(UnsafeDuringIrConstructionAPI::class)
   internal fun getOrGenerateImplClass(declaration: IrClass): IrClass {
     // TODO if declaration is external to this compilation, look
     //  up its factory or warn if it doesn't exist
@@ -153,7 +151,7 @@ internal class AssistedFactoryTransformer(
               irInvoke(
                 dispatchReceiver =
                   irGetField(irGet(dispatchReceiverParameter!!), delegateFactoryField),
-                callee = generatedFactory.requireSimpleFunction(LatticeSymbols.StringNames.invoke),
+                callee = generatedFactory.requireSimpleFunction(LatticeSymbols.StringNames.INVOKE),
                 args = argumentList,
               ),
             )
@@ -162,7 +160,7 @@ internal class AssistedFactoryTransformer(
     }
 
     val companion = implClass.companionObject()!!
-    companion.requireSimpleFunction(LatticeSymbols.StringNames.create).owner.apply {
+    companion.requireSimpleFunction(LatticeSymbols.StringNames.CREATE).owner.apply {
       val factoryParam = valueParameters.single()
       // InstanceFactory.create(Impl(delegateFactory))
       body =

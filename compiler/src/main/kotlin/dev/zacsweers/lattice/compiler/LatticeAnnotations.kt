@@ -39,7 +39,6 @@ import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.util.classId
 
@@ -129,12 +128,10 @@ internal class LatticeAnnotations<T>(
     )
 }
 
-@OptIn(UnsafeDuringIrConstructionAPI::class)
 internal fun IrAnnotationContainer.latticeAnnotations(
   ids: LatticeClassIds
 ): LatticeAnnotations<IrAnnotation> = latticeAnnotations(ids, null)
 
-@OptIn(UnsafeDuringIrConstructionAPI::class)
 private fun IrAnnotationContainer.latticeAnnotations(
   ids: LatticeClassIds,
   callingContainer: IrAnnotationContainer?,
@@ -153,7 +150,7 @@ private fun IrAnnotationContainer.latticeAnnotations(
   var assisted: IrAnnotation? = null
   var scope: IrAnnotation? = null
   var qualifier: IrAnnotation? = null
-  var mapKeys = mutableSetOf<IrAnnotation>()
+  val mapKeys = mutableSetOf<IrAnnotation>()
 
   for (annotation in annotations) {
     val annotationClass = annotation.type.classOrNull?.owner ?: continue
@@ -317,7 +314,7 @@ private fun FirBasedSymbol<*>.latticeAnnotations(
   var assisted: LatticeFirAnnotation? = null
   var scope: LatticeFirAnnotation? = null
   var qualifier: LatticeFirAnnotation? = null
-  var mapKeys = mutableSetOf<LatticeFirAnnotation>()
+  val mapKeys = mutableSetOf<LatticeFirAnnotation>()
 
   for (annotation in resolvedAnnotationsWithArguments) {
     if (annotation !is FirAnnotationCall) continue

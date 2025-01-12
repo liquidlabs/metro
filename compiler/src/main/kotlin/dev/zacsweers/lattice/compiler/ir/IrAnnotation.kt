@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstKind
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrVararg
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.parentAsClass
 
@@ -35,10 +34,6 @@ internal class IrAnnotation(val ir: IrConstructorCall) : Comparable<IrAnnotation
       renderAsAnnotation(ir)
     }
   }
-
-  fun LatticeTransformerContext.isQualifier() = ir.type.rawType().isQualifierAnnotation
-
-  fun LatticeTransformerContext.isScope() = ir.type.rawType().isScopeAnnotation
 
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
@@ -58,7 +53,6 @@ internal class IrAnnotation(val ir: IrConstructorCall) : Comparable<IrAnnotation
 
 internal fun IrConstructorCall.asIrAnnotation() = IrAnnotation(this)
 
-@OptIn(UnsafeDuringIrConstructionAPI::class)
 private fun StringBuilder.renderAsAnnotation(irAnnotation: IrConstructorCall) {
   val annotationClassName =
     irAnnotation.symbol.takeIf { it.isBound }?.owner?.parentAsClass?.name?.asString() ?: "<unbound>"
