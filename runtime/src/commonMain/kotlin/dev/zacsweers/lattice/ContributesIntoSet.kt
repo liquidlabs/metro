@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Zac Sweers
+ * Copyright (C) 2025 Zac Sweers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,17 @@
  */
 package dev.zacsweers.lattice
 
-@Target(
-  AnnotationTarget.CLASS,
-  AnnotationTarget.FUNCTION,
-  AnnotationTarget.PROPERTY,
-  AnnotationTarget.PROPERTY_GETTER,
-  AnnotationTarget.VALUE_PARAMETER,
-  AnnotationTarget.TYPE,
+import kotlin.annotation.AnnotationTarget.CLASS
+import kotlin.reflect.KClass
+
+/**
+ * TODO doc
+ *
+ * @param BoundType TODO doc. Emphasize qualifiers
+ */
+@Target(CLASS)
+@Repeatable
+public annotation class ContributesIntoSet<BoundType>(
+  val scope: KClass<*>,
+  val replaces: Array<KClass<*>> = [],
 )
-@Qualifier
-public annotation class Named(val name: String)
