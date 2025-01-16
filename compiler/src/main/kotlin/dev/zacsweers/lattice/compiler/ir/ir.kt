@@ -26,7 +26,6 @@ import java.util.Objects
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.ir.addExtensionReceiver
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
-import org.jetbrains.kotlin.backend.jvm.ir.parentClassId
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocationWithRange
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -97,6 +96,7 @@ import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.ir.util.getSimpleFunction
 import org.jetbrains.kotlin.ir.util.hasAnnotation
+import org.jetbrains.kotlin.ir.util.isFakeOverriddenFromAny
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.nestedClasses
 import org.jetbrains.kotlin.ir.util.parentAsClass
@@ -258,15 +258,7 @@ internal fun IrClass.allCallableMembers(
   propertyFilter: (IrProperty) -> Boolean = { true },
 ): Sequence<LatticeSimpleFunction> {
   return functions
-    .letIf(excludeAnyFunctions) {
-      // TODO optimize this?
-      // TODO does this even work
-      it.filterNot { function ->
-        function.overriddenSymbols.any { symbol ->
-          symbol.owner.parentClassId == LatticeSymbols.ClassIds.anyClass
-        }
-      }
-    }
+    .letIf(excludeAnyFunctions) { it.filterNot { function -> function.isFakeOverriddenFromAny() } }
     .filter(functionFilter)
     .plus(properties.filter(propertyFilter).mapNotNull { property -> property.getter })
     .letIf(excludeInheritedMembers) { it.filterNot { function -> function.isFakeOverride } }
@@ -650,10 +642,16 @@ internal fun LatticeTransformerContext.latticeAnnotationsOf(ir: IrAnnotationCont
   ir.latticeAnnotations(symbols.latticeClassIds)
 
 internal fun IrClass.requireSimpleFunction(name: String) =
-  getSimpleFunction(name) ?: error("No function $name in class $classId")
+  getSimpleFunction(name)
+    ?: error(
+      "No function $name in class $classId. Available: ${functions.joinToString { it.name.asString() }}"
+    )
 
 internal fun IrClassSymbol.requireSimpleFunction(name: String) =
-  getSimpleFunction(name) ?: error("No function $name in class ${owner.classId}")
+  getSimpleFunction(name)
+    ?: error(
+      "No function $name in class ${owner.classId}. Available: ${functions.joinToString { it.owner.name.asString() }}"
+    )
 
 internal fun IrClass.requireNestedClass(name: Name): IrClass {
   return nestedClasses.firstOrNull { it.name == name }
@@ -669,3 +667,40 @@ internal val IrClass.isLatticeGenerated: Boolean
   get() {
     return name in LatticeSymbols.Names.latticeNames
   }
+
+internal fun IrOverridableDeclaration<*>.finalizeFakeOverride(
+  dispatchReceiverParameter: IrValueParameter
+) {
+  check(isFakeOverride) { "Function $name is not a fake override!" }
+  isFakeOverride = false
+  modality = Modality.FINAL
+  if (this is IrSimpleFunction) {
+    this.dispatchReceiverParameter = dispatchReceiverParameter
+  } else if (this is IrProperty) {
+    this.getter?.finalizeFakeOverride(dispatchReceiverParameter)
+    this.setter?.finalizeFakeOverride(dispatchReceiverParameter)
+  }
+}
+
+// TODO is there a faster way to do this use case?
+internal fun <S> IrOverridableDeclaration<S>.overriddenSymbolsSequence(): Sequence<S> where
+S : IrSymbol {
+  return overriddenSymbolsSequence(mutableSetOf())
+}
+
+private fun <S> IrOverridableDeclaration<S>.overriddenSymbolsSequence(
+  visited: MutableSet<S>
+): Sequence<S> where S : IrSymbol {
+  return sequence {
+    for (overridden in overriddenSymbols) {
+      if (overridden in visited) continue
+      yield(overridden)
+      visited += overridden
+      val owner = overridden.owner
+      if (owner is IrOverridableDeclaration<*>) {
+        @Suppress("UNCHECKED_CAST")
+        yieldAll((owner as IrOverridableDeclaration<S>).overriddenSymbolsSequence())
+      }
+    }
+  }
+}

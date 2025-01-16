@@ -27,6 +27,7 @@ import dev.zacsweers.lattice.compiler.fir.generators.InjectedClassFirGenerator
 import dev.zacsweers.lattice.compiler.fir.generators.LoggingFirDeclarationGenerationExtension
 import dev.zacsweers.lattice.compiler.fir.generators.LoggingFirSupertypeGenerationExtension
 import dev.zacsweers.lattice.compiler.fir.generators.ProvidesFactoryFirGenerator
+import dev.zacsweers.lattice.compiler.fir.generators.ProvidesFactorySupertypeGenerator
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
@@ -39,16 +40,18 @@ internal class LatticeFirExtensionRegistrar(
   override fun ExtensionRegistrarContext.configurePlugin() {
     +LatticeFirBuiltIns.getFactory(latticeClassIds, options)
     +::LatticeFirCheckers
-    // TODO this seems to break supertype lookups in some phases
-    if (options.makeExistingCompanionsImplementGraphFactories) {
-      +supertypeGenerator("Supertypes - graph factory", ::GraphFactoryFirSupertypeGenerator, true)
-    }
+    +supertypeGenerator("Supertypes - graph factory", ::GraphFactoryFirSupertypeGenerator, true)
     // TODO reenable once FIR fixes are done
     //    +supertypeGenerator(
     //      "Supertypes - contributed interfaces",
     //      ContributedInterfaceSupertypeGenerator.Factory(latticeClassIds)::create,
     //      true,
     //    )
+    +supertypeGenerator(
+      "Supertypes - provider factories",
+      ::ProvidesFactorySupertypeGenerator,
+      true,
+    )
     // TODO enable once we support metadata propagation
     //  +::FirProvidesStatusTransformer
     +declarationGenerator("FirGen - InjectedClass", ::InjectedClassFirGenerator, false)
