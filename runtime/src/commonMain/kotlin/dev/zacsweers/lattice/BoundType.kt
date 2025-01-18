@@ -15,18 +15,5 @@
  */
 package dev.zacsweers.lattice
 
-import kotlin.annotation.AnnotationTarget.CLASS
-import kotlin.reflect.KClass
-
-/**
- * TODO doc
- *
- * @param BoundType TODO doc. Emphasize map key and qualifiers
- */
-@Target(CLASS)
-@Repeatable
-public annotation class ContributesIntoMap(
-  val scope: KClass<*>,
-  val replaces: Array<KClass<*>> = [],
-  val boundType: BoundType<*> = BoundType<Nothing>(),
-)
+/** TODO doc */
+public annotation class BoundType<@Suppress("unused") T : Any>

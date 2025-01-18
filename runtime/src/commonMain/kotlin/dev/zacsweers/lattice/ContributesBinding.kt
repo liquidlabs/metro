@@ -25,8 +25,5 @@ import kotlin.reflect.KClass
 public annotation class ContributesBinding(
   val scope: KClass<*>,
   val replaces: Array<KClass<*>> = [],
+  val boundType: BoundType<*> = BoundType<Nothing>(),
 )
-
-internal interface Example<T>
-
-internal class Impl : @Named("foo") @ContributesBinding(AppScope::class) Example<String>

@@ -72,8 +72,12 @@ internal class LatticeSymbols(
   object ClassIds {
     val anyClass = StandardClassIds.Any
     val jsExportIgnore = JsStandardClassIds.Annotations.JsExportIgnore
+    val latticeBinds = ClassId(FqNames.latticeRuntimePackage, Names.bindsClassName)
+    val latticeIntoSet = ClassId(FqNames.latticeRuntimePackage, "IntoSet".asName())
+    val latticeIntoMap = ClassId(FqNames.latticeRuntimePackage, "IntoMap".asName())
     val latticeFactory = ClassId(FqNames.latticeRuntimeInternalPackage, Names.factoryClassName)
     val latticeProvider = ClassId(FqNames.latticeRuntimePackage, Names.providerClassName)
+    val latticeProvides = ClassId(FqNames.latticeRuntimePackage, "Provides".asName())
     val latticeOrigin = ClassId(FqNames.latticeRuntimeInternalPackage, "Origin".asName())
     val membersInjector = ClassId(FqNames.latticeRuntimePackage, Names.membersInjector)
     val lazy = StandardClassIds.byName("Lazy")
@@ -82,6 +86,7 @@ internal class LatticeSymbols(
   }
 
   object Names {
+    val bindsClassName = Name.identifier("Binds")
     val create = StringNames.CREATE.asName()
     val delegateFactory = Name.identifier("delegateFactory")
     val factoryClassName = Name.identifier("Factory")
