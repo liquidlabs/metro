@@ -16,10 +16,13 @@
 package dev.zacsweers.lattice.compiler.fir
 
 import dev.zacsweers.lattice.compiler.appendIterableWith
+import dev.zacsweers.lattice.compiler.md5Hash
 import dev.zacsweers.lattice.compiler.unsafeLazy
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
 import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
+import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
 import org.jetbrains.kotlin.fir.expressions.arguments
 import org.jetbrains.kotlin.fir.types.renderReadable
 import org.jetbrains.kotlin.fir.types.renderReadableWithFqNames
@@ -33,6 +36,8 @@ internal class LatticeFirAnnotation(val fir: FirAnnotationCall) {
   }
 
   fun simpleString() = buildString { renderAsAnnotation(fir, simple = true) }
+
+  fun hashString(): String = md5Hash(listOf(cachedToString))
 
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
@@ -67,16 +72,21 @@ private fun StringBuilder.renderAsAnnotation(firAnnotation: FirAnnotationCall, s
     prefix = "(",
     postfix = ")",
   ) { index ->
-    renderAsAnnotationArgument(firAnnotation.arguments[index])
+    renderAsAnnotationArgument(firAnnotation.arguments[index], simple)
   }
 }
 
-private fun StringBuilder.renderAsAnnotationArgument(argument: FirExpression) {
+private fun StringBuilder.renderAsAnnotationArgument(argument: FirExpression, simple: Boolean) {
   when (argument) {
-    // TODO
-    //      is IrConstructorCall -> renderAsAnnotation(irElement)
+    is FirAnnotationCall -> renderAsAnnotation(argument, simple)
     is FirLiteralExpression -> {
       renderFirLiteralAsAnnotationArgument(argument)
+    }
+    is FirGetClassCall -> {
+      val id =
+        (argument.argument as? FirResolvedQualifier)?.symbol?.classId?.asSingleFqName() ?: "<Error>"
+      append(id)
+      append("::class")
     }
     // TODO
     //      is IrVararg -> {
