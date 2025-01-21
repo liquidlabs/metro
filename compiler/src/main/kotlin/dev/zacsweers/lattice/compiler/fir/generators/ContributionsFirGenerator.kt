@@ -21,12 +21,12 @@ import dev.zacsweers.lattice.compiler.capitalizeUS
 import dev.zacsweers.lattice.compiler.expectAsOrNull
 import dev.zacsweers.lattice.compiler.fir.LatticeKeys
 import dev.zacsweers.lattice.compiler.fir.argumentAsOrNull
-import dev.zacsweers.lattice.compiler.fir.copy
 import dev.zacsweers.lattice.compiler.fir.hintClassId
 import dev.zacsweers.lattice.compiler.fir.latticeClassIds
 import dev.zacsweers.lattice.compiler.fir.latticeFirBuiltIns
 import dev.zacsweers.lattice.compiler.fir.mapKeyAnnotation
 import dev.zacsweers.lattice.compiler.fir.qualifierAnnotation
+import dev.zacsweers.lattice.compiler.fir.replaceAnnotationsSafe
 import dev.zacsweers.lattice.compiler.joinSimpleNames
 import dev.zacsweers.lattice.compiler.unsafeLazy
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -59,9 +59,9 @@ import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.coneType
-import org.jetbrains.kotlin.fir.types.coneTypeOrNull
 import org.jetbrains.kotlin.fir.types.constructClassLikeType
 import org.jetbrains.kotlin.fir.types.constructType
+import org.jetbrains.kotlin.fir.types.isResolved
 import org.jetbrains.kotlin.fir.types.toLookupTag
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -81,6 +81,13 @@ internal class ContributionsFirGenerator(session: FirSession) :
   }
 
   private val classIdsToContributions = mutableMapOf<ClassId, MutableSet<Contribution>>()
+
+  /**
+   * [getTopLevelClassIds] will be called multiple times if we resolve any annotation's class ID,
+   * which is annoying. To avoid infinite looping we track this reentrant behavior with this
+   * boolean.
+   */
+  private var reentrant = false
 
   sealed interface Contribution {
     val origin: ClassId
@@ -125,6 +132,9 @@ internal class ContributionsFirGenerator(session: FirSession) :
 
   @ExperimentalTopLevelDeclarationsGenerationApi
   override fun getTopLevelClassIds(): Set<ClassId> {
+    if (reentrant) return emptySet()
+    reentrant = true
+    // TODO can we do this without the cache? This gets recalled many times
     classIdsToContributions.clear()
     val contributesToAnnotations = session.latticeClassIds.contributesToAnnotations
     val contributesBindingAnnotations = session.latticeClassIds.contributesBindingAnnotations
@@ -139,7 +149,7 @@ internal class ContributionsFirGenerator(session: FirSession) :
         .toSet()) {
       when (contributingSymbol) {
         is FirRegularClassSymbol -> {
-          for (annotation in contributingSymbol.resolvedAnnotationsWithClassIds) {
+          for (annotation in contributingSymbol.annotations.filter { it.isResolved }) {
             val annotationClassId = annotation.toAnnotationClassIdSafe(session) ?: continue
             when (annotationClassId) {
               in contributesToAnnotations -> {
@@ -187,6 +197,7 @@ internal class ContributionsFirGenerator(session: FirSession) :
       }
     }
 
+    reentrant = false
     return ids
   }
 
@@ -344,9 +355,9 @@ internal class ContributionsFirGenerator(session: FirSession) :
       .also { property ->
         val newAnnotations = mutableListOf<FirAnnotation>()
         newAnnotations.addAll(contribution.buildAnnotations())
-        qualifier?.fir?.copy(property.symbol)?.let(newAnnotations::add)
-        mapKey?.fir?.copy(property.symbol)?.let(newAnnotations::add)
-        property.replaceAnnotations(newAnnotations)
+        qualifier?.fir?.let(newAnnotations::add)
+        mapKey?.fir?.let(newAnnotations::add)
+        property.replaceAnnotationsSafe(newAnnotations)
       }
       .symbol
   }

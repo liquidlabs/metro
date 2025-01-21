@@ -721,7 +721,9 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     if (creator != null) {
       val implementFactoryFunction: IrClass.() -> Unit = {
         requireSimpleFunction(creator.createFunction.name.asString()).owner.apply {
-          finalizeFakeOverride(latticeGraph.thisReceiverOrFail)
+          if (isFakeOverride) {
+            finalizeFakeOverride(latticeGraph.thisReceiverOrFail)
+          }
           val createFunction = this
           body =
             pluginContext.createIrBuilder(symbol).run {
@@ -751,7 +753,9 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           // Implement a factory() function that returns the factory impl instance
           requireSimpleFunction(LatticeSymbols.StringNames.FACTORY).owner.apply {
             if (origin == LatticeOrigins.LatticeGraphFactoryCompanionGetter) {
-              finalizeFakeOverride(latticeGraph.thisReceiverOrFail)
+              if (isFakeOverride) {
+                finalizeFakeOverride(latticeGraph.thisReceiverOrFail)
+              }
               body =
                 pluginContext.createIrBuilder(symbol).run {
                   irExprBodySafe(
@@ -805,7 +809,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           val isBindsInstance = param.isBindsInstance
 
           // TODO if we copy the annotations over in FIR we can skip this creator lookup all
-          // together
+          //  together
           val irParam = ctor.valueParameters[i]
 
           if (isBindsInstance) {
