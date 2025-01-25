@@ -19,6 +19,7 @@ import dev.drewhamilton.poko.Poko
 import dev.zacsweers.lattice.compiler.LatticeSymbols
 import dev.zacsweers.lattice.compiler.expectAs
 import dev.zacsweers.lattice.compiler.expectAsOrNull
+import dev.zacsweers.lattice.compiler.letIf
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
@@ -37,14 +38,14 @@ internal class FirContextualTypeKey(
   val isDeferrable: Boolean = isWrappedInProvider || isWrappedInLazy || isLazyWrappedInProvider,
 ) {
 
-  val originalType: ConeKotlinType
-    get() =
-      when {
-        isLazyWrappedInProvider -> typeKey.type.wrapInLazy().wrapInProvider()
-        isWrappedInProvider -> typeKey.type.wrapInProvider()
-        isWrappedInLazy -> typeKey.type.wrapInLazy()
-        else -> typeKey.type
-      }
+  fun originalType(session: FirSession): ConeKotlinType =
+    when {
+      isLazyWrappedInProvider ->
+        typeKey.type.wrapInLazyIfNecessary(session).wrapInProviderIfNecessary(session)
+      isWrappedInProvider -> typeKey.type.wrapInProviderIfNecessary(session)
+      isWrappedInLazy -> typeKey.type.wrapInLazyIfNecessary(session)
+      else -> typeKey.type
+    }
 
   override fun toString(): String = render(short = true)
 
@@ -79,13 +80,16 @@ internal class FirContextualTypeKey(
       session: FirSession,
       callable: FirCallableSymbol<*>,
       type: ConeKotlinType = callable.resolvedReturnTypeRef.coneType,
+      wrapInProvider: Boolean = false,
     ): FirContextualTypeKey {
-      return type.asFirContextualTypeKey(
-        session = session,
-        qualifierAnnotation =
-          callable.findAnnotation(session, FirBasedSymbol<*>::qualifierAnnotation),
-        hasDefault = callable is FirValueParameterSymbol && callable.hasDefaultValue,
-      )
+      return type
+        .letIf(wrapInProvider) { it.wrapInProviderIfNecessary(session) }
+        .asFirContextualTypeKey(
+          session = session,
+          qualifierAnnotation =
+            callable.findAnnotation(session, FirBasedSymbol<*>::qualifierAnnotation),
+          hasDefault = callable is FirValueParameterSymbol && callable.hasDefaultValue,
+        )
     }
   }
 }

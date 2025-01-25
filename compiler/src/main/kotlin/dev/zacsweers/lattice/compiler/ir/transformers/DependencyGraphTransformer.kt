@@ -61,6 +61,7 @@ import dev.zacsweers.lattice.compiler.ir.rawTypeOrNull
 import dev.zacsweers.lattice.compiler.ir.requireNestedClass
 import dev.zacsweers.lattice.compiler.ir.requireSimpleFunction
 import dev.zacsweers.lattice.compiler.ir.singleAbstractFunction
+import dev.zacsweers.lattice.compiler.ir.stubExpressionBody
 import dev.zacsweers.lattice.compiler.ir.thisReceiverOrFail
 import dev.zacsweers.lattice.compiler.ir.typeAsProviderArgument
 import dev.zacsweers.lattice.compiler.ir.withEntry
@@ -80,7 +81,6 @@ import org.jetbrains.kotlin.ir.builders.irGetField
 import org.jetbrains.kotlin.ir.builders.irGetObject
 import org.jetbrains.kotlin.ir.builders.irInt
 import org.jetbrains.kotlin.ir.builders.irReturn
-import org.jetbrains.kotlin.ir.builders.irString
 import org.jetbrains.kotlin.ir.builders.parent
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrField
@@ -1161,18 +1161,10 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         if (declarationToFinalize.isFakeOverride) {
           declarationToFinalize.finalizeFakeOverride(context.thisReceiver)
         }
-        body = stubExpressionBody()
+        body = stubExpressionBody(latticeContext)
       }
     }
   }
-
-  private fun IrFunction.stubExpressionBody() =
-    pluginContext.createIrBuilder(symbol).run {
-      irExprBodySafe(
-        symbol,
-        irInvoke(callee = symbols.stdlibErrorFunction, args = listOf(irString("Never called"))),
-      )
-    }
 
   private fun collectBindings(
     node: DependencyGraphNode,
@@ -2016,7 +2008,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     val bindingCode = generateBindingCode(provider, generationContext, fieldInitKey = fieldInitKey)
     return typeAsProviderArgument(
       latticeContext,
-      type =
+      contextKey =
         ContextualTypeKey(
           provider.typeKey,
           isWrappedInProvider = false,
