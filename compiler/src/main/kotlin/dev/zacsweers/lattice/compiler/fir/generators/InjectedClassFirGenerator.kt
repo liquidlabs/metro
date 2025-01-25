@@ -116,6 +116,32 @@ internal class InjectedClassFirGenerator(session: FirSession) :
         }
     }
 
+  /**
+   * For top-level `@Inject`-annotated functions we generate synthetic classes.
+   *
+   * ```
+   * @Inject
+   * fun App(message: String) {
+   *   // ...
+   * }
+   * ```
+   *
+   * Will generate
+   *
+   * ```
+   * class AppClass @Inject constructor(private val message: String) {
+   *   operator fun invoke() {
+   *     App(message)
+   *   }
+   * }
+   * ```
+   *
+   * Annotations and `suspend` modifiers will be copied over as well.
+   */
+  // TODO
+  //  private works
+  //  visibility of params and return type
+  //  no extension receivers
   @ExperimentalTopLevelDeclarationsGenerationApi
   override fun getTopLevelClassIds(): Set<ClassId> {
     return symbols.getValue(Unit, null).keys
@@ -528,7 +554,8 @@ internal class InjectedClassFirGenerator(session: FirSession) :
               param.name,
               typeProvider = {
                 param.contextKey.typeKey.type
-                  .withArguments(it.mapToArray(FirTypeParameterRef::toConeType))
+                  // TODO need to remap these
+                  //  .withArguments(it.mapToArray(FirTypeParameterRef::toConeType))
                   .wrapInProviderIfNecessary(session)
               },
               key = LatticeKeys.ValueParameter,
@@ -584,9 +611,9 @@ internal class InjectedClassFirGenerator(session: FirSession) :
           LatticeKeys.TopLevelInjectFunctionClassFunction,
           callableId.callableName,
           returnTypeProvider = {
-            function.resolvedReturnType.withArguments(
-              it.mapToArray(FirTypeParameterRef::toConeType)
-            )
+            function.resolvedReturnType
+            // TODO need to remap these
+            //  .withArguments(it.mapToArray(FirTypeParameterRef::toConeType))
           },
         ) {
           status {
@@ -602,9 +629,9 @@ internal class InjectedClassFirGenerator(session: FirSession) :
             valueParameter(
               param.name,
               typeProvider = {
-                param.resolvedReturnType.withArguments(
-                  it.mapToArray(FirTypeParameterRef::toConeType)
-                )
+                param.resolvedReturnType
+                // TODO need to remap these
+                //  .withArguments(it.mapToArray(FirTypeParameterRef::toConeType))
               },
               key = LatticeKeys.ValueParameter,
             )
