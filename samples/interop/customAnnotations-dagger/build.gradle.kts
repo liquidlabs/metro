@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Zac Sweers
+ * Copyright (C) 2025 Zac Sweers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,27 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pluginManagement {
-  repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal()
+plugins {
+  alias(libs.plugins.kotlin.jvm)
+  alias(libs.plugins.atomicfu)
+  id("dev.zacsweers.lattice")
+}
+
+lattice {
+  customAnnotations {
+    includeDagger()
+    includeAnvil()
   }
 }
 
-dependencyResolutionManagement {
-  repositories {
-    google()
-    mavenCentral()
-  }
-}
-
-rootProject.name = "lattice"
-
-include(":compiler", "integration-tests", ":runtime")
-
-includeBuild("gradle-plugin") {
-  dependencySubstitution {
-    substitute(module("dev.zacsweers.lattice:gradle-plugin")).using(project(":"))
-  }
+dependencies {
+  implementation(libs.anvil.annotations)
+  implementation(libs.dagger.runtime)
+  testImplementation(libs.kotlin.test)
 }

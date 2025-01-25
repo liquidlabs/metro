@@ -19,6 +19,7 @@ import com.google.auto.service.AutoService
 import dev.zacsweers.lattice.compiler.fir.LatticeFirExtensionRegistrar
 import dev.zacsweers.lattice.compiler.ir.LatticeIrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
@@ -33,9 +34,38 @@ public class LatticeCompilerPluginRegistrar : CompilerPluginRegistrar() {
 
   override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
     val options = LatticeOptions.load(configuration)
+
     if (!options.enabled) return
 
-    val classIds = LatticeClassIds()
+    val classIds =
+      LatticeClassIds(
+        customAssistedAnnotations = options.customAssistedAnnotations,
+        customAssistedFactoryAnnotations = options.customAssistedFactoryAnnotations,
+        customAssistedInjectAnnotations = options.customAssistedInjectAnnotations,
+        customBindsAnnotations = options.customBindsAnnotations,
+        customBindsInstanceAnnotations = options.customBindsInstanceAnnotations,
+        customContributesToAnnotations = options.customContributesToAnnotations,
+        customContributesBindingAnnotations = options.customContributesBindingAnnotations,
+        customElementsIntoSetAnnotations = options.customElementsIntoSetAnnotations,
+        customGraphAnnotations = options.customGraphAnnotations,
+        customGraphFactoryAnnotations = options.customGraphFactoryAnnotations,
+        customInjectAnnotations = options.customInjectAnnotations,
+        customIntoMapAnnotations = options.customIntoMapAnnotations,
+        customIntoSetAnnotations = options.customIntoSetAnnotations,
+        customMapKeyAnnotations = options.customMapKeyAnnotations,
+        customMultibindsAnnotations = options.customMultibindsAnnotations,
+        customProvidesAnnotations = options.customProvidesAnnotations,
+        customQualifierAnnotations = options.customQualifierAnnotations,
+        customScopeAnnotations = options.customScopeAnnotations,
+      )
+
+    if (options.debug) {
+      configuration.messageCollector.report(
+        CompilerMessageSeverity.STRONG_WARNING,
+        "Lattice options:\n$options",
+      )
+    }
+
     FirExtensionRegistrarAdapter.registerExtension(LatticeFirExtensionRegistrar(classIds, options))
     IrGenerationExtension.registerExtension(
       LatticeIrGenerationExtension(configuration.messageCollector, classIds, options)

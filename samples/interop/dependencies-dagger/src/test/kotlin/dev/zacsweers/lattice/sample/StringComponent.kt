@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Zac Sweers
+ * Copyright (C) 2025 Zac Sweers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,27 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pluginManagement {
-  repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal()
-  }
-}
+package dev.zacsweers.lattice.sample
 
-dependencyResolutionManagement {
-  repositories {
-    google()
-    mavenCentral()
-  }
-}
+import dagger.BindsInstance
+import dagger.Component
 
-rootProject.name = "lattice"
+@Component
+interface StringComponent {
+  val message: String
 
-include(":compiler", "integration-tests", ":runtime")
-
-includeBuild("gradle-plugin") {
-  dependencySubstitution {
-    substitute(module("dev.zacsweers.lattice:gradle-plugin")).using(project(":"))
+  @Component.Factory
+  interface Factory {
+    fun create(@BindsInstance message: String): StringComponent
   }
 }
