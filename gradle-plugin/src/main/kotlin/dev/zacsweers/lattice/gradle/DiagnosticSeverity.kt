@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Zac Sweers
+ * Copyright (C) 2025 Zac Sweers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.zacsweers.lattice
+package dev.zacsweers.lattice.gradle
 
-@Target(
-  AnnotationTarget.CLASS,
-  AnnotationTarget.FIELD,
-  AnnotationTarget.FUNCTION,
-  AnnotationTarget.PROPERTY,
-  AnnotationTarget.PROPERTY_GETTER,
-  AnnotationTarget.VALUE_PARAMETER,
-  AnnotationTarget.TYPE,
-)
-@Qualifier
-public annotation class Named(val name: String)
+public enum class DiagnosticSeverity {
+  NONE,
+  WARN,
+  ERROR,
+}

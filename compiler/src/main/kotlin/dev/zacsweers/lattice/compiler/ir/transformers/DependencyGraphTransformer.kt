@@ -66,6 +66,9 @@ import dev.zacsweers.lattice.compiler.ir.thisReceiverOrFail
 import dev.zacsweers.lattice.compiler.ir.typeAsProviderArgument
 import dev.zacsweers.lattice.compiler.ir.withEntry
 import dev.zacsweers.lattice.compiler.letIf
+import kotlin.io.path.createDirectories
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.writeText
 import org.jetbrains.kotlin.backend.jvm.codegen.AnnotationCodegen.Companion.annotationClass
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrElement
@@ -289,12 +292,10 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           dependencies = emptyMap(),
           scopes = emptySet(),
           providerFunctions = emptyList(),
-          exposedTypes =
-            accessors.associateWith {
-              ContextualTypeKey.from(latticeContext, it.ir, it.annotations)
-            },
-          bindsFunctions = emptyMap(),
-          injectors = emptyMap(),
+          accessors =
+            accessors.map { it to ContextualTypeKey.from(latticeContext, it.ir, it.annotations) },
+          bindsFunctions = emptyList(),
+          injectors = emptyList(),
           isExternal = true,
           creator = null,
           typeKey = TypeKey(graphDeclaration.typeWith()),
@@ -317,9 +318,9 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         hasDefault = false,
       )
 
-    val exposedTypes = mutableMapOf<LatticeSimpleFunction, ContextualTypeKey>()
-    val bindsFunctions = mutableMapOf<LatticeSimpleFunction, ContextualTypeKey>()
-    val injectors = mutableMapOf<LatticeSimpleFunction, ContextualTypeKey>()
+    val accessors = mutableListOf<Pair<LatticeSimpleFunction, ContextualTypeKey>>()
+    val bindsFunctions = mutableListOf<Pair<LatticeSimpleFunction, ContextualTypeKey>>()
+    val injectors = mutableListOf<Pair<LatticeSimpleFunction, ContextualTypeKey>>()
 
     for (declaration in nonNullLatticeGraph.declarations) {
       if (!declaration.isFakeOverride) continue
@@ -344,7 +345,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
             // It's an injector
             val latticeFunction = latticeFunctionOf(declaration, annotations)
             val contextKey = ContextualTypeKey.from(this, declaration, latticeFunction.annotations)
-            injectors[latticeFunction] = contextKey
+            injectors += (latticeFunction to contextKey)
           } else {
             // Accessor or binds
             val latticeFunction = latticeFunctionOf(declaration, annotations)
@@ -353,9 +354,9 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
               if (latticeFunction.annotations.isBinds) {
                 bindsFunctions
               } else {
-                exposedTypes
+                accessors
               }
-            collection[latticeFunction] = contextKey
+            collection += (latticeFunction to contextKey)
           }
         }
         is IrProperty -> {
@@ -378,9 +379,9 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
             if (latticeFunction.annotations.isBinds) {
               bindsFunctions
             } else {
-              exposedTypes
+              accessors
             }
-          collection[latticeFunction] = contextKey
+          collection += (latticeFunction to contextKey)
         }
       }
     }
@@ -389,7 +390,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     val providerFunctions = mutableListOf<Pair<TypeKey, LatticeSimpleFunction>>()
     // Add all our binds
     providerFunctions +=
-      bindsFunctions.entries.map { (function, contextKey) -> contextKey.typeKey to function }
+      bindsFunctions.map { (function, contextKey) -> contextKey.typeKey to function }
     for (type in graphDeclaration.getAllSuperTypes(pluginContext, excludeSelf = false)) {
       val clazz = type.classOrFail.owner
       scopes += clazz.scopeAnnotations()
@@ -447,7 +448,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         scopes = scopes,
         bindsFunctions = bindsFunctions,
         providerFunctions = providerFunctions,
-        exposedTypes = exposedTypes,
+        accessors = accessors,
         injectors = injectors,
         isExternal = false,
         creator = creator,
@@ -496,6 +497,12 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
           dependencyGraphDeclaration.reportError(message)
           exitProcessing()
         }
+
+      options.reportsDestination
+        ?.createDirectories()
+        ?.resolve("graph-dump-${node.sourceGraph.kotlinFqName.asString().replace(".", "-")}.txt")
+        ?.apply { deleteIfExists() }
+        ?.writeText(bindingGraph.dumpGraph(node.sourceGraph.kotlinFqName.asString(), short = false))
 
       generateLatticeGraph(node, latticeGraph, bindingGraph, deferredTypes)
     } catch (e: Exception) {
@@ -632,17 +639,22 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
       graph.addBinding(it.typeKey, Binding.BoundInstance(it), bindingStack)
     }
 
-    node.exposedTypes.forEach { (getter, contextualTypeKey) ->
+    node.accessors.forEach { (getter, contextualTypeKey) ->
       val isMultibindingDeclaration = getter.annotations.isMultibinds
 
       if (isMultibindingDeclaration) {
-        graph.addBinding(
-          contextualTypeKey.typeKey,
-          Binding.Multibinding.create(latticeContext, contextualTypeKey.typeKey, getter.ir),
-          bindingStack,
-        )
+        // Special case! Multibindings may be created under two conditions
+        // 1. Explicitly via `@Multibinds`
+        // 2. Implicitly via a `@Provides` callable that contributes into a multibinding
+        // Because these may both happen, if the key already exists in the graph we won't try to add
+        // it again
+        val multibinding =
+          Binding.Multibinding.create(latticeContext, contextualTypeKey.typeKey, getter.ir)
+        if (multibinding.typeKey !in graph) {
+          graph.addBinding(contextualTypeKey.typeKey, multibinding, bindingStack)
+        }
       } else {
-        graph.addExposedType(
+        graph.addAccessor(
           contextualTypeKey,
           BindingStack.Entry.requestedAt(contextualTypeKey, getter.ir),
         )
@@ -651,7 +663,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
 
     // Add bindings from graph dependencies
     node.dependencies.forEach { (_, depNode) ->
-      depNode.exposedTypes.forEach { (getter, contextualTypeKey) ->
+      depNode.accessors.forEach { (getter, contextualTypeKey) ->
         graph.addBinding(
           contextualTypeKey.typeKey,
           Binding.GraphDependency(
@@ -827,10 +839,10 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
                     }
                 }
           } else {
-            // It's a graph dep. Add all its exposed types as available keys and point them at
+            // It's a graph dep. Add all its accessors as available keys and point them at
             // this constructor parameter for provider field initialization
             val graphDep = node.dependencies.getValue(param.typeKey)
-            for ((_, contextualTypeKey) in graphDep.exposedTypes) {
+            for ((_, contextualTypeKey) in graphDep.accessors) {
               graphTypesToCtorParams[contextualTypeKey.typeKey] = irParam
             }
           }
@@ -985,7 +997,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
                       ) {
                         // If it's scoped, wrap it in double-check
                         // DoubleCheck.provider(<provider>)
-                        it.doubleCheck(this@run, symbols)
+                        it.doubleCheck(this@run, symbols, binding.typeKey)
                       }
                     irExprBody(provider)
                   }
@@ -1022,7 +1034,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
                         .letIf(binding.scope != null) {
                           // If it's scoped, wrap it in double-check
                           // DoubleCheck.provider(<provider>)
-                          it.doubleCheck(this@run, symbols)
+                          it.doubleCheck(this@run, symbols, binding.typeKey)
                         }
                     },
                   ),
@@ -1032,23 +1044,18 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         }
       }
 
-      implementOverrides(
-        node.exposedTypes,
-        node.bindsFunctions,
-        node.injectors,
-        baseGenerationContext,
-      )
+      implementOverrides(node.accessors, node.bindsFunctions, node.injectors, baseGenerationContext)
     }
   }
 
   private fun implementOverrides(
-    exposedTypes: Map<LatticeSimpleFunction, ContextualTypeKey>,
-    bindsFunctions: Map<LatticeSimpleFunction, ContextualTypeKey>,
-    injectors: Map<LatticeSimpleFunction, ContextualTypeKey>,
+    accessors: List<Pair<LatticeSimpleFunction, ContextualTypeKey>>,
+    bindsFunctions: List<Pair<LatticeSimpleFunction, ContextualTypeKey>>,
+    injectors: List<Pair<LatticeSimpleFunction, ContextualTypeKey>>,
     context: GraphGenerationContext,
   ) {
-    // Implement abstract getters for exposed types
-    exposedTypes.entries.forEach { (function, contextualTypeKey) ->
+    // Implement abstract getters for accessors
+    accessors.forEach { (function, contextualTypeKey) ->
       function.ir.apply {
         val declarationToFinalize =
           function.ir.propertyIfAccessor.expectAs<IrOverridableDeclaration<*>>()
@@ -1061,7 +1068,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
         body =
           pluginContext.createIrBuilder(symbol).run {
             if (binding is Binding.Multibinding) {
-              // TODO if we have multiple exposed types pointing at the same type, implement
+              // TODO if we have multiple accessors pointing at the same type, implement
               //  one and make the rest call that one. Not multibinding specific. Maybe
               //  groupBy { typekey }?
             }
@@ -1085,7 +1092,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     }
 
     // Implement abstract injectors
-    injectors.entries.forEach { (overriddenFunction, contextualTypeKey) ->
+    injectors.forEach { (overriddenFunction, contextualTypeKey) ->
       overriddenFunction.ir.apply {
         finalizeFakeOverride(context.thisReceiver)
         val targetParam = valueParameters[0]
@@ -1178,7 +1185,7 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
     val visitedBindings = mutableSetOf<TypeKey>()
 
     // Initial pass from each root
-    node.exposedTypes.forEach { (accessor, contextualTypeKey) ->
+    node.accessors.forEach { (accessor, contextualTypeKey) ->
       findAndProcessBinding(
         contextKey = contextualTypeKey,
         stackEntry = BindingStack.Entry.requestedAt(contextualTypeKey, accessor.ir),
@@ -1459,7 +1466,11 @@ internal class DependencyGraphTransformer(context: LatticeTransformerContext) :
             return@mapIndexed null
           }
 
-          generateBindingCode(paramBinding, generationContext)
+          generateBindingCode(
+            paramBinding,
+            generationContext,
+            contextualTypeKey = param.contextualTypeKey,
+          )
         }
 
       typeAsProviderArgument(

@@ -36,10 +36,10 @@ internal class BindingGraph(private val latticeContext: LatticeTransformerContex
   private val bindings = ConcurrentHashMap<TypeKey, Binding>()
   private val dependencies = ConcurrentHashMap<TypeKey, Lazy<Set<ContextualTypeKey>>>()
   // TODO eventually add inject() targets too from member injection
-  private val exposedTypes = mutableMapOf<ContextualTypeKey, BindingStack.Entry>()
+  private val accessors = mutableMapOf<ContextualTypeKey, BindingStack.Entry>()
 
-  fun addExposedType(key: ContextualTypeKey, entry: BindingStack.Entry) {
-    exposedTypes[key] = entry
+  fun addAccessor(key: ContextualTypeKey, entry: BindingStack.Entry) {
+    accessors[key] = entry
   }
 
   fun addBinding(key: TypeKey, binding: Binding, bindingStack: BindingStack) {
@@ -49,19 +49,13 @@ internal class BindingGraph(private val latticeContext: LatticeTransformerContex
     }
     if (bindings.containsKey(key)) {
       val message = buildString {
-        appendLine("Duplicate binding for $key")
-        if (binding is Binding.Provided) {
-          appendLine(
-            "Double check the provider's inferred return type or making its return type explicit."
-          )
-        }
+        appendLine("Duplicate binding for ${key.render(short = false, includeQualifier = true)}")
         appendBindingStack(bindingStack)
       }
       val location = binding.reportableLocation ?: bindingStack.graph.location()
       latticeContext.reportError(message, location)
       exitProcessing()
     }
-    require(!bindings.containsKey(key)) { "Duplicate binding for $key" }
     bindings[key] = binding
 
     if (binding is Binding.BoundInstance) {
@@ -138,7 +132,7 @@ internal class BindingGraph(private val latticeContext: LatticeTransformerContex
           appendLine("No binding found for $key")
           appendBindingStack(stack)
           if (latticeContext.debug) {
-            appendLine(dumpGraph(short = false))
+            appendLine(dumpGraph(stack.graph.kotlinFqName.asString(), short = false))
           }
         }
         latticeContext.reportError(message, stack.lastEntryOrGraph.location())
@@ -184,7 +178,7 @@ internal class BindingGraph(private val latticeContext: LatticeTransformerContex
     }
   }
 
-  fun findBinding(key: TypeKey): Binding? = bindings[key]
+  operator fun contains(key: TypeKey): Boolean = bindings.containsKey(key)
 
   fun validate(node: DependencyGraphNode, onError: (String) -> Nothing): Set<TypeKey> {
     val deferredTypes = checkCycles(node, onError)
@@ -283,7 +277,7 @@ internal class BindingGraph(private val latticeContext: LatticeTransformerContex
       }
     }
 
-    for ((key, entry) in exposedTypes) {
+    for ((key, entry) in accessors) {
       stackLogger.log("Traversing from root: ${key.typeKey}")
       stack.withEntry(entry) {
         val binding = getOrCreateBinding(key, stack)
@@ -346,39 +340,53 @@ internal class BindingGraph(private val latticeContext: LatticeTransformerContex
   }
 
   // TODO iterate on this more!
-  internal fun dumpGraph(short: Boolean): String {
+  internal fun dumpGraph(name: String, short: Boolean): String {
     if (bindings.isEmpty()) return "Empty binding graph"
 
     return buildString {
-      appendLine("Binding Graph:")
+      appendLine("Binding Graph: $name")
       // Sort by type key for consistent output
       bindings.entries
         .sortedBy { it.key.toString() }
-        .forEach { (typeKey, binding) ->
+        .forEach { (_, binding) ->
           appendLine("─".repeat(50))
-          appendLine("Type: ${typeKey.render(short)}")
-          appendLine("├─ Binding: ${binding::class.simpleName}")
-          appendLine("├─ Contextual Type: ${binding.contextualTypeKey.render(short)}")
-
-          binding.scope?.let { scope -> appendLine("├─ Scope: $scope") }
-
-          if (binding.dependencies.isNotEmpty()) {
-            appendLine("├─ Dependencies:")
-            binding.dependencies.forEach { (depKey, param) ->
-              appendLine("│  ├─ ${depKey.render(short)}")
-              appendLine("│  │  └─ Parameter: ${param.name} (${param.type})")
-            }
-          }
-
-          if (binding.parameters.allParameters.isNotEmpty()) {
-            appendLine("├─ Parameters:")
-            binding.parameters.allParameters.forEach { param ->
-              appendLine("│  └─ ${param.name}: ${param.contextualTypeKey.render(short)}")
-            }
-          }
-
-          binding.reportableLocation?.let { location -> appendLine("└─ Location: $location") }
+          appendBinding(binding, short, isNested = false)
         }
     }
+  }
+
+  private fun Appendable.appendBinding(binding: Binding, short: Boolean, isNested: Boolean) {
+    appendLine("Type: ${binding.typeKey.render(short)}")
+    appendLine("├─ Binding: ${binding::class.simpleName}")
+    appendLine("├─ Contextual Type: ${binding.contextualTypeKey.render(short)}")
+
+    binding.scope?.let { scope -> appendLine("├─ Scope: $scope") }
+
+    if (binding.dependencies.isNotEmpty()) {
+      appendLine("├─ Dependencies:")
+      binding.dependencies.forEach { (depKey, param) ->
+        appendLine("│  ├─ ${depKey.render(short)}")
+        appendLine("│  │  └─ Parameter: ${param.name} (${param.contextualTypeKey.render(short)})")
+      }
+    }
+
+    if (binding.parameters.allParameters.isNotEmpty()) {
+      appendLine("├─ Parameters:")
+      binding.parameters.allParameters.forEach { param ->
+        appendLine("│  └─ ${param.name}: ${param.contextualTypeKey.render(short)}")
+      }
+    }
+
+    if (!isNested && binding is Binding.Multibinding && binding.sourceBindings.isNotEmpty()) {
+      appendLine("├─ Source bindings:")
+      binding.sourceBindings.forEach { sourceBinding ->
+        val nested = buildString { appendBinding(sourceBinding, short, isNested = true) }
+        append("│  ├─ ")
+        appendLine(nested.lines().first())
+        appendLine(nested.lines().drop(1).joinToString("\n").prependIndent("│  │  "))
+      }
+    }
+
+    binding.reportableLocation?.let { location -> appendLine("└─ Location: $location") }
   }
 }

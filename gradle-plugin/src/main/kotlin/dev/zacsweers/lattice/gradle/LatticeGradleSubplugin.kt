@@ -17,6 +17,7 @@ package dev.zacsweers.lattice.gradle
 
 import org.gradle.api.Project
 import org.gradle.api.provider.Provider
+import org.jetbrains.kotlin.gradle.plugin.FilesSubpluginOption
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerPluginSupportPlugin
 import org.jetbrains.kotlin.gradle.plugin.SubpluginArtifact
@@ -49,8 +50,13 @@ public class LatticeGradleSubplugin : KotlinCompilerPluginSupportPlugin {
 
     return project.provider {
       buildList {
-        add(SubpluginOption(key = "enabled", value = extension.enabled.get().toString()))
-        add(SubpluginOption(key = "debug", value = extension.debug.get().toString()))
+        add(lazyOption("enabled", extension.enabled))
+        add(lazyOption("debug", extension.debug))
+        add(lazyOption("public-provider-severity", extension.publicProviderSeverity))
+        add(lazyOption("generate-assisted-factories", extension.generateAssistedFactories))
+        extension.reportsDestination.orNull
+            ?.let { FilesSubpluginOption("reports-destination", listOf(it.asFile)) }
+            ?.let(::add)
 
         with(extension.customAnnotations) {
           assisted
@@ -148,3 +154,14 @@ public class LatticeGradleSubplugin : KotlinCompilerPluginSupportPlugin {
     }
   }
 }
+
+@JvmName("booleanPluginOptionOf")
+private fun lazyOption(key: String, value: Provider<Boolean>): SubpluginOption =
+    lazyOption(key, value.map { it.toString() })
+
+@JvmName("enumPluginOptionOf")
+private fun <T : Enum<T>> lazyOption(key: String, value: Provider<T>): SubpluginOption =
+    lazyOption(key, value.map { it.name })
+
+private fun lazyOption(key: String, value: Provider<String>): SubpluginOption =
+    SubpluginOption(key, lazy(LazyThreadSafetyMode.NONE) { value.get() })

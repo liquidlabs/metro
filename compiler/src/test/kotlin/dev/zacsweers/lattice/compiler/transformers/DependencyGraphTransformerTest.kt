@@ -1625,4 +1625,232 @@ class DependencyGraphTransformerTest : LatticeCompilerTest() {
       assertThat(graph.callProperty<Int>("int")).isEqualTo(3)
     }
   }
+
+  @Test
+  fun `simple multibinds accessed from accessor`() {
+    val result =
+      compile(
+        source(
+          """
+            @DependencyGraph
+            interface ExampleGraph {
+              @Multibinds val strings: Set<String>
+
+              @Provides
+              @IntoSet
+              fun provideString(): String = "Hello, world!"
+            }
+          """
+            .trimIndent()
+        )
+      )
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+
+    val strings = graph.callProperty<Set<String>>("strings")
+    assertThat(strings).containsExactly("Hello, world!")
+  }
+
+  /**
+   * This tests that an implicit multibinding with an explicit one do not conflict as duplicate
+   * bindings
+   */
+  @Test
+  fun `simple multibinds accessed from accessor - different order declaration`() {
+    val result =
+      compile(
+        source(
+          """
+            @DependencyGraph
+            interface ExampleGraph {
+              @Provides
+              @IntoSet
+              fun provideString(): String = "Hello, world!"
+
+              @Multibinds val strings: Set<String>
+            }
+          """
+            .trimIndent()
+        )
+      )
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+
+    val strings = graph.callProperty<Set<String>>("strings")
+    assertThat(strings).containsExactly("Hello, world!")
+  }
+
+  @Test
+  fun `simple implicit multibindings from accessor`() {
+    val result =
+      compile(
+        source(
+          """
+            @DependencyGraph
+            interface ExampleGraph {
+              val strings: Set<String>
+
+              @Provides
+              @IntoSet
+              fun provideString(): String = "Hello, world!"
+            }
+          """
+            .trimIndent()
+        )
+      )
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+
+    val strings = graph.callProperty<Set<String>>("strings")
+    assertThat(strings).containsExactly("Hello, world!")
+  }
+
+  @Test
+  fun `simple explicit multibindings with no contributors is empty`() {
+    val result =
+      compile(
+        source(
+          """
+            @DependencyGraph
+            interface ExampleGraph {
+              @Multibinds val strings: Set<String>
+            }
+          """
+            .trimIndent()
+        )
+      )
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+
+    val strings = graph.callProperty<Set<String>>("strings")
+    assertThat(strings).isEmpty()
+  }
+
+  @Test
+  fun `simple multibindings from class injection`() {
+    val result =
+      compile(
+        source(
+          """
+            @DependencyGraph
+            interface ExampleGraph {
+              val exampleClass: ExampleClass
+
+              @Provides
+              @IntoSet
+              fun provideString(): String = "Hello, world!"
+            }
+
+            @Inject
+            class ExampleClass(val strings: Set<String>) : Callable<Set<String>> {
+              override fun call(): Set<String> = strings
+            }
+          """
+            .trimIndent()
+        )
+      )
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+
+    val strings = graph.callProperty<Callable<Set<String>>>("exampleClass")
+    assertThat(strings.call()).containsExactly("Hello, world!")
+  }
+
+  @Test
+  fun `simple multibindings from provided class`() {
+    val result =
+      compile(
+        source(
+          """
+            @DependencyGraph
+            interface ExampleGraph {
+              val exampleClass: ExampleClass
+
+              @Provides
+              @IntoSet
+              fun provideString(): String = "Hello, world!"
+
+              @Provides fun provideExampleClass(strings: Set<String>): ExampleClass = ExampleClass(strings)
+            }
+
+            class ExampleClass(val strings: Set<String>) : Callable<Set<String>> {
+              override fun call(): Set<String> = strings
+            }
+          """
+            .trimIndent()
+        )
+      )
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+
+    val strings = graph.callProperty<Callable<Set<String>>>("exampleClass")
+    assertThat(strings.call()).containsExactly("Hello, world!")
+  }
+
+  /**
+   * We used to track binds providers in a map, which would fail on cases where the same callable ID
+   * was used. This ensures we support that case.
+   */
+  @Test
+  fun `multiple multibinding contributors with matching callable ids`() {
+    val result =
+      compile(
+        source(
+          """
+            @DependencyGraph
+            interface ExampleGraph : ContributingInterface1, ContributingInterface2 {
+              val strings: Set<String>
+
+              @Provides
+              val provideInt: Int get() = 1
+
+              @Binds
+              val Int.provideString: Number
+
+              @Provides
+              @IntoSet
+              val provideString: String get() = "0"
+
+            }
+
+            interface ContributingInterface1 {
+              @Provides
+              @IntoSet
+              fun provideString(int: Int): String = int.toString()
+            }
+
+            interface ContributingInterface2 {
+              @Provides
+              @IntoSet
+              fun provideString(number: Number): String {
+                // Resolves to 1 + 2 = 3
+                return (number.toInt() + 2).toString()
+              }
+            }
+          """
+            .trimIndent()
+        )
+      )
+    val graph = result.ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+
+    val strings = graph.callProperty<Set<String>>("strings")
+    assertThat(strings).containsExactly("0", "1", "3")
+  }
+
+  // The annotation is stored on the FirPropertyAccessorSymbol, this test ensures
+  // we check there too
+  @Test
+  fun `private provider with get-annotated Provides`() {
+    compile(
+      source(
+        """
+            @DependencyGraph
+            abstract class ExampleGraph {
+              abstract val count: Int
+
+              @get:Provides private val countProvider: Int = 3
+            }
+          """
+          .trimIndent()
+      )
+    ) {
+      val graph = ExampleGraph.generatedLatticeGraphClass().createGraphWithNoArgs()
+      val count = graph.callProperty<Int>("count")
+      assertThat(count).isEqualTo(3)
+    }
+  }
 }

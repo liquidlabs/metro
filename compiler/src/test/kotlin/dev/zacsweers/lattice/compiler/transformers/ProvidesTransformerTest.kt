@@ -17,11 +17,11 @@ package dev.zacsweers.lattice.compiler.transformers
 
 import com.google.common.truth.Truth.assertThat
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
-import com.tschuchort.compiletesting.SourceFile.Companion.kotlin
 import dev.zacsweers.lattice.compiler.ExampleGraph
 import dev.zacsweers.lattice.compiler.LatticeCompilerTest
 import dev.zacsweers.lattice.compiler.assertDiagnostics
 import dev.zacsweers.lattice.compiler.callProperty
+import dev.zacsweers.lattice.compiler.companionObjectClass
 import dev.zacsweers.lattice.compiler.createGraphWithNoArgs
 import dev.zacsweers.lattice.compiler.generatedLatticeGraphClass
 import dev.zacsweers.lattice.compiler.invokeCreateAs
@@ -38,21 +38,15 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   fun `simple function provider`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
+        source(
           """
-            package test
-
-            import dev.zacsweers.lattice.Provides
-            import dev.zacsweers.lattice.DependencyGraph
-
             @DependencyGraph
             interface ExampleGraph {
               @Provides
               fun provideValue(): String = "Hello, world!"
             }
           """
-            .trimIndent(),
+            .trimIndent()
         )
       )
 
@@ -71,21 +65,15 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   fun `simple property provider`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
+        source(
           """
-            package test
-
-            import dev.zacsweers.lattice.Provides
-            import dev.zacsweers.lattice.DependencyGraph
-
             @DependencyGraph
             interface ExampleGraph {
               @Provides
               val value: String get() = "Hello, world!"
             }
           """
-            .trimIndent(),
+            .trimIndent()
         )
       )
 
@@ -166,14 +154,8 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   fun `simple function provider with arguments`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
+        source(
           """
-            package test
-
-            import dev.zacsweers.lattice.Provides
-            import dev.zacsweers.lattice.DependencyGraph
-
             @DependencyGraph
             interface ExampleGraph {
               @Provides
@@ -183,7 +165,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
               fun provideStringValue(intValue: Int): String = "Hello, ${'$'}intValue!"
             }
           """
-            .trimIndent(),
+            .trimIndent()
         )
       )
 
@@ -201,17 +183,40 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   }
 
   @Test
+  fun `simple function provider in companion object with arguments`() {
+    val result =
+      compile(
+        source(
+          """
+            interface ExampleGraph {
+              companion object {
+                @Provides
+                fun provideStringValue(intValue: Int): String = "Hello, ${'$'}intValue!"
+              }
+            }
+          """
+            .trimIndent()
+        )
+      )
+
+    val providesFactoryClass =
+      result.ExampleGraph.companionObjectClass.providesFactoryClass("provideStringValue")
+
+    // Exercise calling the static provideValue function directly
+    val providedValue = providesFactoryClass.provideValueAs<String>("provideStringValue", 2)
+    assertThat(providedValue).isEqualTo("Hello, 2!")
+
+    // Exercise calling the create + invoke() functions
+    val providesFactory = providesFactoryClass.invokeCreateAs<Factory<String>>(provider { 2 })
+    assertThat(providesFactory()).isEqualTo("Hello, 2!")
+  }
+
+  @Test
   fun `simple function provider with multiple arguments`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
+        source(
           """
-            package test
-
-            import dev.zacsweers.lattice.Provides
-            import dev.zacsweers.lattice.DependencyGraph
-
             @DependencyGraph
             interface ExampleGraph {
               @Provides
@@ -224,7 +229,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
               fun provideStringValue(intValue: Int, booleanValue: Boolean): String = "Hello, ${'$'}intValue! ${'$'}booleanValue"
             }
           """
-            .trimIndent(),
+            .trimIndent()
         )
       )
 
@@ -246,15 +251,8 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   fun `simple function provider with multiple arguments of the same type key`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
+        source(
           """
-            package test
-
-            import dev.zacsweers.lattice.Provides
-            import dev.zacsweers.lattice.DependencyGraph
-            import dev.zacsweers.lattice.Named
-
             @DependencyGraph
             interface ExampleGraph {
               @Provides
@@ -267,7 +265,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
               ): String = "Hello, ${'$'}intValue - ${'$'}intValue2!"
             }
           """
-            .trimIndent(),
+            .trimIndent()
         )
       )
 
@@ -289,15 +287,8 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   fun `simple function provider with multiple arguments of the same type with different qualifiers`() {
     val result =
       compile(
-        kotlin(
-          "ExampleGraph.kt",
+        source(
           """
-            package test
-
-            import dev.zacsweers.lattice.Provides
-            import dev.zacsweers.lattice.DependencyGraph
-            import dev.zacsweers.lattice.Named
-
             @DependencyGraph
             interface ExampleGraph {
               @Provides
@@ -314,7 +305,7 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
               ): String = "Hello, ${'$'}intValue - ${'$'}intValue2!"
             }
           """
-            .trimIndent(),
+            .trimIndent()
         )
       )
 
@@ -484,72 +475,5 @@ class ProvidesTransformerTest : LatticeCompilerTest() {
   }
 
   // TODO
-  //  ------- from Anvil
-  //  a factory class is generated for a provider method with generic type
-  //  a factory class is generated for a provider method with advanced generics
-  //  two factory classes are generated for two provider methods
-  //  a factory class is generated for a provider method in an object
-  //  a factory class is generated for a provider method with parameters
-  //  a factory class is generated for a provider method with provider parameters
-  //  a factory class is generated for a provider method with lazy parameters
-  //  a factory class is generated for a provider method with a lazy parameter using a fully
-  //  qualified name
-  //  a factory class is generated for a provider method with generic parameters
-  //  a factory class is generated for a provider method with parameters in an object
-  //  a factory class is generated for a provider method with parameters in a companion object
-  //  a factory class is generated for a nullable provider method
-  //  a factory class is generated for a nullable provider method in an object
-  //  a factory class is generated for a nullable provider method with nullable parameters
-  //  no factory class is generated for a binding method in an abstract class
-  //  a factory class is generated for a provider method in a companion object
-  //  a factory class is generated for a provider method in an inner module
-  //  a factory class is generated for a provider method returning an inner class
-  //  a factory class is generated for a provider method in a companion object in an inner module
-  //  no factory class is generated for multibindings
-  //  a factory class is generated for multibindings provider method
-  //  a factory class is generated for multibindings provider method elements into set
-  //  a factory class is generated for a provided function
-  //  a factory class is generated for a multibindings provided function with a typealias
-  //  a factory class is generated when Anvil generates the provider method
-  //  an error is thrown for overloaded provider methods
-  //  a factory class is generated for provided properties
-  //  a factory class is generated for provided properties in a companion object module
-  //  a factory class is generated for provided nullable properties
-  //  warnings are suppressed
-  //  a factory class is generated for a provider method without a package
-  //  a provider method cannot be abstract
-  //  an interface is not allowed to contain a provider method
-  //  an interface with a companion object is allowed to contain a provider method
-  //  a provides method with nested generics but no explicit @JvmSuppressWildcards still adds
-  //   @JvmSuppressWildcards in the generated code from another module
-  //  a provides method with generics but no explicit @JvmSuppressWildcards still adds
-  //   @JvmSuppressWildcards in the generated code from another module
-  //  a provides method with the word 'is' as prefix is supported
-  //  a provides method with starting with 'is_' is supported
-  //  a provides method with starting with 'is' but not as a word is supported
-  //  a provides method with 'is' as prefix is supported for objects
-  //  extension functions are invalid
-  //  ------- unclear if relevant
-  //  a factory class is generated for a capital case package name
-  //  a factory class is generated for a capital case package name and lower class name
-  //  a factory class is generated for a capital case package name and inner class
-  //  a factory class is generated for an uppercase factory function
-  //  a factory class is generated for a provided Factory and avoids ambiguous import
-  //  a factory class is generated for a provider method with imports
-  //  a factory class is generated for a provider method with imports and fully qualified return
-  //   type
-  //  a factory class is generated for a provider method with star imports
-  //  a factory class is generated for an internal provider method with a mangled name
-  //  a factory class is generated for an internal provider method with a mangled name in an object
-  //  a factory class is generated for an internal provider method with a mangled name in a
-  //   companion object
-  //  a factory class is generated for an internal provider method with a mangled name in a object
-  //   in a module with a dash-separated name
-  //  the factory does not contain the mangled name if the function is internal and uses
-  //   @PublishedApi
-  //  a factory class is generated for a method returning a java class with a star import
-  //  a factory class is generated for a method returning a class with a named import
-  //  a factory class is generated ignoring the named import original path
-  //  a factory class is generated for provided properties in an object module
-  //  a factory class is generated for provided nullable properties in an object module
+  //  companion object with value params (missing receiver)
 }
