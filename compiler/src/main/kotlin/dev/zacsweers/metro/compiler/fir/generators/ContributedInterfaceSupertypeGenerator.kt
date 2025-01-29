@@ -19,8 +19,6 @@ import dev.zacsweers.metro.compiler.ClassIds
 import dev.zacsweers.metro.compiler.Symbols
 import dev.zacsweers.metro.compiler.fir.annotationsIn
 import dev.zacsweers.metro.compiler.fir.classIds
-import dev.zacsweers.metro.compiler.fir.hintClassId
-import dev.zacsweers.metro.compiler.fir.resolvedClassArgumentTarget
 import dev.zacsweers.metro.compiler.fir.resolvedScopeClassId
 import dev.zacsweers.metro.compiler.fir.scopeArgument
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
@@ -28,7 +26,6 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.caches.FirCache
 import org.jetbrains.kotlin.fir.caches.firCachesFactory
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
-import org.jetbrains.kotlin.fir.declarations.getAnnotationByClassId
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.extensions.FirSupertypeGenerationExtension
 import org.jetbrains.kotlin.fir.extensions.predicate.LookupPredicate
@@ -72,7 +69,7 @@ internal class ContributedInterfaceSupertypeGenerator(
     }
 
   // TODO can we remove this and just use generatedScopesToContributions? Seems like they're always
-  // generated first
+  //  generated first
   private val inCompilationScopesToContributions:
     FirCache<Unit, Map<ClassId, Set<ClassId>>, TypeResolveService> =
     session.firCachesFactory.createCache { _, typeResolver ->
@@ -87,39 +84,34 @@ internal class ContributedInterfaceSupertypeGenerator(
             .forEach { scopeClassId ->
               scopesToContributingClass
                 .getOrPut(scopeClassId, ::mutableSetOf)
-                .add(clazz.classId.hintClassId)
+                .add(clazz.classId.createNestedClassId(Symbols.Names.metroContribution))
             }
         }
       scopesToContributingClass
     }
 
-  // TODO this includes classes from the current compilation unit
   private val generatedScopesToContributions:
     FirCache<FqName, Map<ClassId, Set<ClassId>>, TypeResolveService> =
     session.firCachesFactory.createCache { hintsPackage, typeResolver ->
-      val classesInPackage =
+      val functionsInPackage =
         session.symbolProvider.symbolNamesProvider
-          .getTopLevelClassifierNamesInPackage(hintsPackage)
+          .getTopLevelCallableNamesInPackage(hintsPackage)
           .orEmpty()
-          .mapNotNull { name ->
-            session.symbolProvider.getClassLikeSymbolByClassId(ClassId(hintsPackage, name))
-          }
+          .flatMap { name -> session.symbolProvider.getTopLevelFunctionSymbols(hintsPackage, name) }
 
       buildMap<ClassId, MutableSet<ClassId>> {
-        for (contribution in classesInPackage) {
-          val origin = contribution.getAnnotationByClassId(Symbols.ClassIds.metroOrigin, session)!!
-
+        for (contribution in functionsInPackage) {
           val originClass =
-            origin
-              .resolvedClassArgumentTarget(Symbols.Names.value, 0, typeResolver)
-              ?.toRegularClassSymbol(session)!!
+            contribution.resolvedReturnType.toRegularClassSymbol(session) ?: continue
 
           originClass.annotations
             .annotationsIn(session, session.classIds.allContributesAnnotations)
             .mapNotNull { it.resolvedScopeClassId(typeResolver) }
             .distinct()
             .forEach { scopeClassId ->
-              getOrPut(scopeClassId, ::mutableSetOf).add(contribution.classId)
+              val metroContribution =
+                originClass.classId.createNestedClassId(Symbols.Names.metroContribution)
+              getOrPut(scopeClassId, ::mutableSetOf).add(metroContribution)
             }
         }
       }

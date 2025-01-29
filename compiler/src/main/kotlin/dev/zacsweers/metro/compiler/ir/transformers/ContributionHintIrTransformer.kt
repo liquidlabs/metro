@@ -1,0 +1,95 @@
+/*
+ * Copyright (C) 2025 Zac Sweers
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package dev.zacsweers.metro.compiler.ir.transformers
+
+import dev.zacsweers.metro.compiler.Origins
+import dev.zacsweers.metro.compiler.Symbols
+import dev.zacsweers.metro.compiler.fir.hintCallableId
+import dev.zacsweers.metro.compiler.ir.IrMetroContext
+import dev.zacsweers.metro.compiler.ir.isAnnotatedWithAny
+import dev.zacsweers.metro.compiler.ir.stubExpressionBody
+import kotlin.io.path.Path
+import kotlin.io.path.absolutePathString
+import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
+import org.jetbrains.kotlin.fir.backend.FirMetadataSource
+import org.jetbrains.kotlin.fir.builder.buildPackageDirective
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.builder.buildFile
+import org.jetbrains.kotlin.ir.builders.declarations.buildFun
+import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
+import org.jetbrains.kotlin.ir.util.NaiveSourceBasedFileEntryImpl
+import org.jetbrains.kotlin.ir.util.addChild
+import org.jetbrains.kotlin.ir.util.addFile
+import org.jetbrains.kotlin.ir.util.classIdOrFail
+import org.jetbrains.kotlin.ir.util.defaultType
+import org.jetbrains.kotlin.ir.util.fileEntry
+
+internal class ContributionHintIrTransformer(
+  context: IrMetroContext,
+  private val moduleFragment: IrModuleFragment,
+) : IrMetroContext by context {
+  fun visitClass(declaration: IrClass) {
+    if (declaration.isAnnotatedWithAny(symbols.classIds.allContributesAnnotations)) {
+      val hintCallableId = declaration.classIdOrFail.hintCallableId
+      val function =
+        pluginContext.irFactory
+          .buildFun {
+            name = hintCallableId.callableName
+            origin = Origins.Default
+            returnType = declaration.defaultType
+          }
+          .apply { body = stubExpressionBody(metroContext) }
+
+      val fileName = "${hintCallableId.callableName}.kt"
+      val firFile = buildFile {
+        moduleData = (declaration.metadata as FirMetadataSource.Class).fir.moduleData
+        origin = FirDeclarationOrigin.Synthetic.PluginFile
+        packageDirective = buildPackageDirective {
+          packageFqName = Symbols.FqNames.metroHintsPackage
+        }
+        name = fileName
+      }
+
+      /*
+      This is weird! In short, kotlinc's incremental compilation support _wants_ this to be an
+      absolute path. We obviously don't have a real path to offer it here though since this is a
+      synthetic file. However, if we just... make up a file path (in this case — a deterministic
+      synthetic sibling file in the same directory as the source file), it seems to work fine.
+
+      Is this good? Heeeeeell no. Will it probably some day break? Maybe. But for now, this works
+      and we can keep an eye on https://youtrack.jetbrains.com/issue/KT-74778 for a better long term
+      solution.
+      */
+      val fakeNewPath = Path(declaration.fileEntry.name).parent.resolve(fileName)
+      val hintFile =
+        IrFileImpl(
+            fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
+            packageFragmentDescriptor =
+              EmptyPackageFragmentDescriptor(
+                moduleFragment.descriptor,
+                Symbols.FqNames.metroHintsPackage,
+              ),
+            module = moduleFragment,
+          )
+          .also { it.metadata = FirMetadataSource.File(firFile) }
+      moduleFragment.addFile(hintFile)
+      hintFile.addChild(function)
+      pluginContext.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
+    }
+  }
+}

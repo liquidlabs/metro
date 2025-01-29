@@ -23,8 +23,10 @@ import dev.zacsweers.metro.compiler.fir.Keys
 import dev.zacsweers.metro.compiler.fir.argumentAsOrNull
 import dev.zacsweers.metro.compiler.fir.buildSimpleAnnotation
 import dev.zacsweers.metro.compiler.fir.classIds
-import dev.zacsweers.metro.compiler.fir.hintClassId
+import dev.zacsweers.metro.compiler.fir.hasOrigin
+import dev.zacsweers.metro.compiler.fir.isAnnotatedWithAny
 import dev.zacsweers.metro.compiler.fir.mapKeyAnnotation
+import dev.zacsweers.metro.compiler.fir.markAsDeprecatedHidden
 import dev.zacsweers.metro.compiler.fir.metroFirBuiltIns
 import dev.zacsweers.metro.compiler.fir.qualifierAnnotation
 import dev.zacsweers.metro.compiler.fir.replaceAnnotationsSafe
@@ -33,42 +35,29 @@ import dev.zacsweers.metro.compiler.unsafeLazy
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.declarations.toAnnotationClassIdSafe
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
-import org.jetbrains.kotlin.fir.expressions.buildUnaryArgumentList
-import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotation
-import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotationArgumentMapping
-import org.jetbrains.kotlin.fir.expressions.builder.buildClassReferenceExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildGetClassCall
-import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationPredicateRegistrar
 import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
+import org.jetbrains.kotlin.fir.extensions.NestedClassGenerationContext
 import org.jetbrains.kotlin.fir.extensions.predicate.LookupPredicate.BuilderContext.annotated
-import org.jetbrains.kotlin.fir.extensions.predicateBasedProvider
 import org.jetbrains.kotlin.fir.plugin.createMemberProperty
-import org.jetbrains.kotlin.fir.plugin.createTopLevelClass
+import org.jetbrains.kotlin.fir.plugin.createNestedClass
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeProjectionWithVariance
 import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.coneType
-import org.jetbrains.kotlin.fir.types.constructClassLikeType
-import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.fir.types.isResolved
-import org.jetbrains.kotlin.fir.types.toLookupTag
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.name.StandardClassIds
 
 internal class ContributionsFirGenerator(session: FirSession) :
   FirDeclarationGenerationExtension(session) {
@@ -80,15 +69,6 @@ internal class ContributionsFirGenerator(session: FirSession) :
   override fun FirDeclarationPredicateRegistrar.registerPredicates() {
     register(contributesAnnotationPredicate)
   }
-
-  private val classIdsToContributions = mutableMapOf<ClassId, MutableSet<Contribution>>()
-
-  /**
-   * [getTopLevelClassIds] will be called multiple times if we resolve any annotation's class ID,
-   * which is annoying. To avoid infinite looping we track this reentrant behavior with this
-   * boolean.
-   */
-  private var reentrant = false
 
   sealed interface Contribution {
     val origin: ClassId
@@ -131,81 +111,78 @@ internal class ContributionsFirGenerator(session: FirSession) :
     }
   }
 
-  @ExperimentalTopLevelDeclarationsGenerationApi
-  override fun getTopLevelClassIds(): Set<ClassId> {
-    if (reentrant) return emptySet()
-    reentrant = true
-    // TODO can we do this without the cache? This gets recalled many times
-    classIdsToContributions.clear()
+  private fun findContributions(contributingSymbol: FirClassSymbol<*>): Set<Contribution>? {
     val contributesToAnnotations = session.classIds.contributesToAnnotations
     val contributesBindingAnnotations = session.classIds.contributesBindingAnnotations
     val contributesIntoSetAnnotations = session.classIds.contributesIntoSetAnnotations
     val contributesIntoMapAnnotations = session.classIds.contributesIntoMapAnnotations
-
-    val ids = mutableSetOf<ClassId>()
-
-    for (contributingSymbol in
-      session.predicateBasedProvider
-        .getSymbolsByPredicate(contributesAnnotationPredicate)
-        .toSet()) {
-      when (contributingSymbol) {
-        is FirRegularClassSymbol -> {
-          for (annotation in contributingSymbol.annotations.filter { it.isResolved }) {
-            val annotationClassId = annotation.toAnnotationClassIdSafe(session) ?: continue
-            when (annotationClassId) {
-              in contributesToAnnotations -> {
-                val newId = contributingSymbol.classId.hintClassId
-                classIdsToContributions.getOrPut(newId, ::mutableSetOf) +=
-                  Contribution.ContributesTo(contributingSymbol.classId)
-                ids += newId
-              }
-              in contributesBindingAnnotations -> {
-                val newId = contributingSymbol.classId.hintClassId
-                classIdsToContributions.getOrPut(newId, ::mutableSetOf) +=
-                  Contribution.ContributesBinding(
-                    contributingSymbol,
-                    annotation,
-                    { listOf(buildBindsAnnotation()) },
-                  )
-                ids += newId
-              }
-              in contributesIntoSetAnnotations -> {
-                val newId = contributingSymbol.classId.hintClassId
-                classIdsToContributions.getOrPut(newId, ::mutableSetOf) +=
-                  Contribution.ContributesIntoSetBinding(
-                    contributingSymbol,
-                    annotation,
-                    { listOf(buildIntoSetAnnotation(), buildBindsAnnotation()) },
-                  )
-                ids += newId
-              }
-              in contributesIntoMapAnnotations -> {
-                val newId = contributingSymbol.classId.hintClassId
-                classIdsToContributions.getOrPut(newId, ::mutableSetOf) +=
-                  Contribution.ContributesIntoMapBinding(
-                    contributingSymbol,
-                    annotation,
-                    { listOf(buildIntoMapAnnotation(), buildBindsAnnotation()) },
-                  )
-                ids += newId
-              }
-            }
-          }
+    val contributions = mutableSetOf<Contribution>()
+    for (annotation in contributingSymbol.annotations.filter { it.isResolved }) {
+      val annotationClassId = annotation.toAnnotationClassIdSafe(session) ?: continue
+      when (annotationClassId) {
+        in contributesToAnnotations -> {
+          contributions += Contribution.ContributesTo(contributingSymbol.classId)
         }
-        else -> {
-          error("Unsupported contributing symbol type: ${contributingSymbol.javaClass}")
+        in contributesBindingAnnotations -> {
+          contributions +=
+            Contribution.ContributesBinding(
+              contributingSymbol,
+              annotation,
+              { listOf(buildBindsAnnotation()) },
+            )
+        }
+        in contributesIntoSetAnnotations -> {
+          contributions +=
+            Contribution.ContributesIntoSetBinding(
+              contributingSymbol,
+              annotation,
+              { listOf(buildIntoSetAnnotation(), buildBindsAnnotation()) },
+            )
+        }
+        in contributesIntoMapAnnotations -> {
+          contributions +=
+            Contribution.ContributesIntoMapBinding(
+              contributingSymbol,
+              annotation,
+              { listOf(buildIntoMapAnnotation(), buildBindsAnnotation()) },
+            )
         }
       }
     }
 
-    reentrant = false
-    return ids
+    return if (contributions.isEmpty()) {
+      null
+    } else {
+      contributions
+    }
   }
 
-  @ExperimentalTopLevelDeclarationsGenerationApi
-  override fun generateTopLevelClassLikeDeclaration(classId: ClassId): FirClassLikeSymbol<*>? {
-    val contributions = classIdsToContributions[classId] ?: return null
-    return createTopLevelClass(classId, key = Keys.Default, classKind = ClassKind.INTERFACE) {
+  override fun getNestedClassifiersNames(
+    classSymbol: FirClassSymbol<*>,
+    context: NestedClassGenerationContext,
+  ): Set<Name> {
+    return if (
+      classSymbol.isAnnotatedWithAny(session, session.classIds.allContributesAnnotations)
+    ) {
+      setOf(Symbols.Names.metroContribution)
+    } else {
+      emptySet()
+    }
+  }
+
+  override fun generateNestedClassLikeDeclaration(
+    owner: FirClassSymbol<*>,
+    name: Name,
+    context: NestedClassGenerationContext,
+  ): FirClassLikeSymbol<*>? {
+    if (name != Symbols.Names.metroContribution) return null
+    val contributions = findContributions(owner) ?: return null
+    return createNestedClass(
+        owner,
+        name = name,
+        key = Keys.MetroContributionDeclaration,
+        classKind = ClassKind.INTERFACE,
+      ) {
         // annoyingly not implicit from the class kind
         modality = Modality.ABSTRACT
         for (contribution in contributions) {
@@ -214,53 +191,17 @@ internal class ContributionsFirGenerator(session: FirSession) :
           }
         }
       }
-      .apply { replaceAnnotationsSafe(listOf(buildOriginAnnotation(contributions.first().origin))) }
+      .apply { markAsDeprecatedHidden(session) }
       .symbol
-  }
-
-  private fun buildBindsAnnotation(): FirAnnotation {
-    return buildSimpleAnnotation { session.metroFirBuiltIns.bindsClassSymbol }
-  }
-
-  private fun buildIntoSetAnnotation(): FirAnnotation {
-    return buildSimpleAnnotation { session.metroFirBuiltIns.intoSetClassSymbol }
-  }
-
-  private fun buildIntoMapAnnotation(): FirAnnotation {
-    return buildSimpleAnnotation { session.metroFirBuiltIns.intoMapClassSymbol }
-  }
-
-  private fun buildOriginAnnotation(origin: ClassId): FirAnnotation {
-    return buildAnnotation {
-      val originAnno = session.metroFirBuiltIns.originClassSymbol
-
-      annotationTypeRef = originAnno.defaultType().toFirResolvedTypeRef()
-
-      argumentMapping = buildAnnotationArgumentMapping {
-        mapping[Name.identifier("value")] = buildGetClassCall {
-          val lookupTag = origin.toLookupTag()
-          val referencedType = lookupTag.constructType()
-          val resolvedType =
-            StandardClassIds.KClass.constructClassLikeType(arrayOf(referencedType), false)
-          argumentList =
-            buildUnaryArgumentList(
-              buildClassReferenceExpression {
-                classTypeRef = buildResolvedTypeRef { coneType = referencedType }
-                coneTypeOrNull = resolvedType
-              }
-            )
-          coneTypeOrNull = resolvedType
-        }
-      }
-    }
   }
 
   override fun getCallableNamesForClass(
     classSymbol: FirClassSymbol<*>,
     context: MemberGenerationContext,
   ): Set<Name> {
-    val classId = classSymbol.classId
-    val contributions = classIdsToContributions[classId] ?: return emptySet()
+    if (!classSymbol.hasOrigin(Keys.MetroContributionDeclaration)) return emptySet()
+    val origin = classSymbol.getContainingClassSymbol() as? FirClassSymbol<*> ?: return emptySet()
+    val contributions = findContributions(origin) ?: return emptySet()
     // Note the names we supply here are not final, we just need to know if we're going to generate
     // _any_ names for this type. We will return n >= 1 properties in generateProperties later.
     return contributions
@@ -283,7 +224,9 @@ internal class ContributionsFirGenerator(session: FirSession) :
     context: MemberGenerationContext?,
   ): List<FirPropertySymbol> {
     val owner = context?.owner ?: return emptyList()
-    val contributions = classIdsToContributions[callableId.classId] ?: return emptyList()
+    if (!owner.hasOrigin(Keys.MetroContributionDeclaration)) return emptyList()
+    val origin = owner.getContainingClassSymbol() as? FirClassSymbol<*> ?: return emptyList()
+    val contributions = findContributions(origin) ?: return emptyList()
     val properties =
       contributions.mapNotNull { contribution ->
         when (contribution) {
@@ -351,11 +294,15 @@ internal class ContributionsFirGenerator(session: FirSession) :
       .symbol
   }
 
-  override fun hasPackage(packageFqName: FqName): Boolean {
-    return if (packageFqName == Symbols.FqNames.metroHintsPackage) {
-      true
-    } else {
-      super.hasPackage(packageFqName)
-    }
+  private fun buildBindsAnnotation(): FirAnnotation {
+    return buildSimpleAnnotation { session.metroFirBuiltIns.bindsClassSymbol }
+  }
+
+  private fun buildIntoSetAnnotation(): FirAnnotation {
+    return buildSimpleAnnotation { session.metroFirBuiltIns.intoSetClassSymbol }
+  }
+
+  private fun buildIntoMapAnnotation(): FirAnnotation {
+    return buildSimpleAnnotation { session.metroFirBuiltIns.intoMapClassSymbol }
   }
 }

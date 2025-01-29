@@ -34,7 +34,7 @@ internal class MetroIrGenerationExtension(
   override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
     val symbols = Symbols(moduleFragment, pluginContext, classIds)
     val context = IrMetroContext(pluginContext, messageCollector, symbols, options)
-    val dependencyGraphTransformer = DependencyGraphTransformer(context)
+    val dependencyGraphTransformer = DependencyGraphTransformer(context, moduleFragment)
     // TODO is this really necessary?
     val dependencyGraphData = DependencyGraphData()
     moduleFragment.transform(dependencyGraphTransformer, dependencyGraphData)
