@@ -587,9 +587,6 @@ internal class DependencyGraphTransformer(
           providerFunction = function.ir,
           contextualTypeKey = contextKey,
           parameters = parameters,
-          // TODO FIR only one annotation is allowed
-          // TODO FIR no scopes on multibindings
-          // TODO FIR can't mix @Multibinds and @Provides
           annotations = annotations,
           aliasedType = bindsImplType,
         )
@@ -600,7 +597,6 @@ internal class DependencyGraphTransformer(
             provider.intoSet -> {
               pluginContext.irBuiltIns.setClass.typeWith(provider.typeKey.type)
             }
-            // TODO Dagger only supports the target collection, but maybe we can loosen that?
             provider.elementsIntoSet -> provider.typeKey.type
             provider.intoMap && provider.mapKey != null -> {
               // TODO this is probably not robust enough
