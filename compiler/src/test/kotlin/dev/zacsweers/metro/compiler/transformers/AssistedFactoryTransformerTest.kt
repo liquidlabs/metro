@@ -767,8 +767,7 @@ class AssistedFactoryTransformerTest : MetroCompilerTest() {
           }
           """
           .trimIndent()
-      ),
-      debug = true,
+      )
     ) {
       val result = invokeMain<String>("hello ", mainClass = "test.ExampleGraphKt")
       assertThat(result).isEqualTo("hello 0")
