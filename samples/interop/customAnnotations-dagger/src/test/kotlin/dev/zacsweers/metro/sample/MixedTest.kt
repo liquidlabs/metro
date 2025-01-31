@@ -18,11 +18,11 @@ package dev.zacsweers.metro.sample
 import dagger.Component
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
+import dev.zacsweers.metro.Named
 import dev.zacsweers.metro.Provides
-import dev.zacsweers.metro.Singleton
 import dev.zacsweers.metro.createGraphFactory
 import jakarta.inject.Inject
-import javax.inject.Named
+import javax.inject.Singleton
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
