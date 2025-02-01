@@ -44,13 +44,11 @@ Snapshots of the development version are available in [Sonatype's `snapshots` re
 
 ## Supported platforms
 
-The compiler plugin itself supports all multiplatform project types. The first-party annotations artifact is also
-multiplatform and supports all common JVM, JS, and native targets.
+The compiler plugin itself supports all multiplatform project types. The first-party annotations artifact is also multiplatform and supports all common JVM, JS, and native targets.
 
 ## Caveats
 
-- Kotlin compiler plugins are not a stable API! Compiled outputs from this plugin _should_ be stable,
-  but usage in newer versions of kotlinc are not guaranteed to be stable.
+- Kotlin compiler plugins are not a stable API! Compiled outputs from this plugin _should_ be stable, but usage in newer versions of kotlinc are not guaranteed to be stable. That said, Metro will strive to make matching releases available quickly and test against Kotlin prereleases eagerly.
 
 License
 -------
