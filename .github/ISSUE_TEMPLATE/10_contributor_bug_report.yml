@@ -25,7 +25,7 @@ body:
     attributes:
       label: Self-contained Reproducer
       description: |
-        Provide a [minimal, self-contained example](https://en.wikipedia.org/wiki/Minimal_reproducible_example) example that reproduces the issue.
+        Provide a [minimal, self-contained example](https://en.wikipedia.org/wiki/Minimal_reproducible_example) that reproduces the issue.
         
         Ideally, fork this repo and create a test case in integration or compiler unit tests that reproduces this and then link that here.
         
