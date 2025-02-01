@@ -50,6 +50,20 @@ The compiler plugin itself supports all multiplatform project types. The first-p
 
 - Kotlin compiler plugins are not a stable API! Compiled outputs from this plugin _should_ be stable, but usage in newer versions of kotlinc are not guaranteed to be stable. That said, Metro will strive to make matching releases available quickly and test against Kotlin prereleases eagerly.
 
+## Acknowledgements
+
+Special thanks to the many people that helped advise and offer feedback on Metro's design and implementation.
+
+- Brian Norman
+- Ralf Wondratschek
+- Jesse Wilson
+- Dany Santiago
+- Eva Tatarka
+- Bill Phillips
+- Bryan Stern
+- James Barr
+- and many more!
+
 License
 -------
 
