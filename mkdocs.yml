@@ -69,7 +69,7 @@ nav:
     - 'Features': features.md
     - 'Differences': differences.md
   - 'Installation': installation.md
-  - 'Design':
+  - 'Usage':
       - 'Dependency Graphs': dependency-graphs.md
       - 'Provides': provides.md
       - 'Injection Types': injection-types.md
