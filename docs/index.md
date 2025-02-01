@@ -51,7 +51,6 @@ multiplatform and supports all common JVM, JS, and native targets.
 
 - Kotlin compiler plugins are not a stable API! Compiled outputs from this plugin _should_ be stable,
   but usage in newer versions of kotlinc are not guaranteed to be stable.
-- This is a prototype. See the issue tracker for incomplete/missing features.
 
 License
 -------
