@@ -151,9 +151,11 @@ public annotation class DependencyGraph(
    *
    * ## Using generated declarations directly
    *
-   * If you enable third party FIR plugins in the IDE (TODO link), these will be visible and
-   * directly linkable. However, your mileage may vary and it's recommended to stick with the graph
-   * creator intrinsics for now until the IDE support is improved.
+   * If you
+   * [enable third party FIR plugins in the IDE](https://zacsweers.github.io/metro/installation/#ide-support),
+   * these will be visible and directly linkable. However, your mileage may vary and it's
+   * recommended to stick with the graph creator intrinsics for now until the IDE support is
+   * improved.
    */
   @Target(AnnotationTarget.CLASS) public annotation class Factory
 }
