@@ -2,13 +2,13 @@
 
 # Introduction
 
-Metro is a compile-time dependency injection framework that draws heavy inspiration from [Dagger](https://github.com/google/dagger), [Anvil](https://github.com/square/anvil), and [Kotlin-Inject](https://github.com/evant/kotlin-inject). It seeks to unify their best features under one, cohesive solution while adding a few new features and benefits.
+Metro is a compile-time dependency injection framework that draws heavy inspiration from [Dagger](https://github.com/google/dagger), [Anvil](https://github.com/square/anvil), and [Kotlin-Inject](https://github.com/evant/kotlin-inject). It seeks to unify their best features under one, cohesive solution while adding a few new features and implemented as a compiler plugin.
 
 ### Why another DI framework?
 
-It’s felt for some time like the Kotlin community has been waiting for a library that unifies the best of Dagger, multiplatform, Anvil aggregation, compiler plugin, and Kotlin-first. Different solutions exist for parts of these, but there’s not yet been a cohesive, unified solution that checks all these boxes, leaves behind some of these tools’ limitations, and embraces newer features that native compiler plugins offer.
+It’s felt for some time like the Kotlin community has been waiting for a library at the intersection of these different tools and use cases. Different tools exist for parts of these, but there’s not yet been a unified solution that checks all these boxes, leaves behind some of these tools’ limitations, and embraces newer features that native compiler plugins offer.
 
-In short, Metro stands on the shoulders of giants. It doesn’t seek to reinvent the wheel and tries to build on top of what existing solutions do well. The goal is a solution that unifies their best ideas.
+In short, Metro stands on the shoulders of giants. It doesn’t try to reinvent the wheel, it does try to make those wheels work better together.
 
 !!! note
     _I’m aware of the [XKCD comic](https://xkcd.com/927/) 🙂, I think Metro offers a compelling feature set with interop hooks that make it easy to integrate with an existing codebase._
