@@ -471,6 +471,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scoping" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scoping
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#implementation-notes" class="md-nav__link">
     <span class="md-ellipsis">
       Implementation Notes
@@ -821,6 +830,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scoping" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scoping
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#implementation-notes" class="md-nav__link">
     <span class="md-ellipsis">
       Implementation Notes
@@ -918,6 +936,18 @@
 <div class="highlight"><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="nv">messageGraph</span><span class="w"> </span><span class="o">=</span>
 <span class="w">  </span><span class="n">createGraphFactory</span><span class="o">&lt;</span><span class="n">AppGraph</span><span class="p">.</span><span class="na">Factory</span><span class="o">&gt;</span><span class="p">()</span>
 <span class="w">    </span><span class="p">.</span><span class="na">create</span><span class="p">(</span><span class="s">&quot;Hello, world!&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="scoping">Scoping<a class="headerlink" href="#scoping" title="Permanent link">&para;</a></h2>
+<p><em>See <a href="../scopes/">Scopes</a> for more details on scopes!</em></p>
+<p>Graphs may declare a <code>scope</code> (and optionally <code>additionalScopes</code> if there are more). Each of these declared scopes act as an implicit <code>@SingleIn</code> representation of that scope for <a href="../aggregation/">aggregation</a>.</p>
+<p>For example:
+<div class="highlight"><pre><span></span><code><span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span>
+</code></pre></div></p>
+<p>Is functionally equivalent to writing the below.</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@SingleIn</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span>
 </code></pre></div>
 <h2 id="implementation-notes">Implementation Notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
 <p>Dependency graph code gen is designed to largely match how Dagger components are generated.</p>
