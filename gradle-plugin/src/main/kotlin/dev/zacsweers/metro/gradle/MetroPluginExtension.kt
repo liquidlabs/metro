@@ -14,21 +14,45 @@ public abstract class MetroPluginExtension @Inject constructor(objects: ObjectFa
   public val customAnnotations: CustomAnnotations =
       objects.newInstance(CustomAnnotations::class.java)
 
+  /** Controls whether Metro's compiler plugin will be enabled on this project. */
   public val enabled: Property<Boolean> =
       objects.property(Boolean::class.javaObjectType).convention(true)
 
+  /** If enabled, the Metro compiler plugin will emit _extremely_ noisy debug logging. */
   public val debug: Property<Boolean> =
       objects.property(Boolean::class.javaObjectType).convention(false)
 
+  /**
+   * Configures the Metro compiler plugin to warn, error, or do nothing when it encounters `public`
+   * provider callables. See the kdoc on `Provides` for more details.
+   */
   public val publicProviderSeverity: Property<DiagnosticSeverity> =
       objects.property(DiagnosticSeverity::class.javaObjectType).convention(DiagnosticSeverity.NONE)
 
+  /**
+   * Enables whether the Metro compiler plugin will automatically generate assisted factories for
+   * injected constructors with assisted parameters. See the kdoc on `AssistedFactory` for more
+   * details.
+   */
   public val generateAssistedFactories: Property<Boolean> =
       objects.property(Boolean::class.javaObjectType).convention(false)
 
+  /**
+   * Enables whether the Metro compiler plugin can inject top-level functions. See the kdoc on
+   * `Inject` for more details.
+   *
+   * Be extra careful with this API, as top-level function injection is not compatible with
+   * incremental compilation!
+   */
   public val enableTopLevelFunctionInjection: Property<Boolean> =
       objects.property(Boolean::class.javaObjectType).convention(false)
 
+  /**
+   * If set, the Metro compiler will dump report diagnostics about resolved dependency graphs to the
+   * given destination.
+   *
+   * This behaves similar to the compose-compiler's option of the same name.
+   */
   public abstract val reportsDestination: DirectoryProperty
 
   /**
