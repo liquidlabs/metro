@@ -6,7 +6,7 @@ Metro is a compile-time dependency injection framework that draws heavy inspirat
 
 ### Why another DI framework?
 
-It’s felt for some time like the Kotlin community has been waiting for a library at the intersection of these different tools and use cases. Different tools exist for parts of these, but there’s not yet been a unified solution that checks all these boxes, leaves behind some of these tools’ limitations, and embraces newer features that native compiler plugins offer.
+It’s felt for some time like the Kotlin community has been waiting for a library at the intersection of these different tools and features. Different tools exist for parts of these, but there’s not yet been a unified solution that checks all these boxes, leaves behind some of these tools’ limitations, and embraces newer features that native compiler plugins offer.
 
 In short, Metro stands on the shoulders of giants. It doesn’t try to reinvent the wheel, it does try to make those wheels work better together.
 
