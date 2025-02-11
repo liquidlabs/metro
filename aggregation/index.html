@@ -615,9 +615,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#graphextension" class="md-nav__link">
+  <a href="#graphextensioncontributesgraphextension" class="md-nav__link">
     <span class="md-ellipsis">
-      @GraphExtension
+      @GraphExtension/@ContributesGraphExtension
     </span>
   </a>
   
@@ -866,9 +866,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#graphextension" class="md-nav__link">
+  <a href="#graphextensioncontributesgraphextension" class="md-nav__link">
     <span class="md-ellipsis">
-      @GraphExtension
+      @GraphExtension/@ContributesGraphExtension
     </span>
   </a>
   
@@ -990,7 +990,7 @@
 </code></pre></div>
 <p>Same rules around qualifiers and <code>boundType()</code> apply in this scenario</p>
 <p>To contribute into a Map multibinding, the map key annotation must be specified on the class or <code>BoundType</code> type argument.</p>
-<div class="highlight"><pre><span></span><code><span class="c1">// Will be contributed into a Map multibinding with ClassKey(</span>
+<div class="highlight"><pre><span></span><code><span class="c1">// Will be contributed into a Map multibinding with @StringKey(&quot;Networking&quot;)</span>
 <span class="nd">@ContributesIntoMap</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
 <span class="nd">@StringKey</span><span class="p">(</span><span class="s">&quot;Networking&quot;</span><span class="p">)</span>
 <span class="nd">@Inject</span>
@@ -1005,8 +1005,8 @@
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>
 </code></pre></div>
 <p>This annotation is also repeatable and can be used to contribute to multiple scopes, multiple bound types, and multiple map keys.</p>
-<h2 id="graphextension"><code>@GraphExtension</code><a class="headerlink" href="#graphextension" title="Permanent link">&para;</a></h2>
-<p>Not yet implemented, but TL;DR will work the same as kotlin-inject-anvil’s <code>@ContributesSubcomponent</code>.</p>
+<h2 id="graphextensioncontributesgraphextension"><code>@GraphExtension</code>/<code>@ContributesGraphExtension</code><a class="headerlink" href="#graphextensioncontributesgraphextension" title="Permanent link">&para;</a></h2>
+<p>Not yet implemented. Please share design feedback in <a href="https://github.com/ZacSweers/metro/issues/165">#165</a>!</p>
 <h2 id="implementation-notes">Implementation notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
 <p>This leans on Kotlin’s ability to put generic type parameters on annotations. That in turn allows for both generic bound types and to contribute map bindings to multiple map keys.</p>
 <p>Because it’s a first-party feature, there’s no need for intermediary “merged” components like kotlin-inject-anvil and anvil-ksp do.</p>
