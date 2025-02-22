@@ -29,7 +29,7 @@ These are configurable via Metro’s Gradle extension.
 
 ```kotlin
 metro {
-  customAnnotations {
+  interop {
     assisted.add("dagger/assisted/Assisted")
   }
 }
@@ -39,7 +39,7 @@ For Dagger and KI specifically, there are convenience helper functions.
 
 ```kotlin
 metro {
-  customAnnotations {
+  interop {
     includeDagger()
     includeKotlinInject()
     includeAnvil()
@@ -50,8 +50,6 @@ metro {
 `@DependencyGraph` is replaceable but your mileage may vary if you use Anvil or modules, since Metro’s annotation unifies Anvil’s `@MergeComponent` functionality and doesn’t support modules.
 
 Similarly, `@ContributesBinding` is replaceable but there are not direct analogues for Anvil’s `@ContributesMultibinding` or kotlin-inject-anvil’s `@ContributesBinding(multibinding = …)` as these annotations are implemented as `@ContributesInto*` annotations in Metro. Also - `boundType` in metro uses a more flexible mechanism to support generics.
-
-Intrinsics like `Provider` and `Lazy` are not supported because their semantics are slightly different. However, we could look into this in the future as integration artifacts that offer composite implementations (similar to how Dagger’s internal `Provider` implements both `javax.inject.Provider` and `jakarta.inject.Provider` now).
 
 ## Components
 
@@ -110,3 +108,22 @@ abstract class KotlinInjectComponent(
   abstract val message: String
 }
 ```
+
+## Runtime
+
+Enabling dagger interop also enables more advanced _runtime_ interop with Dagger/Javax/Jakarta's `Provider`/`Lazy` types.
+
+```kotlin
+metro {
+  interop {
+    includeDagger()
+  }
+}
+```
+
+This specifically enables two features.
+
+1. Interop with Dagger/Javax/Jakarta's `Provider` and `Lazy` runtime intrinsics.
+2. Interop with generated Dagger factories for constructor-injected and assisted-injected classes. This means that an upstream class that was processed with the dagger compiler and has a generated Java _factory_ class for a constructor injected class can be reused by Metro natively.
+
+Note this also automatically adds an extra `interop-dagger` dependency to support this scenario.

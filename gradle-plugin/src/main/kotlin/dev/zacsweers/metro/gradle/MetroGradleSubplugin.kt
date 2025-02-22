@@ -7,6 +7,7 @@ import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.plugin.FilesSubpluginOption
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerPluginSupportPlugin
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.SubpluginArtifact
 import org.jetbrains.kotlin.gradle.plugin.SubpluginOption
 
@@ -34,6 +35,16 @@ public class MetroGradleSubplugin : KotlinCompilerPluginSupportPlugin {
         "dev.zacsweers.metro:runtime:$VERSION",
     )
 
+    val isJvmTarget =
+        kotlinCompilation.target.platformType == KotlinPlatformType.jvm ||
+            kotlinCompilation.target.platformType == KotlinPlatformType.androidJvm
+    if (isJvmTarget && extension.interop.enableDaggerRuntimeInterop.getOrElse(false)) {
+      project.dependencies.add(
+          kotlinCompilation.implementationConfigurationName,
+          "dev.zacsweers.metro:interop-dagger:$VERSION",
+      )
+    }
+
     return project.provider {
       buildList {
         add(lazyOption("enabled", extension.enabled))
@@ -47,7 +58,24 @@ public class MetroGradleSubplugin : KotlinCompilerPluginSupportPlugin {
             ?.let { FilesSubpluginOption("reports-destination", listOf(it.asFile)) }
             ?.let(::add)
 
-        with(extension.customAnnotations) {
+        if (isJvmTarget) {
+          add(
+              SubpluginOption(
+                  "enable-dagger-runtime-interop",
+                  extension.interop.enableDaggerRuntimeInterop.getOrElse(false).toString()))
+        }
+
+        with(extension.interop) {
+          provider
+              .getOrElse(emptySet())
+              .takeUnless { it.isEmpty() }
+              ?.let { SubpluginOption("custom-provider", value = it.joinToString(":")) }
+              ?.let(::add)
+          lazy
+              .getOrElse(emptySet())
+              .takeUnless { it.isEmpty() }
+              ?.let { SubpluginOption("custom-lazy", value = it.joinToString(":")) }
+              ?.let(::add)
           assisted
               .getOrElse(emptySet())
               .takeUnless { it.isEmpty() }
