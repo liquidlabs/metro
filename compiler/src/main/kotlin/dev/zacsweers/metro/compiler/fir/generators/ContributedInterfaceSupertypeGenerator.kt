@@ -7,23 +7,32 @@ import dev.zacsweers.metro.compiler.Symbols
 import dev.zacsweers.metro.compiler.fir.annotationsIn
 import dev.zacsweers.metro.compiler.fir.classIds
 import dev.zacsweers.metro.compiler.fir.resolvedAdditionalScopesClassIds
+import dev.zacsweers.metro.compiler.fir.resolvedExcludedClassIds
+import dev.zacsweers.metro.compiler.fir.resolvedReplacedClassIds
 import dev.zacsweers.metro.compiler.fir.resolvedScopeClassId
 import dev.zacsweers.metro.compiler.fir.scopeArgument
+import java.util.TreeMap
+import kotlin.sequences.forEach
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.caches.FirCache
 import org.jetbrains.kotlin.fir.caches.firCachesFactory
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
+import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.extensions.FirSupertypeGenerationExtension
 import org.jetbrains.kotlin.fir.extensions.predicate.LookupPredicate
 import org.jetbrains.kotlin.fir.extensions.predicateBasedProvider
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.toClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
+import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.constructClassLikeType
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -134,25 +143,78 @@ internal class ContributedInterfaceSupertypeGenerator(
     val scopes =
       buildSet {
           graphAnnotation.resolvedScopeClassId(typeResolver)?.let(::add)
-          graphAnnotation.resolvedAdditionalScopesClassIds(typeResolver)?.let(::addAll)
+          graphAnnotation.resolvedAdditionalScopesClassIds(typeResolver).let(::addAll)
         }
         .filterNotTo(mutableSetOf()) { it == StandardClassIds.Nothing }
 
     val contributions =
-      scopes.flatMap { scopeClassId ->
-        val classPathContributions =
-          generatedScopesToContributions
-            .getValue(Symbols.FqNames.metroHintsPackage, typeResolver)[scopeClassId]
-            .orEmpty()
+      scopes
+        .flatMap { scopeClassId ->
+          val classPathContributions =
+            generatedScopesToContributions
+              .getValue(Symbols.FqNames.metroHintsPackage, typeResolver)[scopeClassId]
+              .orEmpty()
 
-        val inCompilationContributions =
-          inCompilationScopesToContributions.getValue(session, typeResolver)[scopeClassId].orEmpty()
+          val inCompilationContributions =
+            inCompilationScopesToContributions
+              .getValue(session, typeResolver)[scopeClassId]
+              .orEmpty()
 
-        (inCompilationContributions + classPathContributions).map {
-          it.constructClassLikeType(emptyArray())
+          (inCompilationContributions + classPathContributions).map {
+            it.constructClassLikeType(emptyArray())
+          }
+        }
+        .let {
+          // Stable sort
+          TreeMap<ClassId, ConeKotlinType>(compareBy(ClassId::asString)).apply {
+            for (contribution in it) {
+              // This is always the $$MetroContribution, the contribution is its parent
+              val classId = contribution.classId?.parentClassId ?: continue
+              put(classId, contribution)
+            }
+          }
+        }
+
+    val excluded = graphAnnotation.resolvedExcludedClassIds(typeResolver)
+    if (contributions.isEmpty() && excluded.isEmpty()) {
+      return emptyList()
+    }
+
+    val unmatchedExclusions = mutableSetOf<ClassId>()
+
+    for (excludedClassId in excluded) {
+      val removed = contributions.remove(excludedClassId)
+      if (removed == null) {
+        unmatchedExclusions += excludedClassId
+      }
+    }
+
+    if (unmatchedExclusions.isNotEmpty()) {
+      // TODO warn?
+    }
+
+    // Process replacements
+    val unmatchedReplacements = mutableSetOf<ClassId>()
+    contributions.values
+      .filterIsInstance<ConeClassLikeType>()
+      .mapNotNull { it.toClassSymbol(session)?.getContainingClassSymbol() }
+      .flatMap { contributingType ->
+        contributingType.annotations
+          .annotationsIn(session, session.classIds.allContributesAnnotations)
+          .flatMap { annotation -> annotation.resolvedReplacedClassIds(typeResolver) }
+      }
+      .distinct()
+      .forEach { replacedClassId ->
+        val removed = contributions.remove(replacedClassId)
+        if (removed != null) {
+          unmatchedReplacements += replacedClassId
         }
       }
 
-    return contributions
+    if (unmatchedReplacements.isNotEmpty()) {
+      // TODO warn?
+    }
+
+    return contributions.values.toList()
   }
 }
