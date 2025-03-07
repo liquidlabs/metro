@@ -713,6 +713,7 @@ internal fun IrOverridableDeclaration<*>.finalizeFakeOverride(
 ) {
   check(isFakeOverride) { "Function $name is not a fake override!" }
   isFakeOverride = false
+  origin = IrDeclarationOrigin.DEFINED
   modality = Modality.FINAL
   if (this is IrSimpleFunction) {
     this.dispatchReceiverParameter =
