@@ -35,7 +35,31 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
     }
     if (bindings.containsKey(key)) {
       val message = buildString {
-        appendLine("Duplicate binding for ${key.render(short = false, includeQualifier = true)}")
+        appendLine(
+          "[Metro/DuplicateBinding] Duplicate binding for ${key.render(short = false, includeQualifier = true)}"
+        )
+        val existing = bindings.getValue(key)
+        val duplicate = binding
+        val locations =
+          listOfNotNull(
+              existing.reportableLocation?.render(),
+              duplicate.reportableLocation?.render(),
+            )
+            .distinct()
+        when (locations.size) {
+          0 -> {
+            appendLine("├─ No binding source locations available, they may be contributed.")
+          }
+          1 -> {
+            appendLine("├─ Binding 1: ${locations[0]}")
+            appendLine("├─ Binding 2: Unknown source location, this may be contributed")
+          }
+          2 -> {
+            for ((i, location) in locations.withIndex()) {
+              appendLine("├─ Binding ${i + 1}: $location")
+            }
+          }
+        }
         appendBindingStack(bindingStack)
       }
       val location = binding.reportableLocation ?: bindingStack.graph.location()
@@ -340,6 +364,12 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
 
     binding.scope?.let { scope -> appendLine("├─ Scope: $scope") }
 
+    if (binding is Binding.Provided) {
+      if (binding.aliasedType != null) {
+        appendLine("├─ Aliased type: ${binding.aliasedType.render(short)}")
+      }
+    }
+
     if (binding.dependencies.isNotEmpty()) {
       appendLine("├─ Dependencies:")
       binding.dependencies.forEach { (depKey, param) ->
@@ -365,6 +395,6 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
       }
     }
 
-    binding.reportableLocation?.let { location -> appendLine("└─ Location: $location") }
+    binding.reportableLocation?.let { location -> appendLine("└─ Location: ${location.render()}") }
   }
 }

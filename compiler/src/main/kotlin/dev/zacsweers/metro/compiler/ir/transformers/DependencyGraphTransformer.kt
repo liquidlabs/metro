@@ -83,7 +83,6 @@ import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrCall
-import org.jetbrains.kotlin.ir.expressions.IrClassReference
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrVararg
@@ -92,7 +91,6 @@ import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classOrFail
 import org.jetbrains.kotlin.ir.types.removeAnnotations
-import org.jetbrains.kotlin.ir.types.starProjectedType
 import org.jetbrains.kotlin.ir.types.typeOrFail
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.classId
@@ -524,6 +522,16 @@ internal class DependencyGraphTransformer(
 
     val bindingGraph = createBindingGraph(node)
 
+    val platformName =
+      pluginContext.platform?.let { platform ->
+        platform.componentPlatforms.joinToString("-") { it.platformName }
+      }
+
+    val reportsDir =
+      options.reportsDestination
+        ?.letIf(platformName != null) { it.resolve(platformName!!) }
+        ?.createDirectories()
+
     try {
       checkGraphSelfCycle(
         dependencyGraphDeclaration,
@@ -537,14 +545,7 @@ internal class DependencyGraphTransformer(
           exitProcessing()
         }
 
-      val platformName =
-        pluginContext.platform?.let { platform ->
-          platform.componentPlatforms.joinToString("-") { it.platformName }
-        }
-
-      options.reportsDestination
-        ?.letIf(platformName != null) { it.resolve(platformName!!) }
-        ?.createDirectories()
+      reportsDir
         ?.resolve("graph-dump-${node.sourceGraph.kotlinFqName.asString().replace(".", "-")}.txt")
         ?.apply { deleteIfExists() }
         ?.writeText(bindingGraph.dumpGraph(node.sourceGraph.kotlinFqName.asString(), short = false))
@@ -563,6 +564,11 @@ internal class DependencyGraphTransformer(
     metroDependencyGraphsByClass[graphClassId] = metroGraph
 
     metroGraph.dumpToMetroLog()
+
+    reportsDir
+      ?.resolve("graph-dumpKotlin-${node.sourceGraph.kotlinFqName.asString().replace(".", "-")}.kt")
+      ?.apply { deleteIfExists() }
+      ?.writeText(metroGraph.dumpKotlinLike())
 
     return metroGraph
   }
@@ -638,9 +644,16 @@ internal class DependencyGraphTransformer(
             }
 
             provider.elementsIntoSet -> provider.typeKey.type
-            provider.intoMap && provider.mapKey != null -> {
+            provider.intoMap -> {
+              val mapKey =
+                provider.mapKey
+                  ?: run {
+                    // Hard error because the FIR checker should catch these, so this implies broken
+                    // FIR code gen
+                    error("Missing @MapKey for @IntoMap function: ${function.ir.dumpKotlinLike()}")
+                  }
               // TODO this is probably not robust enough
-              val rawKeyType = provider.mapKey.ir
+              val rawKeyType = mapKey.ir
               val unwrapValues = rawKeyType.shouldUnwrapMapKeyValues()
               val keyType =
                 if (unwrapValues) {
@@ -656,7 +669,9 @@ internal class DependencyGraphTransformer(
               )
             }
 
-            else -> error("Not possible")
+            else -> {
+              error("Unrecognized provider: ${function.ir.dumpKotlinLike()}")
+            }
           }
         val multibindingTypeKey = provider.typeKey.copy(type = multibindingType)
         graph
@@ -1005,6 +1020,11 @@ internal class DependencyGraphTransformer(
       // Create fields in dependency-order
       initOrder
         .filterNot { it.typeKey in deferredFields }
+        .filterNot {
+          // We don't generate fields for these even though we do track them in dependencies above,
+          // it's just for propagating their aliased type in sorting
+          it is Binding.Provided && it.aliasedType != null
+        }
         .forEach { binding ->
           val key = binding.typeKey
           // Since assisted injections don't implement Factory, we can't just type these as
@@ -1343,44 +1363,50 @@ internal class DependencyGraphTransformer(
       bindingDependencies[key] = binding
     }
 
-    // For assisted bindings, we need provider fields for the assisted factory impl type
-    // The factory impl type depends on a provider of the assisted type
-    if (binding is Binding.Assisted) {
-      bindingDependencies[key] = binding.target
-      // TODO is this safe to end up as a provider field? Can someone create a
-      //  binding such that you have an assisted type on the DI graph that is
-      //  provided by a provider that depends on the assisted factory? I suspect
-      //  yes, so in that case we should probably track a separate field mapping
-      usedUnscopedBindings += binding.target.typeKey
-      // By definition, these parameters are not available on the graph
-      return
-    }
-
-    // For multibindings, we depend on anything the delegate providers depend on
-    if (binding is Binding.Multibinding) {
-      if (bindingScope != null) {
-        // This is scoped so we want to keep an instance
-        // TODO are these allowed?
-        //  bindingDependencies[key] = buildMap {
-        //    for (provider in binding.providers) {
-        //      putAll(provider.dependencies)
-        //    }
-        //  }
-      } else {
-        // Process all providers deps, but don't need a specific dep for this one
-        for (provider in binding.sourceBindings) {
-          processBinding(
-            binding = provider,
-            node = node,
-            graph = graph,
-            bindingStack = bindingStack,
-            bindingDependencies = bindingDependencies,
-            usedUnscopedBindings = usedUnscopedBindings,
-            visitedBindings = visitedBindings,
-          )
-        }
+    when (binding) {
+      is Binding.Assisted -> {
+        // For assisted bindings, we need provider fields for the assisted factory impl type
+        // The factory impl type depends on a provider of the assisted type
+        bindingDependencies[key] = binding.target
+        // TODO is this safe to end up as a provider field? Can someone create a
+        //  binding such that you have an assisted type on the DI graph that is
+        //  provided by a provider that depends on the assisted factory? I suspect
+        //  yes, so in that case we should probably track a separate field mapping
+        usedUnscopedBindings += binding.target.typeKey
+        // By definition, these parameters are not available on the graph
+        return
       }
-      return
+
+      is Binding.Multibinding -> {
+        // For multibindings, we depend on anything the delegate providers depend on
+        if (bindingScope != null) {
+          // This is scoped so we want to keep an instance
+          // TODO are these allowed?
+          //  bindingDependencies[key] = buildMap {
+          //    for (provider in binding.providers) {
+          //      putAll(provider.dependencies)
+          //    }
+          //  }
+        } else {
+          // Process all providers deps, but don't need a specific dep for this one
+          for (provider in binding.sourceBindings) {
+            processBinding(
+              binding = provider,
+              node = node,
+              graph = graph,
+              bindingStack = bindingStack,
+              bindingDependencies = bindingDependencies,
+              usedUnscopedBindings = usedUnscopedBindings,
+              visitedBindings = visitedBindings,
+            )
+          }
+        }
+        return
+      }
+
+      else -> {
+        // Do nothing here
+      }
     }
 
     // Track dependencies before creating fields
@@ -1403,6 +1429,13 @@ internal class DependencyGraphTransformer(
         usedUnscopedBindings = usedUnscopedBindings,
         visitedBindings = visitedBindings,
       )
+    }
+
+    if (binding is Binding.Provided && binding.aliasedType != null) {
+      // Track this even though we won't generate a field so that we can reference it when sorting
+      // Annoyingly, I was never able to create a test that actually failed without this, but did
+      // need this fix to fix a real world example in github.com/zacsweers/catchup
+      bindingDependencies[key] = graph.requireBinding(binding.aliasedType.typeKey, bindingStack)
     }
   }
 
@@ -1546,8 +1579,7 @@ internal class DependencyGraphTransformer(
     return unwrapValue
   }
 
-  private fun generateMapKeyLiteral(binding: Binding, keyType: IrType): IrExpression {
-    // TODO this is iffy
+  private fun generateMapKeyLiteral(binding: Binding): IrExpression {
     val mapKey =
       when (binding) {
         is Binding.Provided -> binding.annotations.mapKeys.first().ir
@@ -1561,23 +1593,9 @@ internal class DependencyGraphTransformer(
         mapKey
       } else {
         // We can just copy the expression!
-        // TODO do we need to call shallowCopy()?
         mapKey.getValueArgument(0)!!
       }
 
-    val typeToCompare =
-      if (expression is IrClassReference) {
-        // We want KClass<*>, not the specific type in the annotation we got (i.e. KClass<Int>).
-        pluginContext.irBuiltIns.kClassClass.starProjectedType
-      } else {
-        expression.type
-      }
-    if (typeToCompare != keyType) {
-      // TODO check in FIR instead
-      error(
-        "Map key type mismatch: ${typeToCompare.dumpKotlinLike()} != ${keyType.dumpKotlinLike()}"
-      )
-    }
     return expression
   }
 
@@ -1643,12 +1661,8 @@ internal class DependencyGraphTransformer(
 
       is Binding.Provided -> {
         // For binds functions, just use the backing type
-        binding.aliasedType?.let {
-          return generateBindingCode(
-            generationContext.graph.getOrCreateBinding(it, generationContext.bindingStack),
-            generationContext,
-            it,
-          )
+        binding.aliasedBinding(generationContext.graph, generationContext.bindingStack)?.let {
+          return generateBindingCode(it, generationContext)
         }
 
         val factoryClass =
@@ -2089,7 +2103,7 @@ internal class DependencyGraphTransformer(
             putFunction
           }
         irInvoke(dispatchReceiver = receiver, callee = putter, typeHint = builder.type).apply {
-          putValueArgument(0, generateMapKeyLiteral(sourceBinding, keyType))
+          putValueArgument(0, generateMapKeyLiteral(sourceBinding))
           putValueArgument(
             1,
             generateBindingCode(sourceBinding, generationContext, fieldInitKey = fieldInitKey),

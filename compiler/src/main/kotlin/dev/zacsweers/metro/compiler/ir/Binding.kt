@@ -4,6 +4,7 @@ package dev.zacsweers.metro.compiler.ir
 
 import dev.drewhamilton.poko.Poko
 import dev.zacsweers.metro.compiler.MetroAnnotations
+import dev.zacsweers.metro.compiler.Origins
 import dev.zacsweers.metro.compiler.capitalizeUS
 import dev.zacsweers.metro.compiler.exitProcessing
 import dev.zacsweers.metro.compiler.ir.parameters.ConstructorParameter
@@ -13,6 +14,7 @@ import dev.zacsweers.metro.compiler.ir.parameters.Parameters
 import dev.zacsweers.metro.compiler.ir.parameters.parameters
 import dev.zacsweers.metro.compiler.isWordPrefixRegex
 import dev.zacsweers.metro.compiler.metroAnnotations
+import java.util.Optional
 import java.util.TreeSet
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -20,11 +22,11 @@ import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
-import org.jetbrains.kotlin.ir.util.callableId
 import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.kotlinFqName
-import org.jetbrains.kotlin.name.CallableId
+import org.jetbrains.kotlin.ir.util.parentAsClass
+import org.jetbrains.kotlin.ir.util.propertyIfAccessor
 import org.jetbrains.kotlin.name.ClassId
 
 internal sealed interface Binding {
@@ -73,8 +75,8 @@ internal sealed interface Binding {
         hasDefault = false,
       )
 
-    override val reportableLocation: CompilerMessageSourceLocation
-      get() = type.location()
+    override val reportableLocation: CompilerMessageSourceLocation?
+      get() = type.locationOrNull()
 
     fun parameterFor(typeKey: TypeKey) =
       injectedConstructor.valueParameters[
@@ -99,8 +101,6 @@ internal sealed interface Binding {
     }
   }
 
-  // TODO
-  //  - scopes not allowed
   class ObjectClass(
     @Poko.Skip override val type: IrClass,
     override val annotations: MetroAnnotations<IrAnnotation>,
@@ -120,8 +120,8 @@ internal sealed interface Binding {
         hasDefault = false,
       )
 
-    override val reportableLocation: CompilerMessageSourceLocation
-      get() = type.location()
+    override val reportableLocation: CompilerMessageSourceLocation?
+      get() = type.locationOrNull()
 
     override fun toString() = buildString {
       append("@Inject ")
@@ -140,11 +140,27 @@ internal sealed interface Binding {
     override val annotations: MetroAnnotations<IrAnnotation>,
     override val contextualTypeKey: ContextualTypeKey,
     override val parameters: Parameters<ConstructorParameter>,
-    override val dependencies: Map<TypeKey, Parameter> =
-      parameters.nonInstanceParameters.associateBy { it.typeKey },
-    val aliasedType: ContextualTypeKey?,
-    val callableId: CallableId = providerFunction.callableId,
+    val aliasedType: ContextualTypeKey? = null,
   ) : Binding, BindingWithAnnotations {
+
+    private var aliasedBinding: Optional<Binding>? =
+      if (aliasedType == null) Optional.empty() else null
+
+    fun aliasedBinding(graph: BindingGraph, stack: BindingStack): Binding? {
+      aliasedType ?: return null
+      val optionalBinding = aliasedBinding
+      return if (optionalBinding == null) {
+        val binding = graph.getOrCreateBinding(aliasedType, stack)
+        aliasedBinding = Optional.of(binding)
+        binding
+      } else {
+        optionalBinding.get()
+      }
+    }
+
+    override val dependencies: Map<TypeKey, Parameter> =
+      parameters.nonInstanceParameters.associateBy { it.typeKey }
+
     override val scope: IrAnnotation?
       get() = annotations.scope
 
@@ -166,8 +182,21 @@ internal sealed interface Binding {
 
     override val nameHint: String = providerFunction.name.asString()
 
-    override val reportableLocation: CompilerMessageSourceLocation
-      get() = providerFunction.location()
+    override val reportableLocation: CompilerMessageSourceLocation?
+      get() {
+        return (providerFunction.overriddenSymbolsSequence().lastOrNull()?.owner
+            ?: providerFunction)
+          .let {
+            if (it.propertyIfAccessor.origin == Origins.MetroContributionCallableDeclaration) {
+              // If it's a contribution, the source is
+              // SourceClass.$$MetroContribution.bindingFunction
+              //                                       ^^^
+              it.parentAsClass.parentAsClass.locationOrNull()
+            } else {
+              it.locationOrNull()
+            }
+          }
+      }
 
     fun parameterFor(typeKey: TypeKey): IrValueParameter {
       return parameters.allParameters.find { it.typeKey == typeKey }?.ir
@@ -213,8 +242,8 @@ internal sealed interface Binding {
     override val nameHint: String = type.name.asString()
     override val scope: IrAnnotation? = null
     override val contextualTypeKey: ContextualTypeKey = ContextualTypeKey(typeKey)
-    override val reportableLocation: CompilerMessageSourceLocation
-      get() = type.location()
+    override val reportableLocation: CompilerMessageSourceLocation?
+      get() = type.locationOrNull()
 
     override fun withMapKey(mapKey: IrAnnotation?): Assisted {
       if (mapKey == null) return this

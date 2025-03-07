@@ -85,9 +85,17 @@ internal class FirTypeKey(val type: ConeKotlinType, val qualifier: MetroFirAnnot
       typeRef: FirTypeRef,
       annotations: List<FirAnnotation>,
     ): FirTypeKey {
-      // Check duplicate params
       val qualifier = annotations.qualifierAnnotation(session)
       return FirTypeKey(typeRef.coneType, qualifier)
+    }
+
+    fun from(
+      session: FirSession,
+      coneType: ConeKotlinType,
+      annotations: List<FirAnnotation>,
+    ): FirTypeKey {
+      val qualifier = annotations.qualifierAnnotation(session)
+      return FirTypeKey(coneType, qualifier)
     }
   }
 
