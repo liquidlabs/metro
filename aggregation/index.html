@@ -940,6 +940,15 @@
 <span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span>
 <span class="p">}</span>
 </code></pre></div>
+<p>Similar to <a href="https://github.com/amzn/kotlin-inject-anvil">kotlin-inject-anvil</a>, <code>@ContributesBinding</code> (as well as the other <code>@Contributes*</code> annotations) supports replacing other contributions by class. This is useful for cases like tests, where you may want to contribute a test/fake implementation that supersedes the “real” graph.</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">TestAppGraph</span>
+
+<span class="nd">@ContributesTo</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">replaces</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">RealNetworkProviders</span><span class="o">::</span><span class="n">class</span><span class="o">]</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">TestNetworkProviders</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">TestHttpClient</span>
+<span class="p">}</span>
+</code></pre></div>
 <h2 id="contributesbinding">@ContributesBinding<a class="headerlink" href="#contributesbinding" title="Permanent link">&para;</a></h2>
 <p>This annotation is used to contribute injected classes to a target scope as a given bound type.</p>
 <p>The below example will contribute the <code>CacheImpl</code> class as a <code>Cache</code> type to <code>AppScope</code>.</p>
@@ -953,19 +962,23 @@
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>
 </code></pre></div>
-<p>For classes with multiple supertypes or advanced cases where you want to bind an ancestor type, you can explicitly define this via <code>boundType</code> parameter.</p>
+<p>For classes with multiple supertypes or advanced cases where you want to bind an ancestor type, you can explicitly define this via <code>binding</code> parameter.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@ContributesBinding</span><span class="p">(</span>
 <span class="w">  </span><span class="n">scope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span>
-<span class="w">  </span><span class="n">boundType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BoundType</span><span class="o">&lt;</span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
+<span class="w">  </span><span class="n">binding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">binding</span><span class="o">&lt;</span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
 <span class="p">)</span>
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span><span class="p">,</span><span class="w"> </span><span class="n">AnotherType</span>
 </code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Whoa, is that a function call in an annotation argument? Nope! <code>binding</code> is just a decapitalized class in this case, intentionally designed for readability. It&rsquo;s an adjective in this context and the functional syntax better conveys that.</p>
+</div>
 <p>Note that the bound type is defined as the type argument to <code>@ContributesBinding</code>. This allows for the bound type to be generic and is validated in FIR.</p>
-<p>Qualifier annotations can be specified on the <code>BoundType</code> type parameter and will take precedence over any qualifiers on the class itself.</p>
+<p>Qualifier annotations can be specified on the <code>binding</code> type parameter and will take precedence over any qualifiers on the class itself.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@ContributesBinding</span><span class="p">(</span>
 <span class="w">  </span><span class="n">scope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span>
-<span class="w">  </span><span class="n">boundType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BoundType</span><span class="o">&lt;</span><span class="nd">@Named</span><span class="p">(</span><span class="s">&quot;cache&quot;</span><span class="p">)</span><span class="w"> </span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
+<span class="w">  </span><span class="n">binding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">binding</span><span class="o">&lt;</span><span class="nd">@Named</span><span class="p">(</span><span class="s">&quot;cache&quot;</span><span class="p">)</span><span class="w"> </span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
 <span class="p">)</span>
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span><span class="p">,</span><span class="w"> </span><span class="n">AnotherType</span>
@@ -973,33 +986,37 @@
 <p>This annotation is <em>repeatable</em> and can be used to contribute to multiple scopes.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@ContributesBinding</span><span class="p">(</span>
 <span class="w">  </span><span class="n">scope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span>
-<span class="w">  </span><span class="n">boundType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BoundType</span><span class="o">&lt;</span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
+<span class="w">  </span><span class="n">binding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">binding</span><span class="o">&lt;</span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
 <span class="p">)</span>
 <span class="nd">@ContributesBinding</span><span class="p">(</span>
 <span class="w">  </span><span class="n">scope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span>
-<span class="w">  </span><span class="n">boundType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BoundType</span><span class="o">&lt;</span><span class="n">AnotherType</span><span class="o">&gt;</span><span class="p">()</span>
+<span class="w">  </span><span class="n">binding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">binding</span><span class="o">&lt;</span><span class="n">AnotherType</span><span class="o">&gt;</span><span class="p">()</span>
 <span class="p">)</span>
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span><span class="p">,</span><span class="w"> </span><span class="n">AnotherType</span>
 </code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Contributions may be <code>object</code> classes. In this event, Metro will automatically provide the object instance in its binding.</p>
+</div>
 <h2 id="contributesintosetcontributesintomap">@ContributesIntoSet/@ContributesIntoMap<a class="headerlink" href="#contributesintosetcontributesintomap" title="Permanent link">&para;</a></h2>
 <p>To contribute into a multibinding, use the <code>@ContributesIntoSet</code> or <code>@ContributesIntoMap</code> annotations as needed.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@ContributesIntoSet</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>
 </code></pre></div>
-<p>Same rules around qualifiers and <code>boundType()</code> apply in this scenario</p>
-<p>To contribute into a Map multibinding, the map key annotation must be specified on the class or <code>BoundType</code> type argument.</p>
+<p>Same rules around qualifiers and <code>binding()</code> apply in this scenario</p>
+<p>To contribute into a Map multibinding, the map key annotation must be specified on the class or <code>binding</code> type argument.</p>
 <div class="highlight"><pre><span></span><code><span class="c1">// Will be contributed into a Map multibinding with @StringKey(&quot;Networking&quot;)</span>
 <span class="nd">@ContributesIntoMap</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
 <span class="nd">@StringKey</span><span class="p">(</span><span class="s">&quot;Networking&quot;</span><span class="p">)</span>
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>
 
-<span class="c1">// Or if using BoundType</span>
+<span class="c1">// Or if using binding</span>
 <span class="nd">@ContributesIntoMap</span><span class="p">(</span>
 <span class="w">  </span><span class="n">scope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span>
-<span class="w">  </span><span class="n">boundType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BoundType</span><span class="o">&lt;</span><span class="nd">@StringKey</span><span class="p">(</span><span class="s">&quot;Networking&quot;</span><span class="p">)</span><span class="w"> </span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
+<span class="w">  </span><span class="n">binding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">binding</span><span class="o">&lt;</span><span class="nd">@StringKey</span><span class="p">(</span><span class="s">&quot;Networking&quot;</span><span class="p">)</span><span class="w"> </span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
 <span class="p">)</span>
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>

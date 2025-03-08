@@ -907,20 +907,13 @@
 <h4 id="from-anvil">…from Anvil<a class="headerlink" href="#from-anvil" title="Permanent link">&para;</a></h4>
 <ul>
 <li>There is no <code>rank</code>.</li>
-<li><code>@ContributesBinding</code> requires an explicit bound type.<ul>
-<li>This is necessary to support generic bound types.</li>
-</ul>
-</li>
+<li><code>@ContributesBinding</code> uses a <code>binding</code> API to support generic bound types. See the <a href="../aggregation/">aggregation docs</a> for more info.</li>
 </ul>
 <h4 id="from-kotlin-inject-anvil">…from kotlin-inject-anvil<a class="headerlink" href="#from-kotlin-inject-anvil" title="Permanent link">&para;</a></h4>
 <ul>
 <li>There is no need for <code>@CreateComponent</code> or <code>expect fun createComponent()</code> functions.</li>
-<li><code>@ContributesBinding</code> requires an explicit bound type.<ul>
-<li>This is necessary to support generic bound types.</li>
+<li><code>@ContributesBinding</code> uses a <code>binding</code> API to support generic bound types. See the <a href="../aggregation/">aggregation docs</a> for more info.</li>
 </ul>
-</li>
-</ul>
-<hr />
 
 
 
