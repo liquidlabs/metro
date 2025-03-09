@@ -7,6 +7,8 @@ plugins {
   alias(libs.plugins.ksp)
   alias(libs.plugins.poko)
   alias(libs.plugins.buildConfig)
+  alias(libs.plugins.wire)
+  alias(libs.plugins.shadow)
 }
 
 kotlin {
@@ -39,11 +41,26 @@ buildConfig {
 
 tasks.test { maxParallelForks = Runtime.getRuntime().availableProcessors() * 2 }
 
+wire { kotlin {} }
+
+val shadowJar =
+  tasks.shadowJar.apply {
+    configure {
+      relocate("com.squareup.wire", "dev.zacsweers.metro.compiler.shaded.com.squareup.wire")
+    }
+  }
+
+artifacts {
+  runtimeOnly(shadowJar)
+  archives(shadowJar)
+}
+
 dependencies {
   compileOnly(libs.kotlin.compilerEmbeddable)
   compileOnly(libs.kotlin.stdlib)
   implementation(libs.autoService)
-  implementation(libs.picnic)
+  implementation(libs.picnic) { exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib") }
+  shadow(libs.wire.runtime) { exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib") }
   ksp(libs.autoService.ksp)
 
   testImplementation(project(":runtime"))
