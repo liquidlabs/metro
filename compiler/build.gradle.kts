@@ -54,6 +54,15 @@ val shadowJar =
         archiveClassifier.set("ignored")
       }
       relocate("com.squareup.wire", "dev.zacsweers.metro.compiler.shaded.com.squareup.wire")
+      relocate("com.squareup.okio", "dev.zacsweers.metro.compiler.shaded.com.squareup.okio")
+      relocate(
+        "com.jakewharton.picnic",
+        "dev.zacsweers.metro.compiler.shaded.com.jakewharton.picnic",
+      )
+      relocate(
+        "com.jakewharton.crossword",
+        "dev.zacsweers.metro.compiler.shaded.com.jakewharton.crossword",
+      )
     }
   }
 
