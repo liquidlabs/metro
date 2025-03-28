@@ -1235,7 +1235,7 @@ support is rudimentary at best and currently requires enabling a custom registry
 
 <span class="w">  </span><span class="nd">@DependencyGraph.Factory</span>
 <span class="w">  </span><span class="kd">fun</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nc">Factory</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kd">fun</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="kt">String</span><span class="p">):</span><span class="w"> </span><span class="n">AppGraph</span>
+<span class="w">    </span><span class="kd">fun</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="nd">@Provides</span><span class="w"> </span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="kt">String</span><span class="p">):</span><span class="w"> </span><span class="n">AppGraph</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 

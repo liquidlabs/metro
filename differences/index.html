@@ -894,6 +894,7 @@
 <li>There is no <code>@Subcomponent</code>.</li>
 <li>Metro can inject private properties and functions.</li>
 <li>There is no <code>@BindsInstance</code>. Use <code>@Provides</code> on <code>@DependencyGraph.Factory</code> function parameters instead</li>
+<li>Component dependencies must be annotated with <code>@Includes</code>.</li>
 </ul>
 <h4 id="from-kotlin-inject">…from Kotlin-Inject<a class="headerlink" href="#from-kotlin-inject" title="Permanent link">&para;</a></h4>
 <ul>
@@ -903,6 +904,7 @@
 <li>No need for use-site targets for most annotations.</li>
 <li>No need for <code>@get:Provides Impl.bind: Type get() = this</code> to achieve type bindings. See the docs on <code>@Provides</code>.</li>
 <li>Metro can inject private properties and functions.</li>
+<li>When extending parent graphs, they must be annotated with <code>@Extends</code> in the child graph&rsquo;s creator.</li>
 </ul>
 <h4 id="from-anvil">…from Anvil<a class="headerlink" href="#from-anvil" title="Permanent link">&para;</a></h4>
 <ul>

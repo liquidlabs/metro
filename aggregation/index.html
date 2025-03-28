@@ -615,9 +615,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#graphextensioncontributesgraphextension" class="md-nav__link">
+  <a href="#contributesgraphextension" class="md-nav__link">
     <span class="md-ellipsis">
-      @GraphExtension/@ContributesGraphExtension
+      @ContributesGraphExtension
     </span>
   </a>
   
@@ -866,9 +866,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#graphextensioncontributesgraphextension" class="md-nav__link">
+  <a href="#contributesgraphextension" class="md-nav__link">
     <span class="md-ellipsis">
-      @GraphExtension/@ContributesGraphExtension
+      @ContributesGraphExtension
     </span>
   </a>
   
@@ -956,14 +956,15 @@
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>
 </code></pre></div>
-<p>For simple cases where there is a single typertype, that type is implicitly used as the bound type. If your bound type is qualified, for the implicit case you can put the qualifier on the class.</p>
+<p>For simple cases where there is a single supertype, that type is implicitly used as the bound type. If your bound type is qualified, for the implicit case you can put the qualifier on the class.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@Named</span><span class="p">(</span><span class="s">&quot;cache&quot;</span><span class="p">)</span>
 <span class="nd">@ContributesBinding</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>
 </code></pre></div>
 <p>For classes with multiple supertypes or advanced cases where you want to bind an ancestor type, you can explicitly define this via <code>binding</code> parameter.</p>
-<div class="highlight"><pre><span></span><code><span class="nd">@ContributesBinding</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><span class="nd">@Named</span><span class="p">(</span><span class="s">&quot;cache&quot;</span><span class="p">)</span>
+<span class="nd">@ContributesBinding</span><span class="p">(</span>
 <span class="w">  </span><span class="n">scope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span>
 <span class="w">  </span><span class="n">binding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">binding</span><span class="o">&lt;</span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
 <span class="p">)</span>
@@ -975,7 +976,7 @@
 <p>Whoa, is that a function call in an annotation argument? Nope! <code>binding</code> is just a decapitalized class in this case, intentionally designed for readability. It&rsquo;s an adjective in this context and the functional syntax better conveys that.</p>
 </div>
 <p>Note that the bound type is defined as the type argument to <code>@ContributesBinding</code>. This allows for the bound type to be generic and is validated in FIR.</p>
-<p>Qualifier annotations can be specified on the <code>binding</code> type parameter and will take precedence over any qualifiers on the class itself.</p>
+<p>Qualifier annotations can also be specified on the <code>binding</code> type parameter and will take precedence over any qualifiers on the class itself.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@ContributesBinding</span><span class="p">(</span>
 <span class="w">  </span><span class="n">scope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span>
 <span class="w">  </span><span class="n">binding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">binding</span><span class="o">&lt;</span><span class="nd">@Named</span><span class="p">(</span><span class="s">&quot;cache&quot;</span><span class="p">)</span><span class="w"> </span><span class="n">Cache</span><span class="o">&gt;</span><span class="p">()</span>
@@ -1022,7 +1023,7 @@
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>
 </code></pre></div>
 <p>This annotation is also repeatable and can be used to contribute to multiple scopes, multiple bound types, and multiple map keys.</p>
-<h2 id="graphextensioncontributesgraphextension"><code>@GraphExtension</code>/<code>@ContributesGraphExtension</code><a class="headerlink" href="#graphextensioncontributesgraphextension" title="Permanent link">&para;</a></h2>
+<h2 id="contributesgraphextension"><code>@ContributesGraphExtension</code><a class="headerlink" href="#contributesgraphextension" title="Permanent link">&para;</a></h2>
 <p>Not yet implemented. Please share design feedback in <a href="https://github.com/ZacSweers/metro/issues/165">#165</a>!</p>
 <h2 id="implementation-notes">Implementation notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
 <p>This leans on Kotlin’s ability to put generic type parameters on annotations. That in turn allows for both generic bound types and to contribute map bindings to multiple map keys.</p>
