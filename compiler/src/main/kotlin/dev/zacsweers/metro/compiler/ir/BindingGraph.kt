@@ -46,6 +46,13 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
         val duplicate = binding
         appendLine("├─ Binding 1: ${existing.getContributionLocationOrDiagnosticInfo()}")
         appendLine("├─ Binding 2: ${duplicate.getContributionLocationOrDiagnosticInfo()}")
+        if (existing == duplicate) {
+          appendLine("├─ Bindings are equal ${bindingStack.graph.name}")
+          appendLine(Throwable().stackTraceToString().lineSequence().joinToString { "\n├─ $it" })
+        }
+        if (existing === duplicate) {
+          appendLine("├─ Bindings are the same: ${bindingStack.graph.name}")
+        }
         appendBindingStack(bindingStack)
       }
       val location = bindingStack.graph.location()
@@ -123,10 +130,30 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
       // Or the fully-qualified contributing class name
       ?: dependencies.entries.firstOrNull()?.key?.toString()
       // Or print the full set of info we know about the binding
-      ?: "Unknown source location, this may be contributed. Here's some additional information we have for the binding: $this"
+      ?: buildString {
+        val binding = this@getContributionLocationOrDiagnosticInfo
+        appendLine("Unknown source location, this may be contributed.")
+        appendLine("└─ Here's some additional information we have for the binding:")
+        appendLine("   ├─ Binding type: ${binding.javaClass.simpleName}")
+        appendLine("   └─ Binding information: $binding")
+      }
   }
 
   fun findBinding(key: TypeKey): Binding? = bindings[key]
+
+  // TODO
+  //  - multibindings that use that type, if any
+  //  - exclude types _in_ multibindings
+  //  - bindings of super/subtypes
+  //  - the location of similar bindings/how they’re provided
+  fun findSimilarBindings(key: TypeKey): List<Binding> {
+    return if (key.qualifier != null) {
+      listOfNotNull(findBinding(key.copy(qualifier = null)))
+    } else {
+      // Little more involved, iterate the bindings for ones with the same type
+      bindings.values.filter { it.typeKey.type == key.type }
+    }
+  }
 
   // For bindings we expect to already be cached
   fun requireBinding(key: TypeKey, stack: BindingStack): Binding =
@@ -159,22 +186,31 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
     typeKey: TypeKey,
     bindingStack: BindingStack,
   ): Binding.Multibinding {
-    return bindings.getOrPut(typeKey) {
-      Binding.Multibinding.create(metroContext, typeKey, null).also {
-        addBinding(typeKey, it, bindingStack)
-        // If it's a map, expose a binding for Map<KeyType, Provider<ValueType>>
-        if (it.isMap) {
-          val keyType = (typeKey.type as IrSimpleType).arguments[0].typeOrNull!!
-          val valueType =
-            typeKey.type.arguments[1]
-              .typeOrNull!!
-              .wrapInProvider(this@BindingGraph.metroContext.symbols.metroProvider)
-          val providerTypeKey =
-            typeKey.copy(type = pluginContext.irBuiltIns.mapClass.typeWith(keyType, valueType))
-          addBinding(providerTypeKey, it, bindingStack)
+    val binding =
+      bindings.getOrPut(typeKey) {
+        Binding.Multibinding.create(metroContext, typeKey, null).also {
+          addBinding(typeKey, it, bindingStack)
+          // If it's a map, expose a binding for Map<KeyType, Provider<ValueType>>
+          if (it.isMap) {
+            val keyType = (typeKey.type as IrSimpleType).arguments[0].typeOrNull!!
+            val valueType =
+              typeKey.type.arguments[1]
+                .typeOrNull!!
+                .wrapInProvider(this@BindingGraph.metroContext.symbols.metroProvider)
+            val providerTypeKey =
+              typeKey.copy(type = pluginContext.irBuiltIns.mapClass.typeWith(keyType, valueType))
+            addBinding(providerTypeKey, it, bindingStack)
+          }
         }
       }
-    } as Binding.Multibinding
+
+    return binding as? Binding.Multibinding
+      ?: error(
+        """
+        Expected a multibinding but got $binding.
+      """
+          .trimIndent()
+      )
   }
 
   fun getOrCreateBinding(contextKey: ContextualTypeKey, bindingStack: BindingStack): Binding {

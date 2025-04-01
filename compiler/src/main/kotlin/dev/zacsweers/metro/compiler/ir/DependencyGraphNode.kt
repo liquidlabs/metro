@@ -29,12 +29,14 @@ internal data class DependencyGraphNode(
   val proto: DependencyGraphProto? = null,
 ) {
 
+  val publicAccessors by unsafeLazy { accessors.mapToSet { (_, contextKey) -> contextKey.typeKey } }
+
   val multibindingAccessors by unsafeLazy {
     proto
       ?.let {
         val bitfield = it.multibinding_accessor_indices
         val multibindingCallableIds =
-          it.accessor_callable_ids.filterIndexedTo(mutableSetOf()) { index, _ ->
+          it.accessor_callable_names.filterIndexedTo(mutableSetOf()) { index, _ ->
             (bitfield shr index) and 1 == 1
           }
         accessors

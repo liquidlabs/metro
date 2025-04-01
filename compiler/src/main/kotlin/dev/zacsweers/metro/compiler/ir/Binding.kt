@@ -256,6 +256,8 @@ internal sealed interface Binding {
           append(' ')
         }
       }
+      append(aliasedType.render(short = true))
+      append('.')
       append(nameHint)
       append(": ")
       append(typeKey.render(short = true))
@@ -322,6 +324,7 @@ internal sealed interface Binding {
   data class GraphDependency(
     val graph: IrClass,
     val getter: IrSimpleFunction,
+    val isProviderFieldAccessor: Boolean,
     override val typeKey: TypeKey,
   ) : Binding {
     override val scope: IrAnnotation? = null
@@ -490,6 +493,14 @@ internal sealed interface Binding {
             appendLine(key.render(short = false))
             appendLine()
             appendBindingStack(bindingStack, short = false)
+            val similarBindings = bindingGraph.findSimilarBindings(key)
+            if (similarBindings.isNotEmpty()) {
+              appendLine()
+              appendLine("Similar bindings:")
+              for (binding in similarBindings) {
+                appendLine("  - ${binding.typeKey.render(short = true)}")
+              }
+            }
             if (metroContext.debug) {
               appendLine(
                 bindingGraph.dumpGraph(bindingStack.graph.kotlinFqName.asString(), short = false)
