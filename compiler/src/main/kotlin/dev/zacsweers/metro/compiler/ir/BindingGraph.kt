@@ -4,7 +4,6 @@ package dev.zacsweers.metro.compiler.ir
 
 import dev.zacsweers.metro.compiler.MetroLogger
 import dev.zacsweers.metro.compiler.exitProcessing
-import dev.zacsweers.metro.compiler.ir.Binding.Companion.createInjectedClassBindingOrFail
 import dev.zacsweers.metro.compiler.ir.parameters.wrapInProvider
 import dev.zacsweers.metro.compiler.mapToSet
 import java.util.concurrent.ConcurrentHashMap
@@ -12,8 +11,10 @@ import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.types.IrSimpleType
+import org.jetbrains.kotlin.ir.types.typeOrFail
 import org.jetbrains.kotlin.ir.types.typeOrNull
 import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.util.isSubtypeOf
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.primaryConstructor
 
@@ -124,36 +125,7 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
     }
   }
 
-  private fun Binding.getContributionLocationOrDiagnosticInfo(): String {
-    // First check if we have the contributing file and line number
-    return reportableLocation?.render()
-      // Or the fully-qualified contributing class name
-      ?: dependencies.entries.firstOrNull()?.key?.toString()
-      // Or print the full set of info we know about the binding
-      ?: buildString {
-        val binding = this@getContributionLocationOrDiagnosticInfo
-        appendLine("Unknown source location, this may be contributed.")
-        appendLine("└─ Here's some additional information we have for the binding:")
-        appendLine("   ├─ Binding type: ${binding.javaClass.simpleName}")
-        appendLine("   └─ Binding information: $binding")
-      }
-  }
-
   fun findBinding(key: TypeKey): Binding? = bindings[key]
-
-  // TODO
-  //  - multibindings that use that type, if any
-  //  - exclude types _in_ multibindings
-  //  - bindings of super/subtypes
-  //  - the location of similar bindings/how they’re provided
-  fun findSimilarBindings(key: TypeKey): List<Binding> {
-    return if (key.qualifier != null) {
-      listOfNotNull(findBinding(key.copy(qualifier = null)))
-    } else {
-      // Little more involved, iterate the bindings for ones with the same type
-      bindings.values.filter { it.typeKey.type == key.type }
-    }
-  }
 
   // For bindings we expect to already be cached
   fun requireBinding(key: TypeKey, stack: BindingStack): Binding =
@@ -220,14 +192,17 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
       return existingBinding
     }
 
-    return metroContext.createInjectedClassBindingOrFail(contextKey, bindingStack, this).also {
-      binding ->
-      if (binding is Binding.Absent) {
-        // Don't store this
-        return binding
+    val binding = metroContext.injectedClassBindingOrNull(contextKey, bindingStack, this)
+    when (binding) {
+      is Binding.Absent -> {
+        // Do nothing, don't store this
       }
-      addBinding(key, binding, bindingStack)
+      is Binding -> {
+        addBinding(key, binding, bindingStack)
+      }
+      null -> reportMissingBinding(key, bindingStack)
     }
+    return binding
   }
 
   operator fun contains(key: TypeKey): Boolean = bindings.containsKey(key)
@@ -404,6 +379,79 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
     }
   }
 
+  private fun reportMissingBinding(typeKey: TypeKey, bindingStack: BindingStack): Nothing {
+    val declarationToReport = bindingStack.lastEntryOrGraph
+    val message = buildString {
+      append(
+        "[Metro/MissingBinding] Cannot find an @Inject constructor or @Provides-annotated function/property for: "
+      )
+      appendLine(typeKey.render(short = false))
+      appendLine()
+      appendBindingStack(bindingStack, short = false)
+      val similarBindings = findSimilarBindings(typeKey)
+      if (similarBindings.isNotEmpty()) {
+        appendLine()
+        appendLine("Similar bindings:")
+        similarBindings.map { "  - $it" }.sorted().forEach(::appendLine)
+      }
+      if (metroContext.debug) {
+        appendLine(dumpGraph(bindingStack.graph.kotlinFqName.asString(), short = false))
+      }
+    }
+
+    with(metroContext) { declarationToReport.reportError(message) }
+
+    exitProcessing()
+  }
+
+  // TODO
+  //  - exclude types _in_ multibindings
+  //  - same type with diff nullability
+  private fun findSimilarBindings(key: TypeKey): List<SimilarBinding> {
+    val similarBindings = mutableListOf<SimilarBinding>()
+
+    // Same type with different qualifier
+    if (key.qualifier != null) {
+      findBinding(key.copy(qualifier = null))?.let {
+        similarBindings.add(SimilarBinding(it, "Different qualifier"))
+      }
+    }
+
+    // Little more involved, iterate the bindings for ones with the same type
+    bindings.forEach { (bindingKey, binding) ->
+      when {
+        key.qualifier == null && bindingKey.type == key.type -> {
+          similarBindings.add(SimilarBinding(binding, "Different qualifier"))
+        }
+        binding is Binding.Multibinding -> {
+          val valueType =
+            if (binding.isSet) {
+              (bindingKey.type.type as IrSimpleType).arguments[0].typeOrFail
+            } else {
+              // Map binding
+              (bindingKey.type.type as IrSimpleType).arguments[1].typeOrFail
+            }
+          if (valueType == key.type) {
+            similarBindings.add(SimilarBinding(binding, "Multibinding"))
+          }
+        }
+        bindingKey.type == key.type -> {
+          // Already covered above but here to avoid falling through to the subtype checks
+          // below as they would always return true for this
+        }
+        bindingKey.type.isSubtypeOf(key.type, metroContext.irTypeSystemContext) -> {
+          similarBindings.add(SimilarBinding(binding, "Subtype"))
+        }
+        key.type.type.isSubtypeOf(bindingKey.type, metroContext.irTypeSystemContext) -> {
+          similarBindings.add(SimilarBinding(binding, "Supertype"))
+        }
+      }
+    }
+
+    // TODO filter out source bindings in multibindings? Should be covered though
+    return similarBindings
+  }
+
   private fun Appendable.appendBinding(binding: Binding, short: Boolean, isNested: Boolean) {
     appendLine("Type: ${binding.typeKey.render(short)}")
     appendLine("├─ Binding: ${binding::class.simpleName}")
@@ -441,5 +489,22 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
     }
 
     binding.reportableLocation?.let { location -> appendLine("└─ Location: ${location.render()}") }
+  }
+
+  data class SimilarBinding(val binding: Binding, val description: String) {
+    override fun toString(): String {
+      return buildString {
+        append(binding.typeKey.render(short = true))
+        append(" (")
+        append(description)
+        append("). Type: ")
+        append(binding.javaClass.simpleName)
+        append('.')
+        binding.reportableLocation?.render()?.let {
+          append(" Source: ")
+          append(it)
+        }
+      }
+    }
   }
 }
