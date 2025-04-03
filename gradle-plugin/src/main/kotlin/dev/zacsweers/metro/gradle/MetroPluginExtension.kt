@@ -47,6 +47,10 @@ public abstract class MetroPluginExtension @Inject constructor(objects: ObjectFa
   public val enableTopLevelFunctionInjection: Property<Boolean> =
       objects.property(Boolean::class.javaObjectType).convention(false)
 
+  /** Enable/disable hint property generation in IR for contributed types. Enabled by default. */
+  public val generateHintProperties: Property<Boolean> =
+      objects.property(Boolean::class.javaObjectType).convention(true)
+
   /**
    * If set, the Metro compiler will dump report diagnostics about resolved dependency graphs to the
    * given destination.
