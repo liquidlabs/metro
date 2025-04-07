@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.ir.types.typeOrNull
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.isSubtypeOf
 import org.jetbrains.kotlin.ir.util.kotlinFqName
-import org.jetbrains.kotlin.ir.util.primaryConstructor
 
 // TODO would be great if this was standalone to more easily test.
 internal class BindingGraph(private val metroContext: IrMetroContext) {
@@ -102,10 +101,7 @@ internal class BindingGraph(private val metroContext: IrMetroContext) {
           binding.sourceBindings.flatMapTo(mutableSetOf()) { sourceBinding ->
             when (sourceBinding) {
               is Binding.Provided -> {
-                getFunctionDependencies(
-                  sourceBinding.providerFactory.clazz.primaryConstructor!!,
-                  bindingStack,
-                )
+                sourceBinding.parameters.valueParameters.mapToSet { it.contextualTypeKey }
               }
               is Binding.Alias -> {
                 setOf(ContextualTypeKey(sourceBinding.aliasedType))
