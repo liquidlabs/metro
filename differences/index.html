@@ -757,6 +757,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adoption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adoption Strategies
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -843,6 +866,28 @@
   
   <span class="md-ellipsis">
     Change Log
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
     
   </span>
   
@@ -940,8 +985,8 @@
 <li>There is no Producers support.</li>
 <li>There is no Hilt support, though some features are similar in the same way that Anvil’s features are similar.</li>
 <li>There is no <code>@Reusable</code>.</li>
-<li>There is no <code>@BindsOptionalOf</code>.</li>
-<li>There is no <code>@Subcomponent</code>.</li>
+<li>There is no <code>@BindsOptionalOf</code>. Instead, Metro supports default <a href="../bindings/#optional-dependencies">optional dependencies</a>.</li>
+<li>There is no <code>@Subcomponent</code>. Instead, Metro uses <a href="../dependency-graphs/#graph-extensions">graph extensions</a>.</li>
 <li>Metro can inject private properties and functions.</li>
 <li>There is no <code>@BindsInstance</code>. Use <code>@Provides</code> on <code>@DependencyGraph.Factory</code> function parameters instead</li>
 <li>Component dependencies must be annotated with <code>@Includes</code>.</li>
@@ -953,21 +998,24 @@
 <li>Dependency graph classes cannot have primary constructors, their parameters must be defined as <code>@Provides</code> or graph parameters on a <code>@DependencyGraph.Factory</code> function like Dagger.</li>
 <li>Higher order functions cannot be used. Instead, use <code>Provider</code> and declared <code>@AssistedFactory</code>-annotated types.</li>
 <li>No need for use-site targets for most annotations.</li>
-<li>No need for <code>@get:Provides Impl.bind: Type get() = this</code> to achieve type bindings. See the docs on <code>@Provides</code>.</li>
+<li>No need for <code>@get:Provides Impl.bind: Type get() = this</code> to achieve type bindings. See the docs on <code>@Binds</code>.</li>
 <li>Metro can inject private properties and functions.</li>
 <li>When extending parent graphs, they must be annotated with <code>@Extends</code> in the child graph&rsquo;s creator.</li>
 <li>Metro does not process Java code.</li>
 </ul>
 <h4 id="from-anvil">…from Anvil<a class="headerlink" href="#from-anvil" title="Permanent link">&para;</a></h4>
 <ul>
-<li>There is no <code>rank</code>.</li>
+<li>There is no <code>rank</code> in Metro&rsquo;s <code>@Contributes*</code> annotations.</li>
+<li>Note that if Anvil interop is enabled, <em>its</em> <code>rank</code> properties are supported in interop.</li>
 <li><code>@ContributesBinding</code> uses a <code>binding</code> API to support generic bound types. See the <a href="../aggregation/">aggregation docs</a> for more info.</li>
+<li>Note that if Anvil interop is enabled, <em>its</em> <code>boundType</code> properties are supported in interop.</li>
 <li><code>@Contributes*.replaces</code> cannot replace classes in the same compilation as the graph that is merging them</li>
 </ul>
 <h4 id="from-kotlin-inject-anvil">…from kotlin-inject-anvil<a class="headerlink" href="#from-kotlin-inject-anvil" title="Permanent link">&para;</a></h4>
 <ul>
 <li>There is no need for <code>@CreateComponent</code> or <code>expect fun createComponent()</code> functions.</li>
 <li><code>@ContributesBinding</code> uses a <code>binding</code> API to support generic bound types. See the <a href="../aggregation/">aggregation docs</a> for more info.</li>
+<li>Note that if Anvil interop is enabled, <em>its</em> <code>boundType</code> properties are supported in interop.</li>
 <li><code>@Contributes*.replaces</code> cannot replace classes in the same compilation as the graph that is merging them</li>
 </ul>
 

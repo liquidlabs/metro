@@ -689,6 +689,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adoption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adoption Strategies
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -784,6 +807,28 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -822,16 +867,16 @@
 
 
 <h1 id="scopes">Scopes<a class="headerlink" href="#scopes" title="Permanent link">&para;</a></h1>
-<p>Like Dagger and KI, Metro supports <em>scopes</em> to limit instances of types on the dependency graph. A scope is any annotation annotated with <code>@Scope</code>, with a convenience <code>@Singleton</code> scope available in Metro’s runtime.</p>
+<p>Like Dagger and KI, Metro supports <em>scopes</em> to limit instances of types on the dependency graph. A scope is any annotation annotated with <code>@Scope</code>, with a convenience <code>@SingleIn</code> scope available in Metro’s runtime.</p>
 <p>Scopes must be applied to either the injected class or the provider function providing that binding. They must also match the graph that they are used in.</p>
-<div class="highlight"><pre><span></span><code><span class="nd">@Singleton</span>
+<div class="highlight"><pre><span></span><code><span class="nd">@SingleIn</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
 <span class="nd">@DependencyGraph</span>
 <span class="kd">abstract</span><span class="w"> </span><span class="kd">class</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="kd">private</span><span class="w"> </span><span class="kd">var</span><span class="w"> </span><span class="nv">counter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span>
 
 <span class="w">  </span><span class="kd">abstract</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="nv">count</span><span class="p">:</span><span class="w"> </span><span class="kt">Int</span>
 
-<span class="w">  </span><span class="nd">@Singleton</span><span class="w"> </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideCount</span><span class="p">()</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">counter</span><span class="o">++</span>
+<span class="w">  </span><span class="nd">@SingleIn</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span><span class="w"> </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideCount</span><span class="p">()</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">counter</span><span class="o">++</span>
 <span class="p">}</span>
 </code></pre></div>
 <p>In the above example, multiple calls to <code>AppGraph.count</code> will always return 0 because the returned value from <code>provideCount()</code> will be cached in the <code>AppGraph</code> instance the first time it’s called.</p>
@@ -842,26 +887,24 @@
 <span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">exampleClass</span><span class="p">:</span><span class="w"> </span><span class="n">ExampleClass</span>
 <span class="p">}</span>
 
-<span class="nd">@Singleton</span>
+<span class="nd">@SingleIn</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">ExampleClass</span>
 </code></pre></div>
 <p>It is also an error for a scoped graph to access scoped bindings whose scope does not match.</p>
-<div class="highlight"><pre><span></span><code><span class="nd">@Scope</span><span class="w"> </span><span class="kd">annotation</span><span class="w"> </span><span class="kd">class</span><span class="w"> </span><span class="nc">UserScope</span>
-
-<span class="nd">@Singleton</span>
+<div class="highlight"><pre><span></span><code><span class="nd">@SingleIn</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
 <span class="nd">@DependencyGraph</span>
 <span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="c1">// This is an error!</span>
 <span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">exampleClass</span><span class="p">:</span><span class="w"> </span><span class="n">ExampleClass</span>
 <span class="p">}</span>
 
-<span class="nd">@UserScope</span>
+<span class="nd">@SingleIn</span><span class="p">(</span><span class="n">UserScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">ExampleClass</span>
 </code></pre></div>
 <p>Like Dagger, graphs can have multiple scopes that they support.</p>
-<div class="highlight"><pre><span></span><code><span class="nd">@Scope</span><span class="w"> </span><span class="kd">annotation</span><span class="w"> </span><span class="kd">class</span><span class="w"> </span><span class="nc">SingleIn</span><span class="p">(</span><span class="kd">val</span><span class="w"> </span><span class="nv">scope</span><span class="p">:</span><span class="w"> </span><span class="n">KClass</span><span class="o">&lt;*&gt;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="nd">@Scope</span><span class="w"> </span><span class="kd">annotation</span><span class="w"> </span><span class="kd">class</span><span class="w"> </span><span class="nc">Singleton</span>
 
 <span class="nd">@Singleton</span>
 <span class="nd">@SingleIn</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>

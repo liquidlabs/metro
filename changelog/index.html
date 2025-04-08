@@ -16,6 +16,8 @@
         <link rel="prev" href="../api/0.x/">
       
       
+        <link rel="next" href="../contributing/">
+      
       
       <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.11">
@@ -675,6 +677,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adoption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adoption Strategies
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -814,6 +839,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#012" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.1.2
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#011" class="md-nav__link">
     <span class="md-ellipsis">
       0.1.1
@@ -826,6 +860,28 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -866,6 +922,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#012" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.1.2
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#011" class="md-nav__link">
     <span class="md-ellipsis">
       0.1.1
@@ -895,6 +960,20 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="012">0.1.2<a class="headerlink" href="#012" title="Permanent link">&para;</a></h2>
+<p><em>2025-04-08</em></p>
+<ul>
+<li><strong>Enhancement</strong>: Implement <code>createGraph</code> and <code>createGraphFactory</code> FIR checkers for better error diagnostics on erroneous type arguments.</li>
+<li><strong>Enhancement</strong>: Add <code>ContributesBinding.rank</code> interop support with Anvil.</li>
+<li><strong>Enhancement</strong>: Check Kotlin version compatibility. Use the <code>metro.version.check=false</code> Gradle property to disable these warnings if you&rsquo;re feeling adventurous.</li>
+<li><strong>Fix</strong>: Fix class-private qualifiers on multibinding contributions in other modules not being recognized in downstream graphs.</li>
+<li><strong>Fix</strong>: Fix member injectors not getting properly visited in graph validation.</li>
+<li><strong>Fix</strong>: Fix a bug where <code>Map&lt;Key, Provider&lt;Value&gt;&gt;</code> multibindings weren&rsquo;t always unwrapped correctly.</li>
+<li><strong>Fix</strong>: Fix <code>Map&lt;Key, Provider&lt;Value&gt;&gt;</code> type keys not correctly interpreting the underlying type key as <code>Map&lt;Key, Value&gt;</code>.</li>
+<li><strong>Change</strong>: Change <code>InstanceFactory</code> to a value class.</li>
+<li><strong>Change</strong>: Make <code>providerOf</code> use <code>InstanceFactory</code> under the hood.</li>
+</ul>
+<p>Special thanks to <a href="https://github.com/JoelWilcox">@JoelWilcox</a>, <a href="https://github.com/bnorm">@bnorm</a>, <a href="https://github.com/japplin">@japplin</a>, <a href="https://github.com/kevinguitar">@kevinguitar</a>, and <a href="https://github.com/erawhctim">@erawhctim</a> for contributing to this release! </p>
 <h2 id="011">0.1.1<a class="headerlink" href="#011" title="Permanent link">&para;</a></h2>
 <p><em>2025-04-03</em></p>
 <p>Initial release!</p>

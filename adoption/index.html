@@ -13,10 +13,10 @@
       
       
       
-        <link rel="prev" href="../aggregation/">
+        <link rel="prev" href="../generating-metro-code/">
       
       
-        <link rel="next" href="../validation-and-error-reporting/">
+        <link rel="next" href="../debugging/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -24,7 +24,7 @@
     
     
       
-        <title>Multiplatform - Metro</title>
+        <title>Adoption Strategies - Metro</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#multiplatform" class="md-skip">
+        <a href="#adoption-strategies" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Multiplatform
+              Adoption Strategies
             
           </span>
         </div>
@@ -591,19 +591,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../multiplatform/" class="md-nav__link">
         
   
   
@@ -614,7 +605,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -693,10 +683,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../adoption/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Adoption Strategies
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -707,6 +719,110 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#into-a-dagger-codebase" class="md-nav__link">
+    <span class="md-ellipsis">
+      Into a Dagger codebase
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Into a Dagger codebase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-1-interop-at-the-componentgraph-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 1 - Interop at the component/graph level
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-2-migrate-existing-usages-reuse-your-existing-annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 2 - Migrate existing usages + reuse your existing annotations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-3-full-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 3 - Full migration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#into-a-kotlin-inject-codebase" class="md-nav__link">
+    <span class="md-ellipsis">
+      Into a kotlin-inject codebase
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Into a kotlin-inject codebase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-1-interop-at-the-componentgraph-level_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 1 - Interop at the component/graph level
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-2-migrate-existing-usages-reuse-your-existing-annotations_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 2 - Migrate existing usages + reuse your existing annotations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-3-full-migration_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 3 - Full migration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -849,6 +965,98 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#into-a-dagger-codebase" class="md-nav__link">
+    <span class="md-ellipsis">
+      Into a Dagger codebase
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Into a Dagger codebase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-1-interop-at-the-componentgraph-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 1 - Interop at the component/graph level
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-2-migrate-existing-usages-reuse-your-existing-annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 2 - Migrate existing usages + reuse your existing annotations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-3-full-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 3 - Full migration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#into-a-kotlin-inject-codebase" class="md-nav__link">
+    <span class="md-ellipsis">
+      Into a kotlin-inject codebase
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Into a kotlin-inject codebase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-1-interop-at-the-componentgraph-level_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 1 - Interop at the component/graph level
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-2-migrate-existing-usages-reuse-your-existing-annotations_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 2 - Migrate existing usages + reuse your existing annotations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-3-full-migration_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 3 - Full migration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -866,27 +1074,78 @@
   
 
 
-<h1 id="multiplatform">Multiplatform<a class="headerlink" href="#multiplatform" title="Permanent link">&para;</a></h1>
-<p>Should Just Work™️! The runtime and code gen have been implemented to be entirely platform-agnostic so far.</p>
-<p>There is one issue in the repo right now where the compiler appears to have a bug with generated FIR declarations where it doesn’t deserialize them correctly on non-JVM targets. Waiting for feedback from JB.</p>
-<p>When mixing contributions between common and platform-specific source sets, you must define your final <code>@DependencyGraph</code> in the platform-specific code. This is because a graph defined in commonMain wouldn’t have full visibility of contributions from platform-specific types. A good pattern for this is to define your canonical graph in commonMain <em>without</em> a <code>@DependencyGraph</code> annotation and then a <code>{Platform}{Graph}</code> type in the platform source set that extends it and does have the <code>@DependencyGraph</code>. Metro automatically exposes bindings of the base graph type on the graph for any injections that need it.</p>
-<div class="highlight"><pre><span></span><code><span class="c1">// In commonMain</span>
-<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">httpClient</span><span class="p">:</span><span class="w"> </span><span class="n">HttpClient</span>
-<span class="p">}</span>
-
-<span class="c1">// In jvmMain</span>
-<span class="nd">@DependencyGraph</span>
-<span class="kd">interface</span><span class="w"> </span><span class="nc">JvmAppGraph</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">AppGraph</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HttpClient</span><span class="p">(</span><span class="n">Netty</span><span class="p">)</span>
-<span class="p">}</span>
-
-<span class="c1">// In androidMain</span>
-<span class="nd">@DependencyGraph</span>
-<span class="kd">interface</span><span class="w"> </span><span class="nc">AndroidAppGraph</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">AppGraph</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HttpClient</span><span class="p">(</span><span class="n">OkHttp</span><span class="p">)</span>
-<span class="p">}</span>
-</code></pre></div>
+<h1 id="adoption-strategies">Adoption Strategies<a class="headerlink" href="#adoption-strategies" title="Permanent link">&para;</a></h1>
+<p>If adopting Metro into an existing codebase, you can use a few different strategies.</p>
+<ol>
+<li>First, add the Metro Gradle plugin and runtime deps. The plugin id is <code>dev.zacsweers.metro</code>, runtime is <code>dev.zacsweers.metro:runtime</code>. The Gradle Plugin <em>should</em> add the runtime automatically, but it&rsquo;s there just in case!</li>
+<li>Apply the Gradle plugin to your relevant project(s).</li>
+</ol>
+<h2 id="into-a-dagger-codebase">Into a Dagger codebase<a class="headerlink" href="#into-a-dagger-codebase" title="Permanent link">&para;</a></h2>
+<p>First, remove the dagger-compiler/anvil plugin (but keep their runtime deps if you use option 1 below!).</p>
+<h3 id="option-1-interop-at-the-componentgraph-level">Option 1 - Interop at the component/graph level<a class="headerlink" href="#option-1-interop-at-the-componentgraph-level" title="Permanent link">&para;</a></h3>
+<p>This option is good if you only want to use Metro for <em>new</em> code. Metro graphs can depend on Dagger components (as <code>@Includes</code> parameters) and vice versa. <a href="https://github.com/ZacSweers/metro/tree/main/samples/interop/dependencies-dagger">Here</a> is an example project that does this.</p>
+<p>This option is good if you want to do a very simple introduction of Metro in one part of your codebase, such as a smaller modularized feature or library.</p>
+<h3 id="option-2-migrate-existing-usages-reuse-your-existing-annotations">Option 2 - Migrate existing usages + reuse your existing annotations<a class="headerlink" href="#option-2-migrate-existing-usages-reuse-your-existing-annotations" title="Permanent link">&para;</a></h3>
+<p>If you want the least amount of splash as possible, you can tell Metro to reuse your annotations from Dagger/Anvil. <a href="https://github.com/ZacSweers/metro/blob/main/samples/interop/customAnnotations-dagger/build.gradle.kts#L22-L27">Here</a> is an example for enabling that in Gradle.</p>
+<p>You will still possibly need to do some manual migrations, namely modules.</p>
+<ul>
+<li>All modules will need to be converted to interfaces and either contributed to or extended by your target graph (i.e. a component).</li>
+<li>If your module is an <code>object</code>, easiest way to change is to<ul>
+<li>Change it to an <code>interface</code></li>
+<li>Create a companion object in it</li>
+<li>Move all your provides declarations to within that companion object</li>
+</ul>
+</li>
+<li>If you use <code>@MergeComponent</code> + <code>@Component</code>, it&rsquo;ll be easier if you just migrate those interfaces to <code>@DependencyGraph</code> since they&rsquo;re combined in there now.</li>
+<li>Migrate <code>@BindsInstance</code> to <code>@Provides</code>. Metro consolidated these to just one annotation.</li>
+<li>If you use subcomponents, you&rsquo;ll have to switch to <a href="../dependency-graphs/#graph-extensions">Graph extensions</a>.</li>
+<li>Update references to generated <code>Dagger*Component</code> calls to use metro&rsquo;s <code>createGraph</code>/<code>createGraphFactory</code> APIs.</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If you use <code>@ContributesSubcomponent</code>, you&rsquo;ll have to either wait until they&rsquo;re implemented (see <a href="https://github.com/ZacSweers/metro/issues/166">#166</a>)</p>
+</div>
+<h3 id="option-3-full-migration">Option 3 - Full migration<a class="headerlink" href="#option-3-full-migration" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Remove the Dagger and anvil runtimes.</li>
+<li>Replace all Dagger/anvil annotations with Metro equivalents.</li>
+<li>If you use subcomponents, you&rsquo;ll have to switch to <a href="../dependency-graphs/#graph-extensions">Graph extensions</a>.</li>
+<li>Update references to generated <code>Dagger*Component</code> calls to use metro&rsquo;s <code>createGraph</code>/<code>createGraphFactory</code> APIs.</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If you use <code>@ContributesSubcomponent</code>, you&rsquo;ll have to either wait until they&rsquo;re implemented (see <a href="https://github.com/ZacSweers/metro/issues/166">#166</a></p>
+</div>
+<h2 id="into-a-kotlin-inject-codebase">Into a kotlin-inject codebase<a class="headerlink" href="#into-a-kotlin-inject-codebase" title="Permanent link">&para;</a></h2>
+<p>First, remove the kotlin-inject(-anvil) dependencies (but keep their runtime deps if you use option 1 below!).</p>
+<h3 id="option-1-interop-at-the-componentgraph-level_1">Option 1 - Interop at the component/graph level<a class="headerlink" href="#option-1-interop-at-the-componentgraph-level_1" title="Permanent link">&para;</a></h3>
+<p>This option is good if you only want to use Metro for <em>new</em> code. Metro graphs can depend on kotlin-inject components (as <code>@Includes</code> parameters) and vice versa. <a href="https://github.com/ZacSweers/metro/tree/main/samples/interop/dependencies-kotlinInject">Here</a> is an example project that does this.</p>
+<p>This option is good if you want to do a very simple introduction of Metro in one part of your codebase, such as a smaller modularized feature or library.</p>
+<h3 id="option-2-migrate-existing-usages-reuse-your-existing-annotations_1">Option 2 - Migrate existing usages + reuse your existing annotations<a class="headerlink" href="#option-2-migrate-existing-usages-reuse-your-existing-annotations_1" title="Permanent link">&para;</a></h3>
+<p>If you want the least amount of splash as possible, you can tell Metro to reuse your annotations from kotlin-inject/kotlin-inject-anvil. <a href="https://github.com/ZacSweers/metro/blob/main/samples/interop/customAnnotations-kotlinInject/build.gradle.kts#L22-L27">Here</a> is an example for enabling that in Gradle.</p>
+<p>You will still possibly need to do some manual migrations, namely providers.</p>
+<ul>
+<li>Any higher order function injection will need to switch to using Metro&rsquo;s <code>Provider</code> API.</li>
+<li>Any higher order <em>assisted</em> function injection will need to switch to using <code>@AssistedFactory</code>-annotated factories.</li>
+<li>If you use <code>@MergeComponent</code> + <code>@Component</code>, it&rsquo;ll be easier if you just migrate those interfaces to <code>@DependencyGraph</code> since they&rsquo;re combined in there now.</li>
+<li>If you use <code>@Component</code> parameters for graph extensions, you&rsquo;ll have to switch to <a href="../dependency-graphs/#graph-extensions">Graph extensions</a>. This will primarily entail annotating the parameter with <code>@Nested</code> and marking the parent graph as extendable.</li>
+<li>Update calls to generated <code>SomeComponent::class.create(...)</code> functions to use metro&rsquo;s <code>createGraph</code>/<code>createGraphFactory</code> APIs.</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If you use <code>@ContributesSubcomponent</code>, you&rsquo;ll have to either wait until they&rsquo;re implemented (see <a href="https://github.com/ZacSweers/metro/issues/166">#166</a>)</p>
+</div>
+<h3 id="option-3-full-migration_1">Option 3 - Full migration<a class="headerlink" href="#option-3-full-migration_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Remove the kotlin-inject and Anvil runtimes.</li>
+<li>Replace all kotlin-inject/anvil annotations with Metro equivalents.</li>
+<li>If you use <code>@Component</code> parameters for graph extensions, you&rsquo;ll have to switch to <a href="../dependency-graphs/#graph-extensions">Graph extensions</a>. This will primarily entail annotating the parameter with <code>@Nested</code> and marking the parent graph as extendable.</li>
+<li>Update calls to generated <code>SomeComponent::class.create(...)</code> functions to use metro&rsquo;s <code>createGraph</code>/<code>createGraphFactory</code> APIs.</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If you use <code>@ContributesSubcomponent</code>, you&rsquo;ll have to either wait until they&rsquo;re implemented (see <a href="https://github.com/ZacSweers/metro/issues/166">#166</a>)</p>
+</div>
 
 
 

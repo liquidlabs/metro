@@ -766,6 +766,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adoption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adoption Strategies
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -852,6 +875,28 @@
   
   <span class="md-ellipsis">
     Change Log
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
     
   </span>
   
@@ -999,6 +1044,10 @@
 <span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">TestHttpClient</span>
 <span class="p">}</span>
 </code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code>@Contributes*.replaces</code> cannot replace classes in the <em>same compilation</em> as the <em>graph that is merging them</em>.</p>
+</div>
 <h2 id="contributesbinding">@ContributesBinding<a class="headerlink" href="#contributesbinding" title="Permanent link">&para;</a></h2>
 <p>This annotation is used to contribute injected classes to a target scope as a given bound type.</p>
 <p>The below example will contribute the <code>CacheImpl</code> class as a <code>Cache</code> type to <code>AppScope</code>.</p>
