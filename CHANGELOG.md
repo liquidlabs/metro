@@ -11,6 +11,7 @@ Changelog
 - **Fix**: Fix member injectors not getting properly visited in graph validation.
 - **Fix**: Fix a bug where `Map<Key, Provider<Value>>` multibindings weren't always unwrapped correctly.
 - **Fix**: Fix `Map<Key, Provider<Value>>` type keys not correctly interpreting the underlying type key as `Map<Key, Value>`.
+- **Change**: Change `InstanceFactory` to a value class.
 
 0.1.1
 -----
