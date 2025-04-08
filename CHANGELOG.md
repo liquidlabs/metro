@@ -4,6 +4,11 @@ Changelog
 **Unreleased**
 --------------
 
+0.1.2
+-----
+
+_2025-04-08_
+
 - **Enhancement**: Implement `createGraph` and `createGraphFactory` FIR checkers for better error diagnostics on erroneous type arguments.
 - **Enhancement**: Add `ContributesBinding.rank` interop support with Anvil.
 - **Enhancement**: Check Kotlin version compatibility. Use the `metro.version.check=false` Gradle property to disable these warnings if you're feeling adventurous.
@@ -13,6 +18,8 @@ Changelog
 - **Fix**: Fix `Map<Key, Provider<Value>>` type keys not correctly interpreting the underlying type key as `Map<Key, Value>`.
 - **Change**: Change `InstanceFactory` to a value class.
 - **Change**: Make `providerOf` use `InstanceFactory` under the hood.
+
+Special thanks to [@JoelWilcox](https://github.com/JoelWilcox), [@bnorm](https://github.com/bnorm), [@japplin](https://github.com/japplin), [@kevinguitar](https://github.com/kevinguitar), and [@erawhctim](https://github.com/erawhctim) for contributing to this release! 
 
 0.1.1
 -----
