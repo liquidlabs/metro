@@ -27,14 +27,14 @@
 #### …from Anvil
 
 * There is no `rank` in Metro's `@Contributes*` annotations.
-  * Note that if Anvil interop is enabled, _its_ `rank` properties are supported in interop.
+    * Note that if Anvil interop is enabled, _its_ `rank` properties are supported in interop.
 * `@ContributesBinding` uses a `binding` API to support generic bound types. See the [aggregation docs](aggregation.md) for more info.
-  * Note that if Anvil interop is enabled, _its_ `boundType` properties are supported in interop.
+    * Note that if Anvil interop is enabled, _its_ `boundType` properties are supported in interop.
 * `@Contributes*.replaces` cannot replace classes in the same compilation as the graph that is merging them
 
 #### …from kotlin-inject-anvil
 
 * There is no need for `@CreateComponent` or `expect fun createComponent()` functions.
 * `@ContributesBinding` uses a `binding` API to support generic bound types. See the [aggregation docs](aggregation.md) for more info.
-  * Note that if Anvil interop is enabled, _its_ `boundType` properties are supported in interop.
+    * Note that if Anvil interop is enabled, _its_ `boundType` properties are supported in interop.
 * `@Contributes*.replaces` cannot replace classes in the same compilation as the graph that is merging them
