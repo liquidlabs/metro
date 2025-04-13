@@ -4,6 +4,7 @@ Changelog
 **Unreleased**
 --------------
 
+- **Enhancement**: Optimize empty map multibindings to reuse a singleton instance.
 - **Enhancement**: Report error diagnostic if Dagger's `@Reusable` is used on a provider or injected class.
 - Add FAQ docs: https://zacsweers.github.io/metro/faq
 
