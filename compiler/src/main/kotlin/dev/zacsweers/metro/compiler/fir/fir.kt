@@ -4,8 +4,6 @@ package dev.zacsweers.metro.compiler.fir
 
 import dev.zacsweers.metro.compiler.Symbols
 import dev.zacsweers.metro.compiler.asName
-import dev.zacsweers.metro.compiler.capitalizeUS
-import dev.zacsweers.metro.compiler.decapitalizeUS
 import dev.zacsweers.metro.compiler.expectAsOrNull
 import dev.zacsweers.metro.compiler.mapToArray
 import java.util.Objects
@@ -108,7 +106,6 @@ import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.fir.types.isResolved
 import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.fir.types.type
-import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
@@ -784,19 +781,6 @@ internal fun FirCallableSymbol<*>.findAnnotation(
 
 internal fun FirBasedSymbol<*>.requireContainingClassSymbol(): FirClassLikeSymbol<*> =
   getContainingClassSymbol() ?: error("No containing class symbol found for $this")
-
-internal val ClassId.hintCallableId: CallableId
-  get() {
-    val simpleName =
-      sequence {
-          yieldAll(packageFqName.pathSegments())
-          yieldAll(relativeClassName.pathSegments())
-        }
-        .joinToString(separator = "") { it.asString().capitalizeUS() }
-        .decapitalizeUS()
-        .asName()
-    return CallableId(Symbols.FqNames.metroHintsPackage, simpleName)
-  }
 
 private val FirPropertyAccessExpression.qualifierName: Name?
   get() = (calleeReference as? FirSimpleNamedReference)?.name
