@@ -4,7 +4,12 @@ Changelog
 **Unreleased**
 --------------
 
-- **New**: Multibindings may not be empty by default. To allow an empty multibinding, `@Multibinds(allowEmpty = true)` must be explicitly declared now.
+0.1.3
+-----
+
+_2025-04-18_
+
+- **Change**: Multibindings may not be empty by default. To allow an empty multibinding, `@Multibinds(allowEmpty = true)` must be explicitly declared now.
 - **New**: Write graph metadata to reports (if enabled).
 - **New**: Support configuring debug and reports globally via `metro.debug` and `metro.reportsDestination` Gradle properties (respectively).
 - **Enhancement**: Change how aggregation hints are generated to improve incremental compilation. Externally contributed hints are now looked up lazily per-scope instead of all at once.
@@ -25,6 +30,8 @@ Changelog
 - Add a multiplatform Circuit sample: https://github.com/ZacSweers/metro/tree/main/samples/circuit-app
 - Add samples docs: https://zacsweers.github.io/metro/samples
 - Add FAQ docs: https://zacsweers.github.io/metro/faq
+
+Special thanks to [@JoelWilcox](https://github.com/JoelWilcox), [@bnorm](https://github.com/bnorm), and [@japplin](https://github.com/japplin) for contributing to this release!
 
 0.1.2
 -----
