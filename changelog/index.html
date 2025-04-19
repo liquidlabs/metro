@@ -20,7 +20,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.11">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
     
     
       
@@ -28,7 +28,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.4af4bdda.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.2afb09e1.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
@@ -736,6 +736,50 @@
   
   
     <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FAQ
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../samples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Samples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api/0.x/" class="md-nav__link">
         
   
@@ -839,6 +883,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#013" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.1.3
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#012" class="md-nav__link">
     <span class="md-ellipsis">
       0.1.2
@@ -922,6 +975,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#013" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.1.3
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#012" class="md-nav__link">
     <span class="md-ellipsis">
       0.1.2
@@ -960,6 +1022,32 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="013">0.1.3<a class="headerlink" href="#013" title="Permanent link">&para;</a></h2>
+<p><em>2025-04-18</em></p>
+<ul>
+<li><strong>Change</strong>: Multibindings may not be empty by default. To allow an empty multibinding, <code>@Multibinds(allowEmpty = true)</code> must be explicitly declared now.</li>
+<li><strong>New</strong>: Write graph metadata to reports (if enabled).</li>
+<li><strong>New</strong>: Support configuring debug and reports globally via <code>metro.debug</code> and <code>metro.reportsDestination</code> Gradle properties (respectively).</li>
+<li><strong>Enhancement</strong>: Change how aggregation hints are generated to improve incremental compilation. Externally contributed hints are now looked up lazily per-scope instead of all at once.</li>
+<li><strong>Enhancement</strong>: Optimize empty map multibindings to reuse a singleton instance.</li>
+<li><strong>Enhancement</strong>: Report error diagnostic if Dagger&rsquo;s <code>@Reusable</code> is used on a provider or injected class.</li>
+<li><strong>Enhancement</strong>: Tweak diagnostic error strings for members so that IDE terminals auto-link them better. i.e., instead of printing <code>example.AppGraph.provideString</code>, Metro will print <code>example.AppGraph#provideString</code> instead.</li>
+<li><strong>Enhancement</strong>: Support repeatable @ContributesBinding annotations with different scopes.</li>
+<li><strong>Fix</strong>: Fix incremental compilation when <code>@Includes</code>-annotated graph parameters change accessor signatures.</li>
+<li><strong>Fix</strong>: Don&rsquo;t allow graph extensions to use the same scope as any extended ancestor graphs.</li>
+<li><strong>Fix</strong>: Don&rsquo;t allow multiple ancestor graphs of graph extensions to use the same scope.</li>
+<li><strong>Fix</strong>: Handle scenarios where the compose-compiler plugin runs <em>before</em> Metro&rsquo;s when generating wrapper classes for top-level <code>@Composable</code> functions.</li>
+<li><strong>Fix</strong>: Fix an edge case in graph extensions where child graphs would miss a provided scoped binding in a parent graph that was also exposed as an accessor.</li>
+<li><strong>Fix</strong>: Fix Dagger interop issue when calling Javax/Jakarta/Dagger providers from Metro factories.</li>
+<li><strong>Fix</strong>: Fix Dagger interop issue when calling <code>dagger.Lazy</code> from Metro factories.</li>
+<li><strong>Fix</strong>: Preserve the original <code>Provider</code> or <code>Lazy</code> type used in injected types when generating factory creators.</li>
+<li>Temporarily disable hint generation in WASM targets to avoid file count mismatches until <a href="https://youtrack.jetbrains.com/issue/KT-75865">KT-75865</a>.</li>
+<li>Add an Android sample: <a href="https://github.com/ZacSweers/metro/tree/main/samples/android-app">https://github.com/ZacSweers/metro/tree/main/samples/android-app</a></li>
+<li>Add a multiplatform Circuit sample: <a href="https://github.com/ZacSweers/metro/tree/main/samples/circuit-app">https://github.com/ZacSweers/metro/tree/main/samples/circuit-app</a></li>
+<li>Add samples docs: <a href="https://zacsweers.github.io/metro/samples">https://zacsweers.github.io/metro/samples</a></li>
+<li>Add FAQ docs: <a href="https://zacsweers.github.io/metro/faq">https://zacsweers.github.io/metro/faq</a></li>
+</ul>
+<p>Special thanks to <a href="https://github.com/JoelWilcox">@JoelWilcox</a>, <a href="https://github.com/bnorm">@bnorm</a>, and <a href="https://github.com/japplin">@japplin</a> for contributing to this release!</p>
 <h2 id="012">0.1.2<a class="headerlink" href="#012" title="Permanent link">&para;</a></h2>
 <p><em>2025-04-08</em></p>
 <ul>
@@ -973,7 +1061,7 @@
 <li><strong>Change</strong>: Change <code>InstanceFactory</code> to a value class.</li>
 <li><strong>Change</strong>: Make <code>providerOf</code> use <code>InstanceFactory</code> under the hood.</li>
 </ul>
-<p>Special thanks to <a href="https://github.com/JoelWilcox">@JoelWilcox</a>, <a href="https://github.com/bnorm">@bnorm</a>, <a href="https://github.com/japplin">@japplin</a>, <a href="https://github.com/kevinguitar">@kevinguitar</a>, and <a href="https://github.com/erawhctim">@erawhctim</a> for contributing to this release! </p>
+<p>Special thanks to <a href="https://github.com/JoelWilcox">@JoelWilcox</a>, <a href="https://github.com/bnorm">@bnorm</a>, <a href="https://github.com/japplin">@japplin</a>, <a href="https://github.com/kevinguitar">@kevinguitar</a>, and <a href="https://github.com/erawhctim">@erawhctim</a> for contributing to this release!</p>
 <h2 id="011">0.1.1<a class="headerlink" href="#011" title="Permanent link">&para;</a></h2>
 <p><em>2025-04-03</em></p>
 <p>Initial release!</p>
