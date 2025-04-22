@@ -4,6 +4,8 @@ Changelog
 **Unreleased**
 --------------
 
+- **Fix**: Fix rank processing error when the outranked binding is contributed using Metro's ContributesBinding annotation.
+
 0.2.0
 -----
 
