@@ -631,7 +631,16 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Optional Dependencies">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nullability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Nullability
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Nullability">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1016,7 +1025,16 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Optional Dependencies">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nullability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Nullability
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Nullability">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1165,6 +1183,22 @@
 </code></pre></div>
 <p>Dagger supports a similar feature via <code>@BindsOptionalOf</code>, but requires a separate declaration of this optional dependency to the graph.</p>
 <p>KI supports the same feature.</p>
+<h2 id="nullability">Nullability<a class="headerlink" href="#nullability" title="Permanent link">&para;</a></h2>
+<p>As nullability is a first-class concept in Kotlin, Metro supports it too. Bindings in Metro graphs may be nullable, but it&rsquo;s important to understand how Metro treats them!</p>
+<p>In short, Metro will treat nullable types as different type keys than their non-nullable analogues. That is to say, <code>String</code> and <code>String?</code> are treated as distinct types in Metro.</p>
+<p>Furthermore, a <code>String</code> binding cannot satisfy a <code>String?</code> automatically. You <em>may</em> however <code>@Binds</code> a <code>String</code> to a <code>String?</code> and Metro will treat it as a valid binding.</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@DependencyGraph</span><span class="p">(</span><span class="kt">Unit</span><span class="o">::</span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">isExtendable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">ExampleGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">int</span><span class="p">:</span><span class="w"> </span><span class="kt">Int</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">nullableInt</span><span class="p">:</span><span class="w"> </span><span class="kt">Int?</span>
+
+<span class="w">  </span><span class="nd">@Provides</span>
+<span class="w">  </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideInt</span><span class="p">():</span><span class="w"> </span><span class="kt">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span>
+
+<span class="w">  </span><span class="nd">@Binds</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">Int</span><span class="p">.</span><span class="na">bindAsNullable</span><span class="p">:</span><span class="w"> </span><span class="kt">Int?</span>
+<span class="p">}</span>
+</code></pre></div>
 <h4 id="implementation-notes">Implementation notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h4>
 <p>While kotlin-inject can support this by simply invoking functions with omitted arguments, Metro has to support this in generated factories.</p>
 <p>To accomplish this, Metro will slightly modify how generated provider/constructor injection factory classes look compared to Dagger. Since we are working in IR, we can copy the default value expressions from the source function/constructor to the factory’s newInstance and create() functions. This in turn allows calling generated graphs to simply omit absent binding arguments from their creation calls. This is a tried and tested pattern used by other first party plugins, namely kotlinx-serialization.</p>
