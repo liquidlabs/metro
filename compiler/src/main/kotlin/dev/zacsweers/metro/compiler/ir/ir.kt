@@ -4,7 +4,6 @@ package dev.zacsweers.metro.compiler.ir
 
 import dev.zacsweers.metro.compiler.Origins
 import dev.zacsweers.metro.compiler.Symbols
-import dev.zacsweers.metro.compiler.asName
 import dev.zacsweers.metro.compiler.expectAsOrNull
 import dev.zacsweers.metro.compiler.ir.parameters.Parameter
 import dev.zacsweers.metro.compiler.ir.parameters.Parameters
@@ -656,7 +655,7 @@ internal fun IrConstructorCall.scopeOrNull(): ClassId? {
 }
 
 internal fun IrConstructorCall.scopeClassOrNull(): IrClass? {
-  return getValueArgument("scope".asName())
+  return getValueArgument(Symbols.Names.scope)
     ?.expectAsOrNull<IrClassReference>()
     ?.classType
     ?.rawTypeOrNull()
@@ -818,5 +817,5 @@ internal val IrClass.metroGraph: IrClass
     if (origin === Origins.ContributedGraph) {
       this
     } else {
-      requireNestedClass(Symbols.Names.metroGraph)
+      requireNestedClass(Symbols.Names.MetroGraph)
     }

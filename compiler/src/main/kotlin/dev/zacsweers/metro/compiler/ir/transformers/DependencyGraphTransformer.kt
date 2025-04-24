@@ -204,7 +204,7 @@ internal class DependencyGraphTransformer(
         // If it's a contributed graph, there is no inner generated graph
         declaration
       } else {
-        declaration.nestedClasses.singleOrNull { it.name == Symbols.Names.metroGraph }
+        declaration.nestedClasses.singleOrNull { it.name == Symbols.Names.MetroGraph }
           ?: error("Expected generated dependency graph for ${declaration.classIdOrFail}")
       }
 
@@ -286,7 +286,7 @@ internal class DependencyGraphTransformer(
       if (isExtendable) {
         val serialized =
           pluginContext.metadataDeclarationRegistrar.getCustomMetadataExtension(
-            graphDeclaration.requireNestedClass(Symbols.Names.metroGraph),
+            graphDeclaration.requireNestedClass(Symbols.Names.MetroGraph),
             PLUGIN_ID,
           )
         if (serialized == null) {
@@ -504,7 +504,7 @@ internal class DependencyGraphTransformer(
 
     scopes += buildSet {
       val scope =
-        dependencyGraphAnno.getValueArgument("scope".asName())?.let { scopeArg ->
+        dependencyGraphAnno.getValueArgument(Symbols.Names.scope)?.let { scopeArg ->
           pluginContext.createIrBuilder(graphDeclaration.symbol).run {
             irCall(symbols.metroSingleInConstructor).apply { putValueArgument(0, scopeArg) }
           }
@@ -513,7 +513,7 @@ internal class DependencyGraphTransformer(
       if (scope != null) {
         add(IrAnnotation(scope))
         dependencyGraphAnno
-          .getValueArgument("additionalScopes".asName())
+          .getValueArgument(Symbols.Names.additionalScopes)
           ?.expectAs<IrVararg>()
           ?.elements
           ?.forEach { scopeArg ->
@@ -1212,7 +1212,7 @@ internal class DependencyGraphTransformer(
           // Implement the factory's $$Impl class
           val factoryClass =
             factoryCreator.type
-              .requireNestedClass(Symbols.Names.metroImpl)
+              .requireNestedClass(Symbols.Names.MetroImpl)
               .apply(implementFactoryFunction)
 
           // Implement a factory() function that returns the factory impl instance
@@ -1438,7 +1438,7 @@ internal class DependencyGraphTransformer(
                           val rawType = it.rawTypeOrNull()
                           // This stringy check is unfortunate but origins are not visible
                           // across compilation boundaries
-                          if (rawType?.name == Symbols.Names.metroGraph) {
+                          if (rawType?.name == Symbols.Names.MetroGraph) {
                             // if it's a $$MetroGraph, we actually want the parent type
                             rawType.parentAsClass.defaultType
                           } else {

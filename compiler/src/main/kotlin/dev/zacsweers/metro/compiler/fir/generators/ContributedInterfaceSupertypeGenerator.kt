@@ -3,7 +3,6 @@
 package dev.zacsweers.metro.compiler.fir.generators
 
 import dev.zacsweers.metro.compiler.Symbols
-import dev.zacsweers.metro.compiler.asName
 import dev.zacsweers.metro.compiler.expectAsOrNull
 import dev.zacsweers.metro.compiler.fir.FirTypeKey
 import dev.zacsweers.metro.compiler.fir.annotationsIn
@@ -133,7 +132,7 @@ internal class ContributedInterfaceSupertypeGenerator(session: FirSession) :
 
         val contributionNames =
           classDeclarationContainer.getClassifierNames().filter {
-            it.identifier.startsWith(Symbols.Names.metroContribution.identifier)
+            it.identifier.startsWith(Symbols.Names.MetroContribution.identifier)
           }
 
         contributionNames
@@ -341,7 +340,7 @@ internal class ContributedInterfaceSupertypeGenerator(session: FirSession) :
             // https://youtrack.jetbrains.com/issue/KT-76954/Some-type-arguments-are-not-saved-to-metadata-in-FIR
             .mapNotNull { annotation ->
               val explicitBindingMissingMetadata =
-                annotation.argumentAsOrNull<FirAnnotation>("binding".asName(), index = 1)
+                annotation.argumentAsOrNull<FirAnnotation>(Symbols.Names.binding, index = 1)
 
               if (explicitBindingMissingMetadata != null) {
                 // This is a case where an explicit binding is specified but we receive the argument
