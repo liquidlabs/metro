@@ -3,6 +3,7 @@
 package dev.zacsweers.metro.compiler
 
 import dev.zacsweers.metro.compiler.Symbols.FqNames.kotlinCollectionsPackageFqn
+import dev.zacsweers.metro.compiler.Symbols.FqNames.metroHintsPackage
 import dev.zacsweers.metro.compiler.Symbols.StringNames.METRO_RUNTIME_INTERNAL_PACKAGE
 import dev.zacsweers.metro.compiler.Symbols.StringNames.METRO_RUNTIME_PACKAGE
 import dev.zacsweers.metro.compiler.ir.ContextualTypeKey
@@ -58,6 +59,7 @@ internal class Symbols(
     const val METRO_FACTORY = "$\$MetroFactory"
     const val METRO_HINTS_PACKAGE = "metro.hints"
     const val METRO_IMPL = "$\$Impl"
+    const val METRO_GRAPH = "$\$MetroGraph"
     const val METRO_RUNTIME_INTERNAL_PACKAGE = "dev.zacsweers.metro.internal"
     const val METRO_RUNTIME_PACKAGE = "dev.zacsweers.metro"
     const val NEW_INSTANCE = "newInstance"
@@ -75,7 +77,13 @@ internal class Symbols(
       ClassIds.graphFactoryInvokeFunctionMarkerClass.asSingleFqName()
 
     fun scopeHint(scopeClassId: ClassId): FqName {
-      return metroHintsPackage.child(scopeClassId.joinSimpleNames().shortClassName)
+      return CallableIds.scopeHint(scopeClassId).asSingleFqName()
+    }
+  }
+
+  object CallableIds {
+    fun scopeHint(scopeClassId: ClassId): CallableId {
+      return CallableId(metroHintsPackage, scopeClassId.joinSimpleNames().shortClassName)
     }
   }
 
@@ -125,7 +133,7 @@ internal class Symbols(
     val metroAccessor = StringNames.METRO_ACCESSOR.asName()
     val metroFactory = Name.identifier(StringNames.METRO_FACTORY)
     val metroContribution = Name.identifier("$\$MetroContribution")
-    val metroGraph = Name.identifier("$\$MetroGraph")
+    val metroGraph = StringNames.METRO_GRAPH.asName()
     val metroHint = Name.identifier("hint")
     val metroImpl = StringNames.METRO_IMPL.asName()
     val metroMembersInjector = Name.identifier("$\$MetroMembersInjector")
@@ -176,6 +184,12 @@ internal class Symbols(
     return if (useDaggerInterop) daggerSymbols else metroProviderSymbols
   }
 
+  val asContribution: IrSimpleFunctionSymbol by lazy {
+    pluginContext
+      .referenceFunctions(CallableId(metroRuntime.packageFqName, Name.identifier("asContribution")))
+      .single()
+  }
+
   val metroCreateGraph: IrSimpleFunctionSymbol by lazy {
     pluginContext
       .referenceFunctions(CallableId(metroRuntime.packageFqName, Name.identifier("createGraph")))
@@ -217,6 +231,14 @@ internal class Symbols(
   val instanceFactoryCompanionObject by lazy { instanceFactory.owner.companionObject()!!.symbol }
   val instanceFactoryInvoke: IrFunctionSymbol by lazy {
     instanceFactoryCompanionObject.requireSimpleFunction(StringNames.INVOKE)
+  }
+
+  val metroDependencyGraphAnnotationConstructor: IrConstructorSymbol by lazy {
+    pluginContext.referenceClass(classIds.dependencyGraphAnnotation)!!.constructors.first()
+  }
+
+  val metroExtendsAnnotationConstructor: IrConstructorSymbol by lazy {
+    pluginContext.referenceClass(ClassIds.metroExtends)!!.constructors.first()
   }
 
   val metroProvider: IrClassSymbol by lazy {
