@@ -94,7 +94,7 @@
   <div class="breadcrumbs"><a href="../../index.html">runtime</a><span class="delimiter">/</span><a href="../index.html">dev.zacsweers.metro.internal</a><span class="delimiter">/</span><span class="current">InstanceFactory</span></div>
   <div class="cover ">
     <h1 class="cover"><span>Instance</span><wbr><span><span>Factory</span></span></h1>
-    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":runtime/commonMain"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.jvm/-jvm-inline/index.html"><span class="token annotation builtin">JvmInline</span></a></div></div><span class="token keyword">value </span><span class="token keyword">class </span><a href="index.html">InstanceFactory</a><span class="token operator">&lt;</span><a href="index.html">T</a><span class="token operator">&gt;</span> : <a href="../-factory/index.html">Factory</a><span class="token operator">&lt;</span><a href="index.html">T</a><span class="token operator">&gt; </span>, <a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-lazy/index.html">Lazy</a><span class="token operator">&lt;</span><a href="index.html">T</a><span class="token operator">&gt; </span><span class="clearfix"><span class="floating-right">(<a href="https://github.com/ZacSweers/metro//tree/main/runtime/src/commonMain/kotlin/dev/zacsweers/metro/internal/InstanceFactory.kt#L29">source</a>)</span></span></div><p class="paragraph">A <a href="../-factory/index.html">Factory</a> implementation that returns a single instance for all invocations of <a href="invoke.html">invoke</a>.</p><p class="paragraph">Note that while this is a <a href="../-factory/index.html">Factory</a> implementation, and thus unscoped, each call to <a href="invoke.html">invoke</a> will always return the same instance. As such, any scoping applied to this factory is redundant and unnecessary. However, using this with <a href="../-double-check/-companion/provider.html">DoubleCheck.provider</a> is valid and may be desired for testing or contractual guarantees.</p></div></div>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":runtime/commonMain"><div class="symbol monospace"><span class="token keyword">class </span><a href="index.html">InstanceFactory</a><span class="token operator">&lt;</span><a href="index.html">T</a><span class="token operator">&gt;</span> : <a href="../-factory/index.html">Factory</a><span class="token operator">&lt;</span><a href="index.html">T</a><span class="token operator">&gt; </span>, <a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-lazy/index.html">Lazy</a><span class="token operator">&lt;</span><a href="index.html">T</a><span class="token operator">&gt; </span><span class="clearfix"><span class="floating-right">(<a href="https://github.com/ZacSweers/metro//tree/main/runtime/src/commonMain/kotlin/dev/zacsweers/metro/internal/InstanceFactory.kt#L26">source</a>)</span></span></div><p class="paragraph">A <a href="../-factory/index.html">Factory</a> implementation that returns a single instance for all invocations of <a href="invoke.html">invoke</a>.</p><p class="paragraph">Note that while this is a <a href="../-factory/index.html">Factory</a> implementation, and thus unscoped, each call to <a href="invoke.html">invoke</a> will always return the same instance. As such, any scoping applied to this factory is redundant and unnecessary. However, using this with <a href="../-double-check/-companion/provider.html">DoubleCheck.provider</a> is valid and may be desired for testing or contractual guarantees.</p></div></div>
   </div>
   <div class="tabbedcontent">
     <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
@@ -139,7 +139,37 @@
       </div>
       <div data-togglable="FUNCTION">
         <h2 class="">Functions</h2>
-        <div class="table"><a data-name="-1248119916%2FFunctions%2F673331665" anchor-label="invoke" id="-1248119916%2FFunctions%2F673331665" data-filterable-set=":runtime/commonMain"></a>
+        <div class="table"><a data-name="-145344587%2FFunctions%2F673331665" anchor-label="equals" id="-145344587%2FFunctions%2F673331665" data-filterable-set=":runtime/commonMain"></a>
+          <div class="table-row" data-filterable-current=":runtime/commonMain" data-filterable-set=":runtime/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="equals.html"><span><span>equals</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-145344587%2FFunctions%2F673331665"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":runtime/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">operator override </span><span class="token keyword">fun </span><a href="equals.html"><span class="token function">equals</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">other<span class="token operator">: </span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html">Any</a><span class="token operator">?</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="961511825%2FFunctions%2F673331665" anchor-label="hashCode" id="961511825%2FFunctions%2F673331665" data-filterable-set=":runtime/commonMain"></a>
+          <div class="table-row" data-filterable-current=":runtime/commonMain" data-filterable-set=":runtime/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="hash-code.html"><span>hash</span><wbr><span><span>Code</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="961511825%2FFunctions%2F673331665"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":runtime/commonMain"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="hash-code.html"><span class="token function">hashCode</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1248119916%2FFunctions%2F673331665" anchor-label="invoke" id="-1248119916%2FFunctions%2F673331665" data-filterable-set=":runtime/commonMain"></a>
           <div class="table-row" data-filterable-current=":runtime/commonMain" data-filterable-set=":runtime/commonMain">
             <div class="main-subrow keyValue ">
               <div class=""><span class="inline-flex">

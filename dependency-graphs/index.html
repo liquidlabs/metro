@@ -549,6 +549,54 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Graph Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#contributed-graph-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributed Graph Extensions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contributed Graph Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Problem
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Solution
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      Graph arguments
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1076,6 +1124,54 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Graph Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#contributed-graph-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributed Graph Extensions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contributed Graph Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Problem
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Solution
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      Graph arguments
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1226,6 +1322,85 @@
 </code></pre></div>
 <p>Child graphs then contain a <em>superset</em> of bindings they can inject, including both their bindings and their parents&rsquo;. Graph extensions can be chained as well.</p>
 <p>Child graphs also implicitly inherit their parents&rsquo; <em>scopes</em>.</p>
+<h3 id="contributed-graph-extensions">Contributed Graph Extensions<a class="headerlink" href="#contributed-graph-extensions" title="Permanent link">&para;</a></h3>
+<p><code>@ContributesGraphExtension</code> is a specialized type of graph that is <em>contributed</em> to some parent scope. Its generation is deferred until the parent graph interface is merged.</p>
+<h4 id="the-problem">The Problem<a class="headerlink" href="#the-problem" title="Permanent link">&para;</a></h4>
+<p>Imagine this module dependency tree:</p>
+<div class="highlight"><pre><span></span><code>        :app
+      /     \
+     v       v
+  :login   :user-data
+</code></pre></div>
+<p><code>:app</code> defines the main dependency graph with <code>@DependencyGraph</code>. The <code>:login</code> module defines a graph extension for authenticated user flows, and <code>:user-data</code> provides some core functionality like <code>UserRepository</code>.</p>
+<p>If <code>:login</code> defines its own graph directly with <code>@DependencyGraph</code>, it won&rsquo;t see contributions from <code>:user-data</code> <em>unless</em> <code>:login</code> depends on it directly.</p>
+<h4 id="the-solution">The Solution<a class="headerlink" href="#the-solution" title="Permanent link">&para;</a></h4>
+<p>Instead, <code>:login</code> can use <code>@ContributesGraphExtension(LoggedInScope::class)</code> + an associated <code>@ContributesGraphExtension.Factory(AppScope::class)</code> to say: &ldquo;I want to contribute a new graph extension <em>to</em> a future <code>AppScope</code> parent graph.&rdquo;</p>
+<p>The graph extension will then be generated in <code>:app</code>, which already depends on both <code>:login</code> and <code>:user-data</code>. Now <code>UserRepository</code> can be injected in <code>LoggedInGraph</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@ContributesGraphExtension</span><span class="p">(</span><span class="n">LoggedInScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">LoggedInGraph</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">userRepository</span><span class="p">:</span><span class="w"> </span><span class="n">UserRepository</span>
+
+<span class="w">  </span><span class="nd">@ContributesGraphExtension.Factory</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">interface</span><span class="w"> </span><span class="nc">Factory</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">fun</span><span class="w"> </span><span class="nf">createLoggedInGraph</span><span class="p">():</span><span class="w"> </span><span class="n">LoggedInGraph</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>In the <code>:app</code> module:</p>
+<div class="highlight"><pre><span></span><code>@DependencyGraph(AppScope::class, isExtendable = true)
+interface AppGraph
+</code></pre></div>
+<p>The generated code will modify <code>AppGraph</code> to implement <code>LoggedInGraph.Factory</code> and implement <code>createLoggedInGraph()</code> using a generated final <code>$$ContributedLoggedInGraph</code> class that includes all contributed bindings, including <code>UserRepository</code> from <code>:user-data</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span>
+<span class="w">  </span><span class="c1">// modifications generated during compile-time</span>
+<span class="w">  </span><span class="p">:</span><span class="w"> </span><span class="n">LoggedInGraph</span><span class="p">.</span><span class="na">Factory</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">override</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">createLoggedInGraph</span><span class="p">():</span><span class="w"> </span><span class="n">LoggedInGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="err">$$</span><span class="n">ContributedLoggedInGraph</span><span class="p">(</span><span class="k">this</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// Generated in IR</span>
+<span class="w">  </span><span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">LoggedInScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">class</span><span class="w"> </span><span class="nc">LoggedInGraph</span><span class="err">$$</span><span class="n">MetroGraph</span><span class="p">(</span><span class="n">appGraph</span><span class="p">:</span><span class="w"> </span><span class="n">AppGraph</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">LoggedInGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Finally, you can obtain a <code>LoggedInGraph</code> instance from <code>AppGraph</code> since it now implements <code>LoggedInGraph.Factory</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// Using the asContribution() intrinsic</span>
+<span class="kd">val</span><span class="w"> </span><span class="nv">loggedInGraph</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">appGraph</span><span class="p">.</span><span class="na">asContribution</span><span class="o">&lt;</span><span class="n">LoggedInGraph</span><span class="p">.</span><span class="na">Factory</span><span class="o">&gt;</span><span class="p">().</span><span class="na">createLoggedInGraph</span><span class="p">()</span>
+
+<span class="c1">// Or if you have IDE support enabled</span>
+<span class="kd">val</span><span class="w"> </span><span class="nv">loggedInGraph</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">appGraph</span><span class="p">.</span><span class="na">createLoggedInGraph</span><span class="p">()</span>
+</code></pre></div>
+<h4 id="graph-arguments">Graph arguments<a class="headerlink" href="#graph-arguments" title="Permanent link">&para;</a></h4>
+<p>You can pass arguments to the graph via the factory:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@ContributesGraphExtension.Factory</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">Factory</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">fun</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="nd">@Provides</span><span class="w"> </span><span class="n">userId</span><span class="p">:</span><span class="w"> </span><span class="kt">String</span><span class="p">):</span><span class="w"> </span><span class="n">LoggedInGraph</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>This maps to:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// Generated in IR</span>
+<span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">LoggedInScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">class</span><span class="w"> </span><span class="err">$$</span><span class="nc">ContributedLoggedInGraph</span><span class="p">(</span>
+<span class="w">  </span><span class="nd">@Extends</span><span class="w"> </span><span class="n">parent</span><span class="p">:</span><span class="w"> </span><span class="n">AppGraph</span><span class="p">,</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="n">userId</span><span class="p">:</span><span class="w"> </span><span class="kt">String</span>
+<span class="p">):</span><span class="w"> </span><span class="n">LoggedInGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>In <code>AppGraph</code>, the generated factory method looks like:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// Generated in IR</span>
+<span class="kd">override</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="n">userId</span><span class="p">:</span><span class="w"> </span><span class="kt">String</span><span class="p">):</span><span class="w"> </span><span class="n">LoggedInGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">LoggedInGraph</span><span class="err">$$</span><span class="n">MetroGraph</span><span class="p">(</span><span class="k">this</span><span class="p">,</span><span class="w"> </span><span class="n">userId</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Abstract factory classes cannot be used as graph contributions.</p>
+</div>
+<p>Contributed graphs may also be chained, but note that <code>@ContributesGraphExtension.isExtendable</code> must be true to do so!</p>
 <h2 id="implementation-notes">Implementation Notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
 <p>Dependency graph code gen is designed to largely match how Dagger components are generated.</p>
 <ul>

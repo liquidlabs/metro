@@ -1091,12 +1091,16 @@
 <p>There are a few primary subprojects to consider.</p>
 <ol>
 <li><code>:compiler</code> — Metro&rsquo;s compiler plugin implementation lives. This includes compiler-supported interop features too.</li>
-<li><code>:runtime</code> — Metro&rsquo;s core multiplatform runtime API. This is mostly annotations plus some small runtime APIs.</li>
-<li><code>:integration-tests</code> — self-explanatory.</li>
-<li><code>:interop-dagger</code> — An ancillary set of JVM-only Dagger-specific runtime APIs for interop with Dagger.</li>
-<li><code>:gradle-plugin</code> — Metro&rsquo;s companion Gradle plugin implementation. Mostly just an extension API and compiler plugin wiring with KGP.</li>
-<li><code>samples/</code> — A separate gradle project that contains several sample projects. This <em>includes</em> the core artifacts as an included build. You can add this project in IntelliJ as another Gradle project to support developing both.</li>
 <li><code>:compiler-tests</code> — Compiler tests using JetBrains&rsquo; official compiler testing infrastructure.</li>
+<li><code>:gradle-plugin</code> — Metro&rsquo;s companion Gradle plugin implementation. Mostly just an extension API and compiler plugin wiring with KGP.<ul>
+<li>This is also where incremental compilation integration tests live!</li>
+</ul>
+</li>
+<li><code>:runtime</code> — Metro&rsquo;s core multiplatform runtime API. This is mostly annotations plus some small runtime APIs.</li>
+<li><code>:interop-dagger</code> — An ancillary set of JVM-only Dagger-specific runtime APIs for interop with Dagger.</li>
+<li><code>samples/</code> — A separate gradle project that contains several sample projects. This <em>includes</em> the core artifacts as an included build. You can add this project in IntelliJ as another Gradle project to support developing both. There are also some integration tests in here.</li>
+<li><code>:integration-tests</code> — self-explanatory.</li>
+<li><code>:multi-module-test</code> — A multi-module integration test.</li>
 </ol>
 <p>There is a useful <code>./metrow</code> helper CLI that can perform a few common commands across the various subprojects. Before submitting a PR, it is useful to run the following:</p>
 <ol>
@@ -1108,8 +1112,11 @@
 <ul>
 <li><code>compiler-tests/</code> — New compiler tests using JetBrains&rsquo; official compiler testing infrastructure. If possible, write new compiler tests in here! See <a href="https://github.com/ZacSweers/metro/pull/128">this PR</a> for more details on how they work.</li>
 <li><code>compiler/src/test/</code> — Core compiler tests. These should be focused primarily on <em>error</em> testing but can also perform limited functional testing. Note that while many tests are here, new tests should ideally use <code>compiler-tests</code>.</li>
+<li><code>gradle-plugin/src/functionalTest</code> — Integration gradle tests, primarily focused on exercising different incremental compilation scenarios.</li>
+<li><code>samples/</code> — Some samples have tests! This is useful to assert that these samples work as expected.<ul>
 <li><code>integration-tests/</code> — Integration tests. These should only be functional in nature and not test error cases (error cases won&rsquo;t compile!). Note that new integration tests should usually be written in <code>compiler-tests</code>. Some scenarios, such as multi-compilation tests across Gradle, may make more sense to write here.</li>
-<li><code>samples/</code> — Some samples have tests! This is useful to assert that these samples work as expected.</li>
+</ul>
+</li>
 </ul>
 <h2 id="compiler-plugin-design">Compiler Plugin Design<a class="headerlink" href="#compiler-plugin-design" title="Permanent link">&para;</a></h2>
 <p>The compiler plugin is implemented primarily in two parts.</p>
