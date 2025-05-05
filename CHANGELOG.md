@@ -4,6 +4,11 @@ Changelog
 **Unreleased**
 --------------
 
+0.3.0
+-----
+
+_2025-05-05_
+
 - **New**: Add support for `@ContributesGraphExtension`! See the [docs](https://zacsweers.github.io/metro/dependency-graphs#contributed-graph-extensions) for more info.
 - **New**: Add a `asContribution()` compiler intrinsic to upcast graphs to expected contribution types. For example: `val contributedInterface = appGraph.asContribution<ContributedInterface>()`. This is validated at compile-time.
 - **New**: Automatically transform `@Provides` functions to be `private`. This is enabled by defaults and supersedes the `publicProviderSeverity` when enabled, and can be disabled via the Gradle extension or `transform-providers-to-private` compiler option. Note that properties and providers with any annotations with `KClass` arguments are not supported yet pending upstream kotlinc changes.
@@ -25,8 +30,12 @@ Changelog
 - **Fix**: Fix injected `lateinit var` properties being treated as if they have default values.
 - **Fix**: Alias bindings not always having their backing type visited during graph validation.
 - **Fix**: Fix race condition in generating parent graphs first even if child graph is encountered first in processing.
+- **Fix**: Fallback `AssistedInjectChecker` error report to the declaration source.
+- **Fix**: Fix missing parent supertype bindings in graph extensions.
 - **Change**: `InstanceFactory` is no longer a value class. This wasn't going to offer much value in practice.
 - **Change**: Change debug reports dir to be per-compilation rather than per-platform.
+
+Special thanks to [@gabrielittner](https://github.com/gabrielittner), [@kevinguitar](https://github.com/kevinguitar), [@JoelWilcox](https://github.com/JoelWilcox), and [@japplin](https://github.com/japplin) for contributing to this release!
 
 0.2.0
 -----
@@ -40,7 +49,7 @@ _2025-04-21_
 - **Fix**: Fix duplicate field accessors generated for graph supertypes.
 - Add [compose navigation sample](https://github.com/ZacSweers/metro/tree/main/samples/compose-navigation-app).
 
-Special thanks to  [@bnorm](https://github.com/bnorm) and [@yschimke](https://github.com/yschimke) for contributing to this release!
+Special thanks to [@bnorm](https://github.com/bnorm) and [@yschimke](https://github.com/yschimke) for contributing to this release!
 
 0.1.3
 -----
