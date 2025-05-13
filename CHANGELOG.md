@@ -4,6 +4,11 @@ Changelog
 **Unreleased**
 --------------
 
+0.3.1
+-----
+
+_2025-05-13_
+
 - **Enhancement**: Rewrite graph resolution using topological sorting to vastly improve performance and simplify generation.
 - **Enhancement**: Return early once an externally-compiled dependency graph is found.
 - **Enhancement**: Simplify multibinding contributor handling in graph resolution by generating synthetic qualifiers for each of them. This allows them to participate in standard graph resolution.
@@ -21,6 +26,7 @@ Changelog
 - **Fix**: Report fully qualified qualifier renderings in diagnostics.
 - **Fix**: Don't generate provider fields for multibinding elements unnecessarily.
 - When debug logging + reports dir is enabled, output a `logTrace.txt` to the reports dir for tracing data.
+- Update to Kotlin `2.1.21`.
 
 0.3.0
 -----
