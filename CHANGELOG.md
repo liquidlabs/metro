@@ -13,6 +13,7 @@ _2025-05-13_
 - **Enhancement**: Return early once an externally-compiled dependency graph is found.
 - **Enhancement**: Simplify multibinding contributor handling in graph resolution by generating synthetic qualifiers for each of them. This allows them to participate in standard graph resolution.
 - **Enhancement**: When there are multiple empty `@Multibinds` errors, report them all at once.
+- **Enhancement**: Avoid unnecessary `StringBuilder` allocations.
 - **Fix**: Don't transform `@Provides` function's to be private if its visibility is already explicitly defined.
 - **Fix**: Fix a comparator infinite loop vector.
 - **Fix**: Fix `@ElementsIntoSet` multibinding contributions triggering a dependency cycle in some situations.
