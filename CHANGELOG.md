@@ -28,6 +28,8 @@ _2025-05-13_
 - When debug logging + reports dir is enabled, output a `logTrace.txt` to the reports dir for tracing data.
 - Update to Kotlin `2.1.21`.
 
+Special thanks to [@asapha](https://github.com/asapha), [@gabrielittner](https://github.com/gabrielittner), [@jzbrooks](https://github.com/jzbrooks), and [@JoelWilcox](https://github.com/JoelWilcox) for contributing to this release!
+
 0.3.0
 -----
 
