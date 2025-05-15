@@ -622,6 +622,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Multibindings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#implementation-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation notes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -644,7 +659,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#implementation-notes" class="md-nav__link">
+  <a href="#implementation-notes_1" class="md-nav__link">
     <span class="md-ellipsis">
       Implementation notes
     </span>
@@ -1016,6 +1031,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Multibindings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#implementation-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation notes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1038,7 +1068,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#implementation-notes" class="md-nav__link">
+  <a href="#implementation-notes_1" class="md-nav__link">
     <span class="md-ellipsis">
       Implementation notes
     </span>
@@ -1171,6 +1201,8 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>Unlike Dagger, empty multibindings in Metro are a compile error by default. Empty multibindings are allowed but must be opted into via <code>@Multibinds(allowEmpty = true)</code>.</p>
+<h4 id="implementation-notes">Implementation notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h4>
+<p>Metro takes inspiration from Guice in handling these in the binding graph. Since they cannot be added directly to the graph as-is (otherwise they would cause duplicate binding errors), a synthetic <code>@MultibindingElement</code> <em>qualifier</em> annotation is generated for them at compile-time to disambiguate them. These are user-invisible but allows them to participate directly in graph validation like any other dependency. Metro then just adds these bindings as dependencies to <code>Binding.Multibinding</code> types.</p>
 <h2 id="optional-dependencies">Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h2>
 <p>Metro supports optional dependencies by leaning on Kotlin’s native support for default parameter values. These are checked at injection sites and are allowed to be missing from the dependency graph when performing a lookup at validation/code-gen time.</p>
 <p>The below example would, since there is no <code>Int</code> binding provided, provide a message of <code>Count: -1</code>.</p>
@@ -1199,7 +1231,7 @@
 <span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">Int</span><span class="p">.</span><span class="na">bindAsNullable</span><span class="p">:</span><span class="w"> </span><span class="kt">Int?</span>
 <span class="p">}</span>
 </code></pre></div>
-<h4 id="implementation-notes">Implementation notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h4>
+<h4 id="implementation-notes_1">Implementation notes<a class="headerlink" href="#implementation-notes_1" title="Permanent link">&para;</a></h4>
 <p>While kotlin-inject can support this by simply invoking functions with omitted arguments, Metro has to support this in generated factories.</p>
 <p>To accomplish this, Metro will slightly modify how generated provider/constructor injection factory classes look compared to Dagger. Since we are working in IR, we can copy the default value expressions from the source function/constructor to the factory’s newInstance and create() functions. This in turn allows calling generated graphs to simply omit absent binding arguments from their creation calls. This is a tried and tested pattern used by other first party plugins, namely kotlinx-serialization.</p>
 <p>There are a few cases that need to be handled here:</p>

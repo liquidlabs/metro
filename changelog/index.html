@@ -883,6 +883,24 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#032" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.2
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#031" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.1
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#030" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.0
@@ -993,6 +1011,24 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#032" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.2
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#031" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.1
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#030" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.0
@@ -1058,6 +1094,42 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="032">0.3.2<a class="headerlink" href="#032" title="Permanent link">&para;</a></h2>
+<p><em>2025-05-15</em></p>
+<ul>
+<li><strong>Enhancement</strong>: Optimize supertype lookups in IR.</li>
+<li><strong>Fix</strong>: Fix generic members inherited from generic supertypes of contributed graphs.</li>
+<li><strong>Fix</strong>: Fix <code>@ContributedGraphExtension</code> that extends the same interface as the parent causes a duplicate binding error.</li>
+<li><strong>Fix</strong>: Fix contributed binding replacements not being respected in contributed graphs.</li>
+<li><strong>Fix</strong>: Fix contributed providers not being visible to N+2+ descendant graphs.</li>
+<li><strong>Fix</strong>: Collect bindings from member injectors as well as exposed accessors when determining scoped provider fields.</li>
+<li><strong>Fix</strong>: Fix a few <code>-Xverify-ir</code> and <code>-Xverify-ir-visibility</code> issues + run all tests with these enabled now.</li>
+</ul>
+<p>Special thanks to <a href="https://github.com/bnorm">@bnorm</a>, <a href="https://github.com/gabrielittner">@gabrielittner</a>, <a href="https://github.com/kevinguitar">@kevinguitar</a>, and <a href="https://github.com/JoelWilcox">@JoelWilcox</a> for contributing to this release!</p>
+<h2 id="031">0.3.1<a class="headerlink" href="#031" title="Permanent link">&para;</a></h2>
+<p><em>2025-05-13</em></p>
+<ul>
+<li><strong>Enhancement</strong>: Rewrite graph resolution using topological sorting to vastly improve performance and simplify generation.</li>
+<li><strong>Enhancement</strong>: Return early once an externally-compiled dependency graph is found.</li>
+<li><strong>Enhancement</strong>: Simplify multibinding contributor handling in graph resolution by generating synthetic qualifiers for each of them. This allows them to participate in standard graph resolution.</li>
+<li><strong>Enhancement</strong>: When there are multiple empty <code>@Multibinds</code> errors, report them all at once.</li>
+<li><strong>Enhancement</strong>: Avoid unnecessary <code>StringBuilder</code> allocations.</li>
+<li><strong>Fix</strong>: Don&rsquo;t transform <code>@Provides</code> function&rsquo;s to be private if its visibility is already explicitly defined.</li>
+<li><strong>Fix</strong>: Fix a comparator infinite loop vector.</li>
+<li><strong>Fix</strong>: Fix <code>@ElementsIntoSet</code> multibinding contributions triggering a dependency cycle in some situations.</li>
+<li><strong>Fix</strong>: Fix assertion error for generated multibinding name hint when using both @Multibinds and @ElementsIntoSet for the same multibinding.</li>
+<li><strong>Fix</strong>: Fix contributed graph extensions not inheriting empty declared multibindings.</li>
+<li><strong>Fix</strong>: Ensure we report the <code>@Multibinds</code> declaration location in errors if one is available.</li>
+<li><strong>Fix</strong>: Dedupe overrides by all parameters not just value parameters.</li>
+<li><strong>Fix</strong>: Dedupe overrides by signature rather than name when generating contributed graphs.</li>
+<li><strong>Fix</strong>: Fix accidentally adding contributed graphs as child elements of parent graphs twice.</li>
+<li><strong>Fix</strong>: Fix not deep copying <code>extensionReceiverParameter</code> when implementing fake overrides in contributed graphs.</li>
+<li><strong>Fix</strong>: Report fully qualified qualifier renderings in diagnostics.</li>
+<li><strong>Fix</strong>: Don&rsquo;t generate provider fields for multibinding elements unnecessarily.</li>
+<li>When debug logging + reports dir is enabled, output a <code>logTrace.txt</code> to the reports dir for tracing data.</li>
+<li>Update to Kotlin <code>2.1.21</code>.</li>
+</ul>
+<p>Special thanks to <a href="https://github.com/asapha">@asapha</a>, <a href="https://github.com/gabrielittner">@gabrielittner</a>, <a href="https://github.com/jzbrooks">@jzbrooks</a>, and <a href="https://github.com/JoelWilcox">@JoelWilcox</a> for contributing to this release!</p>
 <h2 id="030">0.3.0<a class="headerlink" href="#030" title="Permanent link">&para;</a></h2>
 <p><em>2025-05-05</em></p>
 <ul>

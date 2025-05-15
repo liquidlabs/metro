@@ -1404,6 +1404,10 @@ interface AppGraph
 <h2 id="implementation-notes">Implementation Notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
 <p>Dependency graph code gen is designed to largely match how Dagger components are generated.</p>
 <ul>
+<li>Internal graph validation uses <a href="https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm">Tarjan&rsquo;s algorithm</a> + <a href="https://en.wikipedia.org/wiki/Topological_sorting">topological sort</a> implementation.</li>
+<li>This runs in O(V+E) time</li>
+<li>The returned ordered list of bindings can be used to determine provider field generation order.</li>
+<li>Any binding whose order depends on one later in the returned order implicitly requires use of <code>DelegateFactory</code>.</li>
 <li>Dependencies are traversed from public accessors and <code>inject()</code> functions.</li>
 <li>Metro generates Provider Factory classes for each provider. These should be generated at the same time that the provider is compiled so that their factory classes. This is for two primary purposes:<ul>
 <li>They can be reused to avoid code duplication</li>
@@ -1416,7 +1420,7 @@ interface AppGraph
 <li><code>@Provides</code> factory parameters are stored in a field backed by <code>InstanceFactory</code>.</li>
 <li>Multibindings create new collection instances every time.</li>
 <li>Multibinding providers are not accessible as standalone bindings.</li>
-<li>Graph extensions are implemented via combination of things<ul>
+<li>Graph extensions are implemented via a combination of things<ul>
 <li>Custom <code>MetroMetadata</code> is generated and serialized into Kotlin&rsquo;s <code>Metadata</code> annotations.</li>
 <li>Extendable parent graphs opt-in to generating this metadata. They write information about their available provider and instance fields, binds callable IDs, parent graphs, and provides callable IDs.</li>
 <li>Extendable parent graphs generate <code>_metroAccessor</code>-suffixed <code>internal</code> functions that expose instance fields and provider fields.</li>
