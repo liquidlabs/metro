@@ -778,7 +778,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/0.x/" class="md-nav__link">
+      <a href="../api/0.x/index.html" class="md-nav__link">
         
   
   
@@ -1102,11 +1102,17 @@
 <li><code>:integration-tests</code> — self-explanatory.</li>
 <li><code>:multi-module-test</code> — A multi-module integration test.</li>
 </ol>
-<p>There is a useful <code>./metrow</code> helper CLI that can perform a few common commands across the various subprojects. Before submitting a PR, it is useful to run the following:</p>
-<ol>
-<li><code>./metrow regen</code> — This regenerates <code>.api</code> files and runs all code formatters.</li>
-<li><code>./metrow check</code> — This runs checks across all included Gradle projects (including samples and the Gradle plugin).</li>
-</ol>
+<p>There is a useful <code>./metrow</code> helper CLI that can perform a few common commands across the various subprojects.</p>
+<blockquote>
+<p>[!TIP]
+Before submitting a PR, it is useful to run <code>regen</code> and <code>check</code>.</p>
+</blockquote>
+<ul>
+<li><code>./metrow format</code> — Runs all code formatters.</li>
+<li><code>./metrow regen</code> — Regenerates <code>.api</code> files and runs all code formatters.</li>
+<li><code>./metrow check</code> — Runs checks across all included Gradle projects (including samples and the Gradle plugin).</li>
+<li><code>./metrow publish --local --version x.y.z</code> — Publishes to maven local with the specified <code>x.y.z</code> version (replace this with whatever you want, like <code>1.0.0-LOCAL01</code>.)</li>
+</ul>
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
 <p>Tests are spread across a few areas.</p>
 <ul>

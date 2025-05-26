@@ -13,7 +13,7 @@
       
       
       
-        <link rel="prev" href="../api/0.x/">
+        <link rel="prev" href="../samples/">
       
       
         <link rel="next" href="../contributing/">
@@ -780,7 +780,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/0.x/" class="md-nav__link">
+      <a href="../api/0.x/index.html" class="md-nav__link">
         
   
   
@@ -877,6 +877,15 @@
   <a href="#unreleased" class="md-nav__link">
     <span class="md-ellipsis">
       Unreleased
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#033" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.3
     </span>
   </a>
   
@@ -1011,6 +1020,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#033" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.3
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#032" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.2
@@ -1094,6 +1112,18 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="033">0.3.3<a class="headerlink" href="#033" title="Permanent link">&para;</a></h2>
+<p><em>2025-05-26</em></p>
+<ul>
+<li><strong>Enhancement:</strong> Don&rsquo;t unnecessarily wrap <code>Provider</code> graph accessors.</li>
+<li><strong>Enhancement:</strong> Allow multiple contributed graphs to the same parent graph.</li>
+<li><strong>Fix:</strong> Don&rsquo;t unnecessarily recompute bindings for roots when populating graphs.</li>
+<li><strong>Fix:</strong> Better handle generic assisted factory interfaces.</li>
+<li><strong>Fix:</strong> Use fully qualified names when generating hint files to avoid collisions.</li>
+<li><strong>Fix:</strong> Support provides functions with capitalized names.</li>
+<li><strong>Fix:</strong> Prohibit consuming <code>Provider&lt;Lazy&lt;...&gt;&gt;</code> graph accessors.</li>
+<li>[internal] Migrate to new IR <code>parameters</code>/<code>arguments</code>/<code>typeArguments</code> compiler APIs.</li>
+</ul>
 <h2 id="032">0.3.2<a class="headerlink" href="#032" title="Permanent link">&para;</a></h2>
 <p><em>2025-05-15</em></p>
 <ul>
