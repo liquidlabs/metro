@@ -18,6 +18,8 @@ _2025-05-26_
 - **Fix:** Prohibit consuming `Provider<Lazy<...>>` graph accessors.
 - [internal] Migrate to new IR `parameters`/`arguments`/`typeArguments` compiler APIs.
 
+Special thanks to [@gabrielittner](https://github.com/gabrielittner) for contributing to this release!
+
 0.3.2
 -----
 
