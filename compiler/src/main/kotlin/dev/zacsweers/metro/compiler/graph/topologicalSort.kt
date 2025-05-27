@@ -84,7 +84,7 @@ internal fun <T : Comparable<T>> Iterable<T>.buildFullAdjacency(
   val adjacency = TreeMap<T, TreeSet<T>>()
 
   for (key in set) {
-    val listForVertex = adjacency.getOrPut(key, ::TreeSet)
+    val dependencies = adjacency.getOrPut(key, ::TreeSet)
 
     for (targetKey in sourceToTarget(key)) {
       if (targetKey !in set) {
@@ -93,7 +93,7 @@ internal fun <T : Comparable<T>> Iterable<T>.buildFullAdjacency(
         // If we got here, this missing target is allowable (i.e. a default value). Just ignore it
         continue
       }
-      listForVertex += targetKey
+      dependencies += targetKey
     }
   }
 
@@ -103,7 +103,7 @@ internal fun <T : Comparable<T>> Iterable<T>.buildFullAdjacency(
 /**
  * Builds the full adjacency list.
  * * Keeps all edges (strict _and_ deferrable).
- * * Prunes edges whose target isn’t in [bindings], delegating the decision to [onMissing].
+ * * Prunes edges whose target isn't in [bindings], delegating the decision to [onMissing].
  */
 internal fun <TypeKey : Comparable<TypeKey>, Binding> buildFullAdjacency(
   bindings: Map<TypeKey, Binding>,
@@ -156,7 +156,7 @@ internal data class TopoSortResult<T>(val sortedKeys: List<T>, val deferredTypes
  * ```
  *
  * @param fullAdjacency outgoing‑edge map (every vertex key must be present)
- * @param isDeferrable predicate for “edge may break a cycle”
+ * @param isDeferrable predicate for "edge may break a cycle"
  * @param onCycle called with the offending cycle if no deferrable edge
  */
 internal fun <V : Comparable<V>> topologicalSort(
@@ -345,7 +345,7 @@ private fun <V> buildComponentDag(
       // dependent side
       val dependentComp = componentOf.getValue(toVertex)
       if (prereqComp != dependentComp) {
-        // Reverse the arrow so Kahn sees “prereq → dependent”
+        // Reverse the arrow so Kahn sees "prereq → dependent"
         dag.getOrPut(dependentComp, ::mutableSetOf) += prereqComp
       }
     }
@@ -378,7 +378,7 @@ private fun topologicallySortComponentDag(dag: Map<Int, Set<Int>>, componentCoun
    *  └───▶(1)
    * ```
    *
-   * After we process component 0, both 1 and 2 are “ready”. A plain ArrayDeque would enqueue them
+   * After we process component 0, both 1 and 2 are "ready". A plain ArrayDeque would enqueue them
    * in whatever order the [dag]'s keys are, which isn't deterministic.
    *
    * Using a PriorityQueue means we *always* dequeue the lowest id first (1 before 2 in this
