@@ -4,11 +4,18 @@ Changelog
 **Unreleased**
 --------------
 
+0.3.4
+-----
+
+_2025-05-27_
+
 - **Enhancement:** Use a simple numbered (but deterministic) naming for contributed graph classes to avoid long class names.
 - **Enhancement:** Improve graph validation performance by avoiding unnecessary intermediate sorts.
 - **Enhancement:** Move binding validation into graph validation step.
 - **Enhancement:** Avoid unnecessary BFS graph walk in provider field collection.
 - **Fix:** Fix provider field populating missing types that previously seen types dependent on.
+
+Special thanks to [@ChristianKatzmann](https://github.com/ChristianKatzmann) and [@ZacSweers](https://github.com/madisp) for contributing to this release!
 
 0.3.3
 -----
