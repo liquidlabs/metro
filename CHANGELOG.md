@@ -15,7 +15,7 @@ _2025-05-27_
 - **Enhancement:** Avoid unnecessary BFS graph walk in provider field collection.
 - **Fix:** Fix provider field populating missing types that previously seen types dependent on.
 
-Special thanks to [@ChristianKatzmann](https://github.com/ChristianKatzmann) and [@ZacSweers](https://github.com/madisp) for contributing to this release!
+Special thanks to [@ChristianKatzmann](https://github.com/ChristianKatzmann) and [@madisp](https://github.com/madisp) for contributing to this release!
 
 0.3.3
 -----
