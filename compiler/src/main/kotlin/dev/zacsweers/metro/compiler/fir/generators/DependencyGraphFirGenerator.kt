@@ -5,10 +5,8 @@ package dev.zacsweers.metro.compiler.fir.generators
 import dev.zacsweers.metro.compiler.Symbols
 import dev.zacsweers.metro.compiler.asName
 import dev.zacsweers.metro.compiler.fir.Keys
-import dev.zacsweers.metro.compiler.fir.abstractFunctions
 import dev.zacsweers.metro.compiler.fir.buildSimpleAnnotation
 import dev.zacsweers.metro.compiler.fir.constructType
-import dev.zacsweers.metro.compiler.fir.containingFunctionSymbol
 import dev.zacsweers.metro.compiler.fir.copyTypeParametersFrom
 import dev.zacsweers.metro.compiler.fir.hasOrigin
 import dev.zacsweers.metro.compiler.fir.isDependencyGraph
@@ -22,8 +20,8 @@ import dev.zacsweers.metro.compiler.fir.requireContainingClassSymbol
 import dev.zacsweers.metro.compiler.mapToArray
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.containingClassLookupTag
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
+import org.jetbrains.kotlin.fir.declarations.utils.isAbstract
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
 import org.jetbrains.kotlin.fir.declarations.utils.isInterface
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
@@ -37,21 +35,16 @@ import org.jetbrains.kotlin.fir.plugin.createConstructor
 import org.jetbrains.kotlin.fir.plugin.createDefaultPrivateConstructor
 import org.jetbrains.kotlin.fir.plugin.createMemberFunction
 import org.jetbrains.kotlin.fir.plugin.createNestedClass
-import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
-import org.jetbrains.kotlin.fir.resolve.toSymbol
+import org.jetbrains.kotlin.fir.resolve.ScopeSession
+import org.jetbrains.kotlin.fir.scopes.collectAllFunctions
+import org.jetbrains.kotlin.fir.scopes.collectAllProperties
 import org.jetbrains.kotlin.fir.scopes.impl.toConeType
+import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
-import org.jetbrains.kotlin.fir.types.ConeClassLikeType
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
-import org.jetbrains.kotlin.fir.types.ConeKotlinTypeProjection
-import org.jetbrains.kotlin.fir.types.ConeStarProjection
-import org.jetbrains.kotlin.fir.types.ConeTypeParameterType
 import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
@@ -333,7 +326,7 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
           graphObject(context.owner.requireContainingClassSymbol())
             ?.findCreator(session, "generateConstructors for ${context.owner.classId}", ::log)
         log("Generating graph has creator? $creator")
-        val samFunction = creator?.findSamFunction(session)
+        val samFunction = creator?.classSymbol?.findSamFunction(session)
         createConstructor(
             context.owner,
             Keys.Default,
@@ -344,19 +337,10 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
               log("Generating graph SAM - ${samFunction?.callableId}")
               samFunction?.valueParameterSymbols?.forEach { valueParameterSymbol ->
                 log("Generating SAM param ${valueParameterSymbol.name}")
-                val paramType =
-                  if (valueParameterSymbol.resolvedReturnType is ConeTypeParameterType) {
-                    valueParameterSymbol.materializeTypeParameterType(
-                      typeOwner = creator.classSymbol,
-                      session = session,
-                    )
-                  } else {
-                    valueParameterSymbol.resolvedReturnType
-                  }
                 valueParameter(
                   name = valueParameterSymbol.name,
                   key = Keys.RegularParameter,
-                  type = paramType,
+                  type = valueParameterSymbol.resolvedReturnType,
                 )
               }
             }
@@ -395,16 +379,7 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
             owner,
             Keys.MetroGraphCreatorsObjectInvokeDeclaration,
             function.name,
-            returnTypeProvider = {
-              try {
-                // TODO would be nice to resolve this appropriately with the correct type arguments,
-                //  but for now we always know this returns the graph type. FIR checker will check
-                //  this too
-                target.constructType(it.mapToArray(FirTypeParameter::toConeType))
-              } catch (e: Exception) {
-                throw AssertionError("Could not resolve return type for $callableId", e)
-              }
-            },
+            returnType = function.resolvedReturnType,
           ) {
             status {
               isOverride = !owner.isCompanion
@@ -413,23 +388,11 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
             log("Generating ${function.valueParameterSymbols.size} parameters?")
             for (parameter in function.valueParameterSymbols) {
               log("Generating parameter ${parameter.name}")
-              val paramType =
-                if (parameter.resolvedReturnType is ConeTypeParameterType) {
-                  val creator =
-                    graphObject(context.owner.requireContainingClassSymbol())
-                      ?.findCreator(
-                        session,
-                        "generateConstructors for ${context.owner.classId}",
-                        ::log,
-                      )
-                  parameter.materializeTypeParameterType(
-                    typeOwner = creator?.classSymbol,
-                    session = session,
-                  )
-                } else {
-                  parameter.resolvedReturnType
-                }
-              valueParameter(name = parameter.name, key = Keys.RegularParameter, type = paramType)
+              valueParameter(
+                name = parameter.name,
+                key = Keys.RegularParameter,
+                type = parameter.resolvedReturnType,
+              )
             }
           }
           .apply {
@@ -484,7 +447,7 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
           functions += generatedFunction.symbol
         } else if (creator.isInterface) {
           // It's an interface creator, generate the SAM function
-          val samFunction = creator.findSamFunction(session)
+          val samFunction = creator.classSymbol.findSamFunction(session)
           log("Generating graph creator function $samFunction")
           samFunction?.let { functions += generateSAMFunction(graphObject.classSymbol, it) }
         } else {
@@ -509,7 +472,7 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
       val graphObject = graphObject(graphClass)!!
       val creator =
         graphObject.findCreator(session, "generateFunctions ${context.owner.classId}", ::log)!!
-      val samFunction = creator.findSamFunction(session)
+      val samFunction = creator.classSymbol.findSamFunction(session)
       samFunction?.let { functions += generateSAMFunction(graphObject.classSymbol, it) }
     }
 
@@ -556,51 +519,6 @@ internal class DependencyGraphFirGenerator(session: FirSession) :
     value class Creator(val classSymbol: FirClassSymbol<*>) {
       val isInterface
         get() = classSymbol.isInterface
-
-      fun findSamFunction(session: FirSession): FirFunctionSymbol<*>? {
-        return classSymbol.abstractFunctions(session).let {
-          if (it.size == 1) {
-            it[0]
-          } else {
-            // This is an invalid factory, let the checker notify this diagnostic layer
-            null
-          }
-        }
-      }
     }
   }
-}
-
-private fun FirValueParameterSymbol.materializeTypeParameterType(
-  typeOwner: FirClassSymbol<*>?,
-  session: FirSession,
-): ConeKotlinType {
-  val originalSamFunctionOwner =
-    containingFunctionSymbol?.containingClassLookupTag()?.toSymbol(session)
-      as? FirRegularClassSymbol
-
-  // Find the specific superType reference from creator to originalSamFunctionOwner
-  val superTypeRefToSamOwner =
-    typeOwner?.resolvedSuperTypes?.find { superType ->
-      (superType as? ConeClassLikeType)?.lookupTag == originalSamFunctionOwner?.toLookupTag()
-    } as? ConeClassLikeType
-
-  if (typeOwner == null || originalSamFunctionOwner == null || superTypeRefToSamOwner == null) {
-    return resolvedReturnType
-  }
-
-  val substitutionMap =
-    originalSamFunctionOwner.typeParameterSymbols
-      .zip(superTypeRefToSamOwner.typeArguments)
-      .associate { (typeParamSymbol, typeProjection) ->
-        val actualType =
-          when (typeProjection) {
-            is ConeKotlinTypeProjection -> typeProjection.type
-            is ConeStarProjection -> session.builtinTypes.nullableAnyType.coneType
-          }
-        typeParamSymbol to actualType
-      }
-
-  val substitutor = substitutorByMap(substitutionMap, session)
-  return substitutor.substituteOrSelf(resolvedReturnType)
 }
