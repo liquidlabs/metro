@@ -4,6 +4,8 @@ Changelog
 **Unreleased**
 --------------
 
+- **Fix:** In the presence of multiple contributing annotations to the same scope, ensure only hint function/file is generated.
+
 0.3.4
 -----
 
