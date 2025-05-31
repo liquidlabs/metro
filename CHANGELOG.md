@@ -9,6 +9,7 @@ Changelog
 - **Fix:** Support generic graph factory interfaces.
 - **Fix:** In the presence of multiple contributing annotations to the same scope, ensure only hint function/file is generated.
 - **Fix:** Improve shading to avoid packaging in stdlib and other dependency classes.
+- **Fix:** Revert [#483](https://github.com/ZacSweers/metro/pull/483) as it broke some cases we haven't been able to debug yet.
 
 0.3.4
 -----
