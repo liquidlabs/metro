@@ -4,6 +4,11 @@ Changelog
 **Unreleased**
 --------------
 
+0.3.5
+-----
+
+_2025-05-31_
+
 - **New:** Implement top-level function injection checkers.
 - **Change:** Disallow top-level function injections to be scoped.
 - **Fix:** Support type parameters with `where` bounds.
