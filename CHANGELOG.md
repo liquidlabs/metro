@@ -18,6 +18,8 @@ _2025-05-31_
 - **Fix:** Improve shading to avoid packaging in stdlib and other dependency classes.
 - **Fix:** Revert [#483](https://github.com/ZacSweers/metro/pull/483) as it broke some cases we haven't been able to debug yet.
 
+Special thanks to [@gabrielittner](https://github.com/gabrielittner) and [@kevinguitar](https://github.com/kevinguitar) for contributing to this release!
+
 0.3.4
 -----
 
