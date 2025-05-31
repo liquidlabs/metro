@@ -883,6 +883,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#035" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.5
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#034" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.4
@@ -1029,6 +1038,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#035" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.5
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#034" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.4
@@ -1130,6 +1148,18 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="035">0.3.5<a class="headerlink" href="#035" title="Permanent link">&para;</a></h2>
+<p><em>2025-05-31</em></p>
+<ul>
+<li><strong>New:</strong> Implement top-level function injection checkers.</li>
+<li><strong>Change:</strong> Disallow top-level function injections to be scoped.</li>
+<li><strong>Fix:</strong> Support type parameters with <code>where</code> bounds.</li>
+<li><strong>Fix:</strong> Support injected class type parameters with any bounds.</li>
+<li><strong>Fix:</strong> Support generic graph factory interfaces.</li>
+<li><strong>Fix:</strong> In the presence of multiple contributing annotations to the same scope, ensure only hint function/file is generated.</li>
+<li><strong>Fix:</strong> Improve shading to avoid packaging in stdlib and other dependency classes.</li>
+<li><strong>Fix:</strong> Revert <a href="https://github.com/ZacSweers/metro/pull/483">#483</a> as it broke some cases we haven&rsquo;t been able to debug yet.</li>
+</ul>
 <h2 id="034">0.3.4<a class="headerlink" href="#034" title="Permanent link">&para;</a></h2>
 <p><em>2025-05-27</em></p>
 <ul>
