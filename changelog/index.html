@@ -883,6 +883,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#036" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.6
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#035" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.5
@@ -1038,6 +1047,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#036" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.6
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#035" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.5
@@ -1148,6 +1166,19 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="036">0.3.6<a class="headerlink" href="#036" title="Permanent link">&para;</a></h2>
+<p><em>2025-06-06</em></p>
+<ul>
+<li><strong>New:</strong> Add new <code>Provider.map</code>, <code>Provider.flatMap</code>, <code>Provider.zip</code>, and <code>Provider.memoize</code> utility APIs.</li>
+<li><strong>Enhancement:</strong> Improve graph validation performance by avoiding unnecessary intermediate sorts (again).</li>
+<li><strong>Enhancement:</strong> Fail eagerly with a clear error message if <code>languageVersion</code> is too old.</li>
+<li><strong>Enhancement:</strong> Validate improperly depending on assisted-injected classes directly at compile-time.</li>
+<li><strong>Fix:</strong> Support constructing nested function return types for provider functions.</li>
+<li><strong>Fix:</strong> Propagate <code>@Include</code> bindings from parent graphs to extension graphs.</li>
+<li><strong>Fix:</strong> Reparent copied lambda default values in IR.</li>
+<li>[internal] Make internal renderings of <code>IrType</code> more deterministic.</li>
+</ul>
+<p>Special thanks to <a href="https://github.com/kevinguitar">@kevinguitar</a> for contributing to this release!</p>
 <h2 id="035">0.3.5<a class="headerlink" href="#035" title="Permanent link">&para;</a></h2>
 <p><em>2025-05-31</em></p>
 <ul>
