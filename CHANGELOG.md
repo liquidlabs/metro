@@ -4,11 +4,20 @@ Changelog
 **Unreleased**
 --------------
 
+0.3.8
+-----
+
+_2025-06-16_
+
 - **Enhancement:** Disambiguate `MetroContribution` class names based on scope to better support IC when changing scopes.
 - **Enhancement:** Minimize deferred types when breaking cycles.
 - **Fix:** Disallow injection of `Lazy<T>` where `T` is an `@AssistedFactory`-annotated class.
 - **Fix:** Don't short-circuit assisted injection validation if only an accessor exists.
 - **Fix:** Allow cycles of assisted factories to their target classes.
+- Update shaded okio to `3.13.0`.
+- Update atomicfu to `0.28.0`.
+
+Special thanks to [@kevinguitar](https://github.com/kevinguitar), [@bnorm](https://github.com/bnorm), and [@JoelWilcox](https://github.com/JoelWilcox) for contributing to this release!
 
 0.3.7
 -----
