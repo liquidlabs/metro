@@ -23,7 +23,6 @@ import dev.zacsweers.metro.compiler.metroAnnotations
 import dev.zacsweers.metro.compiler.render
 import dev.zacsweers.metro.compiler.unsafeLazy
 import java.util.TreeSet
-import kotlin.collections.firstOrNull
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
@@ -342,6 +341,8 @@ internal sealed interface Binding : BaseBinding<IrType, IrTypeKey, IrContextualT
     override val reportableLocation: CompilerMessageSourceLocation?
       get() = type.locationOrNull()
 
+    override val isImplicitlyDeferrable: Boolean = true
+
     override fun withMapKey(mapKey: IrAnnotation?): Assisted {
       if (mapKey == null) return this
       return Assisted(
@@ -568,7 +569,10 @@ internal fun IrMetroContext.injectedClassBindingOrNull(
     return setOf(classBinding)
   } else if (classAnnotations.isAssistedFactory) {
     val function = irClass.singleAbstractFunction(metroContext)
-    val targetContextualTypeKey = IrContextualTypeKey.from(metroContext, function)
+    // Mark as wrapped for convenience in graph resolution to note that this whole node is
+    // inherently deferrable
+    val targetContextualTypeKey =
+      IrContextualTypeKey.from(metroContext, function, wrapInProvider = true)
     setOf(
       Assisted(
         type = irClass,
