@@ -905,6 +905,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#038" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.8
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#037" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.7
@@ -1078,6 +1087,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#038" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.3.8
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#037" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.7
@@ -1206,6 +1224,18 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="038">0.3.8<a class="headerlink" href="#038" title="Permanent link">&para;</a></h2>
+<p><em>2025-06-16</em></p>
+<ul>
+<li><strong>Enhancement:</strong> Disambiguate <code>MetroContribution</code> class names based on scope to better support IC when changing scopes.</li>
+<li><strong>Enhancement:</strong> Minimize deferred types when breaking cycles.</li>
+<li><strong>Fix:</strong> Disallow injection of <code>Lazy&lt;T&gt;</code> where <code>T</code> is an <code>@AssistedFactory</code>-annotated class.</li>
+<li><strong>Fix:</strong> Don&rsquo;t short-circuit assisted injection validation if only an accessor exists.</li>
+<li><strong>Fix:</strong> Allow cycles of assisted factories to their target classes.</li>
+<li>Update shaded okio to <code>3.13.0</code>.</li>
+<li>Update atomicfu to <code>0.28.0</code>.</li>
+</ul>
+<p>Special thanks to <a href="https://github.com/kevinguitar">@kevinguitar</a>, <a href="https://github.com/bnorm">@bnorm</a>, and <a href="https://github.com/JoelWilcox">@JoelWilcox</a> for contributing to this release!</p>
 <h2 id="037">0.3.7<a class="headerlink" href="#037" title="Permanent link">&para;</a></h2>
 <p><em>2025-06-08</em></p>
 <ul>
