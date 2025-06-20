@@ -118,8 +118,13 @@ internal fun <TypeKey : Comparable<TypeKey>, Binding> buildFullAdjacency(
 /**
  * @param sortedKeys Topologically sorted list of keys.
  * @param deferredTypes Vertices that sit inside breakable cycles.
+ * @param reachableKeys Vertices that were deemed reachable by any input roots.
  */
-internal data class TopoSortResult<T>(val sortedKeys: List<T>, val deferredTypes: List<T>)
+internal data class TopoSortResult<T>(
+  val sortedKeys: List<T>,
+  val deferredTypes: List<T>,
+  val reachableKeys: Set<T>,
+)
 
 /**
  * Returns the vertices in a valid topological order. Every edge in [fullAdjacency] is respected;
@@ -157,11 +162,14 @@ internal data class TopoSortResult<T>(val sortedKeys: List<T>, val deferredTypes
  * @param fullAdjacency outgoing‑edge map (every vertex key must be present)
  * @param isDeferrable predicate for "edge may break a cycle"
  * @param onCycle called with the offending cycle if no deferrable edge
+ * @param roots optional set of source roots for computing reachability. If null, all keys will be
+ *   kept.
  */
 internal fun <V : Comparable<V>> topologicalSort(
   fullAdjacency: SortedMap<V, SortedSet<V>>,
   isDeferrable: (from: V, to: V) -> Boolean,
   onCycle: (List<V>) -> Nothing,
+  roots: SortedSet<V>? = null,
   parentTracer: Tracer = Tracer.NONE,
   isImplicitlyDeferrable: (V) -> Boolean = { false },
 ): TopoSortResult<V> {
@@ -169,7 +177,13 @@ internal fun <V : Comparable<V>> topologicalSort(
 
   // Collapse the graph into strongly‑connected components
   val (components, componentOf) =
-    parentTracer.traceNested("Compute SCCs") { fullAdjacency.computeStronglyConnectedComponents() }
+    parentTracer.traceNested("Compute SCCs") {
+      fullAdjacency.computeStronglyConnectedComponents(roots)
+    }
+
+  // Only vertices visited by SCC will be in componentOf
+  // TODO single pass this
+  val reachableKeys = fullAdjacency.filterKeys { it in componentOf }.toSortedMap()
 
   // Check for cycles
   parentTracer.traceNested("Check for cycles") {
@@ -188,7 +202,7 @@ internal fun <V : Comparable<V>> topologicalSort(
       val contributorsToCycle =
         findMinimalDeferralSet(
           vertices = vertices,
-          fullAdjacency = fullAdjacency,
+          fullAdjacency = reachableKeys,
           componentOf = componentOf,
           componentId = component.id,
           isDeferrable = isDeferrable,
@@ -206,7 +220,7 @@ internal fun <V : Comparable<V>> topologicalSort(
 
   val componentDag =
     parentTracer.traceNested("Build component DAG") {
-      buildComponentDag(fullAdjacency, componentOf)
+      buildComponentDag(reachableKeys, componentOf)
     }
   val componentOrder =
     parentTracer.traceNested("Topo sort component DAG") {
@@ -224,6 +238,7 @@ internal fun <V : Comparable<V>> topologicalSort(
     // Expand each component back into its original vertices
     sortedKeys,
     deferredTypes.toList(),
+    reachableKeys.keys,
   )
 }
 
@@ -361,6 +376,11 @@ private fun <V> isAcyclic(adjacency: Map<V, Set<V>>): Boolean {
 
 internal data class Component<V>(val id: Int, val vertices: MutableList<V> = mutableListOf())
 
+internal data class TarjanResult<V : Comparable<V>>(
+  val components: List<Component<V>>,
+  val componentOf: Map<V, Int>,
+)
+
 /**
  * Computes the strongly connected components (SCCs) of a directed graph using Tarjan's algorithm.
  *
@@ -369,6 +389,8 @@ internal data class Component<V>(val id: Int, val vertices: MutableList<V> = mut
  *
  * @param this A map representing the directed graph where the keys are vertices of type [V] and the
  *   values are sets of vertices to which each key vertex has outgoing edges.
+ * @param roots An optional input of source roots to walk from. Defaults to this map's keys. This
+ *   can be useful to only return accessible nodes.
  * @return A pair where the first element is a list of components (each containing an ID and its
  *   associated vertices) and the second element is a map that associates each vertex with the ID of
  *   its component.
@@ -376,8 +398,9 @@ internal data class Component<V>(val id: Int, val vertices: MutableList<V> = mut
  *   href="https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm">Tarjan's
  *   algorithm</a>
  */
-internal fun <V : Comparable<V>> SortedMap<V, SortedSet<V>>.computeStronglyConnectedComponents():
-  Pair<List<Component<V>>, Map<V, Int>> {
+internal fun <V : Comparable<V>> SortedMap<V, SortedSet<V>>.computeStronglyConnectedComponents(
+  roots: SortedSet<V>? = null
+): TarjanResult<V> {
   var nextIndex = 0
   var nextComponentId = 0
 
@@ -435,14 +458,15 @@ internal fun <V : Comparable<V>> SortedMap<V, SortedSet<V>>.computeStronglyConne
     }
   }
 
-  // Sorted for determinism
-  for (v in keys) {
+  val startVertices = roots ?: keys
+
+  for (v in startVertices) {
     if (v !in indexMap) {
       strongConnect(v)
     }
   }
 
-  return components to componentOf
+  return TarjanResult(components, componentOf)
 }
 
 /**
