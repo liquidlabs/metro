@@ -182,6 +182,10 @@ jobs:
       - name: Run benchmarks
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.repository == 'zacsweers/metro'
         run: |
+          # Set up sdkman + gradle-profiler
+          curl -s "https://get.sdkman.io" | bash
+          source "$HOME/.sdkman/bin/sdkman-init.sh"
+          sdk install gradleprofiler 0.22.0
           cd benchmark
           ./run_benchmarks.sh all
 
