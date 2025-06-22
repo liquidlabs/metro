@@ -31,7 +31,6 @@ buildConfig {
 }
 
 // Use a fixed compiler for compiling the Gradle plugin and compiler
-// configuration via project.extra is working since 2.1.0
 project.extra["kotlin.compiler.runViaBuildToolsApi"] = "true"
 
 kotlin {
@@ -40,8 +39,8 @@ kotlin {
   compilerOptions {
     // Lower version for Gradle compat
     progressiveMode.set(false)
-    languageVersion.set(libs.versions.kotlin.forGradlePlugin.map(KotlinVersion::fromVersion))
-    apiVersion.set(libs.versions.kotlin.forGradlePlugin.map(KotlinVersion::fromVersion))
+    languageVersion.set(libs.versions.kotlin.forGradlePlugin.map { it.substringBeforeLast('.') }.map(KotlinVersion::fromVersion))
+    apiVersion.set(libs.versions.kotlin.forGradlePlugin.map { it.substringBeforeLast('.') }.map(KotlinVersion::fromVersion))
   }
 }
 
