@@ -12,6 +12,14 @@ plugins {
 }
 
 kotlin {
+//  @OptIn(ExperimentalBuildToolsApi::class, ExperimentalKotlinGradlePluginApi::class)
+//  compilerVersion.set(
+//    versionCatalogs
+//      .named("libs")
+//      .findVersion("kotlin-for-gradle-plugin")
+//      .get()
+//      .requiredVersion
+//  )
   compilerOptions {
     freeCompilerArgs.add("-Xcontext-parameters")
     optIn.addAll(
