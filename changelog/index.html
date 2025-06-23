@@ -905,6 +905,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#040" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.4.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#038" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.8
@@ -1087,6 +1096,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#040" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.4.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#038" class="md-nav__link">
     <span class="md-ellipsis">
       0.3.8
@@ -1224,6 +1242,36 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="040">0.4.0<a class="headerlink" href="#040" title="Permanent link">&para;</a></h2>
+<p><em>2025-06-23</em></p>
+<ul>
+<li><strong>New:</strong> Injected constructors may now be private. This can be useful for scenarios where you want <code>@Inject</code>-annotated constructors to only be invokable by Metro&rsquo;s generated code.</li>
+<li><strong>New:</strong> If reporting is enabled, write unused bindings diagnostics to <code>keys-unused-*.txt</code>.</li>
+<li><strong>New:</strong> Support for generic assisted injection.</li>
+<li><strong>New:</strong> Support for generic member injection.</li>
+<li><strong>New:</strong> Add diagnostic to prohibit type parameters on injected member functions.</li>
+<li><strong>Enhancement:</strong> Enable child graphs to depend on parent-scoped dependencies that are unused and not referenced in the parent scope. This involves generating hints for scoped <code>@Inject</code> classes and is gated on a new Metro option <code>enableScopedInjectClassHints</code>, which is enabled by default.</li>
+<li><strong>Enhancement:</strong> Check for context parameters in top-level function injection checker.</li>
+<li><strong>Enhancement:</strong> Store member injection info in metro metadata to slightly optimize member injection code gen.</li>
+<li><strong>Enhancement:</strong> Avoid writing providers fields in graphs for unused bindings.</li>
+<li><strong>Enhancement:</strong> Improve missing binding trace originating from root member injectors.</li>
+<li><strong>Fix:</strong> Fix support for generic injected constructor parameters.</li>
+<li><strong>Fix:</strong> Fix support for repeated contributes annotations by moving contribution binding function generation to IR.</li>
+<li><strong>Fix:</strong> Ensure scope/qualifier annotation changes on constructor-injected classes dirty consuming graphs in incremental compilation.</li>
+<li><strong>Fix:</strong> Report member injection dependencies when looking up constructor-injected classes during graph population.</li>
+<li><strong>Fix:</strong> Disable IR hint generation on JS targets too, as these now have the same limitation as native/WASM targets in Kotlin 2.2. Pending upstream support for generating top-level FIR declarations in <a href="https://youtrack.jetbrains.com/issue/KT-75865">KT-75865</a>.</li>
+<li><strong>Fix:</strong> Ensure private provider function annotations are propagated across compilation boundaries.</li>
+<li><strong>Fix:</strong> Substitute copied FIR type parameter symbols with symbols from their target functions.</li>
+<li><strong>Fix:</strong> Improved support for generic member injection.</li>
+<li><strong>Fix:</strong> Propagate qualifiers on graph member injector functions.</li>
+<li><strong>Fix:</strong> Fix support for requesting <code>MembersInjector</code> types.</li>
+<li>[internal] Report IR errors through <code>IrDiagnosticReporter</code>.</li>
+<li>[internal] Significantly refactor + simplify IR parameter handling.</li>
+<li>Fix publishing Apple native targets in snapshots.</li>
+<li>Update to Kotlin <code>2.2.0</code>.</li>
+<li>Update Gradle plugin to target Kotlin language version to <code>1.9</code> (requires Gradle 8.3+).</li>
+</ul>
+<p>Special thanks to <a href="https://github.com/kevinguitar">@kevinguitar</a>, <a href="https://github.com/gabrielittner">@gabrielittner</a>, and <a href="https://github.com/JoelWilcox">@JoelWilcox</a> for contributing to this release!</p>
 <h2 id="038">0.3.8<a class="headerlink" href="#038" title="Permanent link">&para;</a></h2>
 <p><em>2025-06-16</em></p>
 <ul>
