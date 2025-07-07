@@ -15,6 +15,7 @@ Changelog
 - **Fix:** Don't try to read private accessors of `@Includes` parameters.
 - **Fix:** Don't quietly stub accessors for missing `Binding.Provided` bindings.
 - **Fix:** Check constructor-annotated injections when discovering scoped classes in parent graphs.
+- **Fix:** Fix `BaseDoubleCheck.isInitialized()`.
 
 0.4.0
 -----
