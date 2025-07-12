@@ -34,6 +34,7 @@ import dev.zacsweers.metro.compiler.tracing.Tracer
 import dev.zacsweers.metro.compiler.tracing.traceNested
 import dev.zacsweers.metro.compiler.unsafeLazy
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.irBlockBody
 import org.jetbrains.kotlin.ir.builders.irCallConstructor
@@ -51,6 +52,7 @@ import org.jetbrains.kotlin.ir.util.copyTo
 import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import org.jetbrains.kotlin.ir.util.fileOrNull
 import org.jetbrains.kotlin.ir.util.isInterface
+import org.jetbrains.kotlin.ir.util.isLocal
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.nestedClasses
 import org.jetbrains.kotlin.ir.util.primaryConstructor
@@ -90,6 +92,14 @@ internal class DependencyGraphTransformer(
   }
 
   override fun visitClass(declaration: IrClass): IrStatement {
+    val shouldNotProcess =
+      declaration.isLocal ||
+        declaration.kind == ClassKind.ENUM_CLASS ||
+        declaration.kind == ClassKind.ENUM_ENTRY
+    if (shouldNotProcess) {
+      return super.visitClass(declaration)
+    }
+
     log("Reading ${declaration.kotlinFqName}")
 
     // TODO need to better divvy these
@@ -107,11 +117,11 @@ internal class DependencyGraphTransformer(
     membersInjectorTransformer.visitClass(declaration)
     injectConstructorTransformer.visitClass(declaration)
     assistedFactoryTransformer.visitClass(declaration)
-    bindingContainerTransformer.visitClass(declaration)
+    bindingContainerTransformer.findContainer(declaration)
 
     val dependencyGraphAnno =
       declaration.annotationsIn(symbols.dependencyGraphAnnotations).singleOrNull()
-    if (dependencyGraphAnno == null) return super.visitClass(declaration)
+        ?: return super.visitClass(declaration)
 
     val metroGraph =
       if (declaration.origin === Origins.ContributedGraph) {
@@ -260,17 +270,17 @@ internal class DependencyGraphTransformer(
 
       parentTracer.traceNested("Transform metro graph") { tracer ->
         IrGraphGenerator(
-            metroContext,
-            contributionData,
-            dependencyGraphNodeCache::get,
-            node,
-            metroGraph,
-            bindingGraph,
-            result,
-            tracer,
-            bindingContainerTransformer,
-            membersInjectorTransformer,
-            assistedFactoryTransformer,
+            metroContext = metroContext,
+            contributionData = contributionData,
+            dependencyGraphNodesByClass = dependencyGraphNodeCache::get,
+            node = node,
+            graphClass = metroGraph,
+            bindingGraph = bindingGraph,
+            sealResult = result,
+            parentTracer = tracer,
+            bindingContainerTransformer = bindingContainerTransformer,
+            membersInjectorTransformer = membersInjectorTransformer,
+            assistedFactoryTransformer = assistedFactoryTransformer,
           )
           .generate()
       }
@@ -283,7 +293,7 @@ internal class DependencyGraphTransformer(
         node.accessors
           .map { it.first }
           .plus(node.injectors.map { it.first })
-          .plus(node.bindsFunctions.map { it.first })
+          .plus(node.bindsCallables.map { it.function })
           .plus(node.contributedGraphs.map { it.value })
           .forEach { function ->
             with(function.ir) {
@@ -294,7 +304,7 @@ internal class DependencyGraphTransformer(
                 )
                 body =
                   if (returnType != pluginContext.irBuiltIns.unitType) {
-                    stubExpressionBody()
+                    stubExpressionBody("Graph transform failed")
                   } else {
                     pluginContext.createIrBuilder(symbol).run {
                       irBlockBody { +irReturn(irGetObject(pluginContext.irBuiltIns.unitClass)) }

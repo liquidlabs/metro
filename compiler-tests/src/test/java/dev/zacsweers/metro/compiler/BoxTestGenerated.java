@@ -124,6 +124,12 @@ public class BoxTestGenerated extends AbstractBoxTest {
     }
 
     @Test
+    @TestMetadata("SimpleBindingIntoMulti.kt")
+    public void testSimpleBindingIntoMulti() {
+      runTest("compiler-tests/src/test/data/box/cycles/SimpleBindingIntoMulti.kt");
+    }
+
+    @Test
     @TestMetadata("SmokeTest.kt")
     public void testSmokeTest() {
       runTest("compiler-tests/src/test/data/box/cycles/SmokeTest.kt");
@@ -164,6 +170,12 @@ public class BoxTestGenerated extends AbstractBoxTest {
     }
 
     @Test
+    @TestMetadata("MultipleBindsInSeparateGraphsAreValid.kt")
+    public void testMultipleBindsInSeparateGraphsAreValid() {
+      runTest("compiler-tests/src/test/data/box/dependencygraph/MultipleBindsInSeparateGraphsAreValid.kt");
+    }
+
+    @Test
     @TestMetadata("OverrideCompatibleBindingAccessors.kt")
     public void testOverrideCompatibleBindingAccessors() {
       runTest("compiler-tests/src/test/data/box/dependencygraph/OverrideCompatibleBindingAccessors.kt");
@@ -185,9 +197,37 @@ public class BoxTestGenerated extends AbstractBoxTest {
       }
 
       @Test
-      @TestMetadata("SimpleBindingContainer.kt")
-      public void testSimpleBindingContainer() {
-        runTest("compiler-tests/src/test/data/box/dependencygraph/bindingcontainers/SimpleBindingContainer.kt");
+      @TestMetadata("BindingContainerViaAnnotation.kt")
+      public void testBindingContainerViaAnnotation() {
+        runTest("compiler-tests/src/test/data/box/dependencygraph/bindingcontainers/BindingContainerViaAnnotation.kt");
+      }
+
+      @Test
+      @TestMetadata("BindingContainerViaAnnotationTransitive.kt")
+      public void testBindingContainerViaAnnotationTransitive() {
+        runTest("compiler-tests/src/test/data/box/dependencygraph/bindingcontainers/BindingContainerViaAnnotationTransitive.kt");
+      }
+
+      @Test
+      @TestMetadata("BindingContainerViaCreator.kt")
+      public void testBindingContainerViaCreator() {
+        runTest("compiler-tests/src/test/data/box/dependencygraph/bindingcontainers/BindingContainerViaCreator.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler-tests/src/test/data/box/dependencygraph/extensions")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Extensions {
+      @Test
+      public void testAllFilesPresentInExtensions() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler-tests/src/test/data/box/dependencygraph/extensions"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+      }
+
+      @Test
+      @TestMetadata("ParentBindingsAreAlsoIncluded.kt")
+      public void testParentBindingsAreAlsoIncluded() {
+        runTest("compiler-tests/src/test/data/box/dependencygraph/extensions/ParentBindingsAreAlsoIncluded.kt");
       }
     }
   }

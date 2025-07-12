@@ -7,6 +7,7 @@ import dev.zacsweers.metro.compiler.MetroLogger
 import dev.zacsweers.metro.compiler.Symbols
 import dev.zacsweers.metro.compiler.asName
 import dev.zacsweers.metro.compiler.expectAs
+import dev.zacsweers.metro.compiler.flatMapToSet
 import dev.zacsweers.metro.compiler.ir.parameters.Parameters
 import dev.zacsweers.metro.compiler.ir.parameters.parameters
 import dev.zacsweers.metro.compiler.ir.transformers.InjectConstructorTransformer
@@ -137,38 +138,37 @@ internal class BindingGraphGenerator(
 
     // Add aliases ("@Binds")
     val bindsFunctionsToAdd = buildList {
-      addAll(node.bindsFunctions)
+      addAll(node.bindsCallables)
       // Exclude scoped Binds, those will be exposed via provider field accessor
-      addAll(node.allExtendedNodes.values.filter { it.isExtendable }.flatMap { it.bindsFunctions })
+      addAll(
+        node.allExtendedNodes.values.filter { it.isExtendable }.flatMapToSet { it.bindsCallables }
+      )
     }
-    bindsFunctionsToAdd.forEach { (bindingCallable, initialContextKey) ->
-      val annotations = bindingCallable.annotations
-      val parameters = bindingCallable.ir.parameters(metroContext)
-      // TODO what about T -> T but into multibinding
+    bindsFunctionsToAdd.forEach { bindingCallable ->
+      val annotations = bindingCallable.function.annotations
+      val parameters = bindingCallable.function.ir.parameters(metroContext)
       val bindsImplType =
         if (annotations.isBinds) {
           parameters.extensionOrFirstParameter?.contextualTypeKey
             ?: error(
-              "Missing receiver parameter for @Binds function: ${bindingCallable.ir.dumpKotlinLike()} in class ${bindingCallable.ir.parentAsClass.classId}"
+              "Missing receiver parameter for @Binds function: ${bindingCallable.function.ir.dumpKotlinLike()} in class ${bindingCallable.function.ir.parentAsClass.classId}"
             )
         } else {
           null
         }
 
-      val contextKey =
+      val targetTypeKey =
         if (annotations.isIntoMultibinding) {
-          IrContextualTypeKey.create(
-            initialContextKey.typeKey.transformMultiboundQualifier(metroContext, annotations)
-          )
+          bindingCallable.target.transformMultiboundQualifier(metroContext, annotations)
         } else {
-          initialContextKey
+          bindingCallable.target
         }
 
       val binding =
         Binding.Alias(
-          contextKey.typeKey,
+          targetTypeKey,
           bindsImplType!!.typeKey,
-          bindingCallable.ir,
+          bindingCallable.function.ir,
           parameters,
           annotations,
         )
@@ -176,12 +176,12 @@ internal class BindingGraphGenerator(
       if (annotations.isIntoMultibinding) {
         graph
           .getOrCreateMultibinding(
-            pluginContext,
-            annotations,
-            contextKey,
-            bindingCallable.ir,
-            annotations.qualifier,
-            bindingStack,
+            pluginContext = pluginContext,
+            annotations = annotations,
+            contextKey = IrContextualTypeKey.create(targetTypeKey),
+            declaration = bindingCallable.function.ir,
+            originalQualifier = annotations.qualifier,
+            bindingStack = bindingStack,
           )
           .sourceBindings
           .add(binding.typeKey)
@@ -207,6 +207,15 @@ internal class BindingGraphGenerator(
           bindingStack,
         )
       }
+    }
+
+    node.bindingContainers.forEach {
+      val typeKey = IrTypeKey(it)
+      graph.addBinding(
+        typeKey,
+        Binding.BoundInstance(typeKey, it.name.asString(), it),
+        bindingStack,
+      )
     }
 
     // Traverse all parent graph supertypes to create binding aliases as needed
@@ -337,7 +346,7 @@ internal class BindingGraphGenerator(
       }
     }
 
-    node.allExtendedNodes.forEach { (_, depNode) ->
+    node.allExtendedNodes.values.forEach { depNode ->
       if (depNode.isExtendable) {
         depNode.proto?.let { proto ->
           val providerFieldAccessorsByName = mutableMapOf<Name, MetroSimpleFunction>()

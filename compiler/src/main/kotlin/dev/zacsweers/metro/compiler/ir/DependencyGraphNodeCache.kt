@@ -5,20 +5,19 @@ package dev.zacsweers.metro.compiler.ir
 import dev.zacsweers.metro.compiler.Origins
 import dev.zacsweers.metro.compiler.PLUGIN_ID
 import dev.zacsweers.metro.compiler.Symbols
-import dev.zacsweers.metro.compiler.asName
 import dev.zacsweers.metro.compiler.exitProcessing
 import dev.zacsweers.metro.compiler.expectAs
 import dev.zacsweers.metro.compiler.ir.parameters.parameters
 import dev.zacsweers.metro.compiler.ir.parameters.wrapInMembersInjector
+import dev.zacsweers.metro.compiler.ir.transformers.BindingContainer
 import dev.zacsweers.metro.compiler.ir.transformers.BindingContainerTransformer
+import dev.zacsweers.metro.compiler.ir.transformers.BindsCallable
+import dev.zacsweers.metro.compiler.mapNotNullToSet
 import dev.zacsweers.metro.compiler.memoized
 import dev.zacsweers.metro.compiler.proto.DependencyGraphProto
 import dev.zacsweers.metro.compiler.proto.MetroMetadata
 import dev.zacsweers.metro.compiler.tracing.Tracer
 import dev.zacsweers.metro.compiler.tracing.traceNested
-import kotlin.collections.plus
-import kotlin.collections.plusAssign
-import kotlin.collections.set
 import org.jetbrains.kotlin.ir.builders.irCall
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFunction
@@ -34,13 +33,11 @@ import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.classIdOrFail
-import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import org.jetbrains.kotlin.ir.util.getValueArgument
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.nestedClasses
 import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.ir.util.primaryConstructor
-import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 
 internal class DependencyGraphNodeCache(
@@ -91,6 +88,7 @@ internal class DependencyGraphNodeCache(
       nodeCache.bindingContainerTransformer
     private val accessors = mutableListOf<Pair<MetroSimpleFunction, IrContextualTypeKey>>()
     private val bindsFunctions = mutableListOf<Pair<MetroSimpleFunction, IrContextualTypeKey>>()
+    private val bindsCallables = mutableSetOf<BindsCallable>()
     private val scopes = mutableSetOf<IrAnnotation>()
     private val providerFactories = mutableListOf<Pair<IrTypeKey, ProviderFactory>>()
     private val extendedGraphNodes = mutableMapOf<IrTypeKey, DependencyGraphNode>()
@@ -173,6 +171,7 @@ internal class DependencyGraphNodeCache(
         val type = it.typeKey.type.rawType()
 
         checkGraphSelfCycle(graphDeclaration, graphTypeKey, bindingStack)
+
         val node =
           bindingStack.withEntry(
             IrBindingStack.Entry.requestedAt(graphContextKey, creator!!.function)
@@ -192,7 +191,7 @@ internal class DependencyGraphNodeCache(
           if (isBindingContainer) {
             providerFactories += node.providerFactories
             // Add any binds
-            bindsFunctions += node.bindsFunctions
+            bindsCallables += node.bindsCallables
           }
         }
       }
@@ -335,6 +334,7 @@ internal class DependencyGraphNodeCache(
       val declaredScopes = computeDeclaredScopes()
       scopes += declaredScopes
 
+      val bindingContainers = mutableSetOf<BindingContainer>()
       for ((i, type) in supertypes.withIndex()) {
         val clazz = type.classOrFail.owner
 
@@ -343,7 +343,7 @@ internal class DependencyGraphNodeCache(
           scopes += clazz.scopeAnnotations()
         }
 
-        providerFactories += bindingContainerTransformer.factoryClassesFor(clazz)
+        bindingContainerTransformer.findContainer(clazz)?.let(bindingContainers::add)
       }
 
       if (isExtendable) {
@@ -364,6 +364,25 @@ internal class DependencyGraphNodeCache(
 
       val creator = buildCreator()
 
+      val managedBindingContainers = mutableSetOf<IrClass>()
+      bindingContainers +=
+        dependencyGraphAnno
+          ?.bindingContainerClasses()
+          .orEmpty()
+          .mapNotNullToSet { it.classType.rawTypeOrNull() }
+          .let(bindingContainerTransformer::resolveAllBindingContainersCached)
+          .onEach { container ->
+            // Annotation-included containers may need to be managed directly
+            if (container.canBeManaged) {
+              managedBindingContainers += container.ir
+            }
+          }
+
+      for (container in bindingContainers) {
+        providerFactories += container.providerFactories.values.map { it.typeKey to it }
+        bindsCallables += container.bindsCallables
+      }
+
       val dependencyGraphNode =
         DependencyGraphNode(
           sourceGraph = graphDeclaration,
@@ -372,13 +391,15 @@ internal class DependencyGraphNodeCache(
           includedGraphNodes = includedGraphNodes,
           contributedGraphs = contributedGraphs,
           scopes = scopes,
-          bindsFunctions = bindsFunctions,
+          bindsCallables = bindsCallables,
+          bindsFunctions = bindsFunctions.map { it.first },
           providerFactories = providerFactories,
           accessors = accessors,
           injectors = injectors,
           isExternal = false,
           creator = creator,
           extendedGraphNodes = extendedGraphNodes,
+          bindingContainers = managedBindingContainers,
           typeKey = graphTypeKey,
         )
 
@@ -515,50 +536,14 @@ internal class DependencyGraphNodeCache(
             exitProcessing()
           }
 
-          // Add any provider factories
-          providerFactories +=
-            graphProto.provider_factory_classes
-              .map { classId ->
-                val clazz = pluginContext.referenceClass(ClassId.fromString(classId))!!.owner
-                bindingContainerTransformer.externalProviderFactoryFor(clazz)
-              }
-              .map { it.typeKey to it }
+          bindingContainerTransformer
+            .findContainer(graphDeclaration, graphProto = graphProto)
+            ?.let { bindingContainer ->
+              providerFactories +=
+                bindingContainer.providerFactories.values.map { it.typeKey to it }
 
-          // Add any binds functions
-          bindsFunctions.addAll(
-            graphProto.binds_callable_ids.map { bindsCallableId ->
-              val classId = ClassId.fromString(bindsCallableId.class_id)
-              val callableId = CallableId(classId, bindsCallableId.callable_name.asName())
-
-              val function =
-                if (bindsCallableId.is_property) {
-                  pluginContext.referenceProperties(callableId).singleOrNull()?.owner?.getter
-                } else {
-                  pluginContext.referenceFunctions(callableId).singleOrNull()?.owner
-                }
-
-              if (function == null) {
-                val message = buildString {
-                  append("No function found for ")
-                  appendLine(callableId)
-                  callableId.classId?.let {
-                    pluginContext.referenceClass(it)?.let {
-                      appendLine("Class dump")
-                      appendLine(it.owner.dumpKotlinLike())
-                    }
-                  }
-                    ?: run {
-                      append("No class found for ")
-                      appendLine(callableId)
-                    }
-                }
-                error(message)
-              }
-
-              val metroFunction = metroFunctionOf(function)
-              metroFunction to IrContextualTypeKey.from(function)
+              bindsCallables += bindingContainer.bindsCallables
             }
-          )
 
           // Read scopes from annotations
           // We copy scope annotations from parents onto this graph if it's extendable so we only
@@ -602,7 +587,7 @@ internal class DependencyGraphNodeCache(
           scopes = scopes,
           providerFactories = providerFactories,
           accessors = accessors,
-          bindsFunctions = bindsFunctions,
+          bindsCallables = bindsCallables,
           isExternal = true,
           proto = graphProto,
           extendedGraphNodes = extendedGraphNodes,
@@ -610,6 +595,9 @@ internal class DependencyGraphNodeCache(
           contributedGraphs = contributedGraphs,
           injectors = injectors,
           creator = null,
+          // External viewers don't look at this
+          bindingContainers = emptySet(),
+          bindsFunctions = emptyList(),
         )
 
       return dependentNode
