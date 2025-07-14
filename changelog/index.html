@@ -905,6 +905,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#050" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.5.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#040" class="md-nav__link">
     <span class="md-ellipsis">
       0.4.0
@@ -1096,6 +1105,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#050" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.5.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#040" class="md-nav__link">
     <span class="md-ellipsis">
       0.4.0
@@ -1242,6 +1260,39 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="050">0.5.0<a class="headerlink" href="#050" title="Permanent link">&para;</a></h2>
+<p><em>2025-07-14</em></p>
+<ul>
+<li><strong>New:</strong> Experimental support for &ldquo;binding containers&rdquo; via <code>@BindingContainer</code>. See <a href="https://zacsweers.github.io/metro/dependency-graphs#binding-containers">their docs</a> for more details.</li>
+<li><strong>New:</strong> Add <code>keys-scopedProviderFields-*.txt</code> and <code>keys-providerFields-*.txt</code> reports to see generated field reports for graphs.</li>
+<li><strong>Enhancement:</strong> Remove <code>Any</code> constraint from <code>binding&lt;T&gt;()</code>, allowing bindings to satisfy nullable variants.</li>
+<li><strong>Enhancement:</strong> Add diagnostic to check for scoped <code>@Binds</code> declarations. These are simple pipes and should not have scope annotations.</li>
+<li><strong>Enhancement:</strong> Move graph dependency cycle checks to earlier in validation.</li>
+<li><strong>Enhancement:</strong> When using Dagger interop, default <code>allowEmpty</code> to true when using Dagger&rsquo;s <code>@Multibinds</code> annotation.</li>
+<li><strong>Enhancement:</strong> Make Dagger interop providers/lazy instances a <code>dagger.internal.Provider</code> internally for better compatibility with Dagger internals. Some dagger-generated code assumes this type at runtime.</li>
+<li><strong>Enhancement:</strong> Support javax/jakarta <code>Provider</code> types as multibinding Map value types when Dagger interop is enabled.</li>
+<li><strong>Enhancement:</strong> Completely skip processing local and enum classes as they&rsquo;re irrelevant to Metro&rsquo;s compiler.</li>
+<li><strong>Enhancement:</strong> When reporting <code>@Binds</code> declarations in binding stacks, report the original declaration rather than inherited fake overrides.</li>
+<li><strong>Enhancement:</strong> Add interop support for kotlin-inject&rsquo;s <code>@AssistedFactory</code> annotations.</li>
+<li><strong>Enhancement:</strong> Add diagnostic to check for graph classes directly extending other graph classes. You should use <code>@Extends</code>.</li>
+<li><strong>Enhancement:</strong> Add diagnostic to check for <code>@Assisted</code> parameters in provides functions.</li>
+<li><strong>Enhancement:</strong> Add diagnostic to check duplicate <code>@Provides</code> declaration names in the same class.</li>
+<li><strong>Fix:</strong> Within (valid) cycles, topographically sort bindings within the cycle. Previously these would fall back to a deterministic-but-wrong alphabetical sort.</li>
+<li><strong>Fix:</strong> Handle enum entry arguments to qualifier, scope, and map key annotations.</li>
+<li><strong>Fix:</strong> Report the original location of declarations in fake overrides in error reporting.</li>
+<li><strong>Fix:</strong> Handle default values on provides parameters with absent bindings during graph population.</li>
+<li><strong>Fix:</strong> Don&rsquo;t try to read private accessors of <code>@Includes</code> parameters.</li>
+<li><strong>Fix:</strong> Don&rsquo;t quietly stub accessors for missing <code>Binding.Provided</code> bindings.</li>
+<li><strong>Fix:</strong> Check constructor-annotated injections when discovering scoped classes in parent graphs.</li>
+<li><strong>Fix:</strong> Fix <code>BaseDoubleCheck.isInitialized()</code>.</li>
+<li><strong>Fix:</strong> Gracefully fall back to <code>MessageCollector</code> for graph seal and contributed graph errors on sourceless declarations.</li>
+<li><strong>Fix:</strong> Fix supporting overloads of binds functions from parent graphs or external supertypes.</li>
+<li><strong>Fix:</strong> Fix generating binding functions with names that contain dashes.</li>
+<li><strong>Fix:</strong> Treat interop&rsquo;d Dagger/Anvil/KI components as implicitly extendable.</li>
+<li><strong>Fix:</strong> Record lookups of <code>@Binds</code> declarations for IC.</li>
+<li><strong>Fix:</strong> Record lookups of generated class factories and their constructor signatures for IC.</li>
+</ul>
+<p>Special thanks to <a href="https://github.com/kevinguitar">@kevinguitar</a>, <a href="https://github.com/gabrielittner">@gabrielittner</a>, <a href="https://github.com/chrisbanes">@chrisbanes</a>, <a href="https://github.com/yschimke">@yschimke</a>, and <a href="https://github.com/ajarl">@ajarl</a> for contributing to this release!</p>
 <h2 id="040">0.4.0<a class="headerlink" href="#040" title="Permanent link">&para;</a></h2>
 <p><em>2025-06-23</em></p>
 <ul>

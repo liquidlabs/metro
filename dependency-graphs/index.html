@@ -600,6 +600,66 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Binding Containers
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Binding Containers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#including-via-includes-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Including via @Includes Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#including-via-dependencygraphbindingcontainers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Including via @DependencyGraph.bindingContainers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chaining-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Chaining Binding Containers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#contributing-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributing Binding Containers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#implementation-notes" class="md-nav__link">
     <span class="md-ellipsis">
       Implementation Notes
@@ -1197,6 +1257,66 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Binding Containers
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Binding Containers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#including-via-includes-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Including via @Includes Parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#including-via-dependencygraphbindingcontainers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Including via @DependencyGraph.bindingContainers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chaining-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Chaining Binding Containers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#contributing-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributing Binding Containers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#implementation-notes" class="md-nav__link">
     <span class="md-ellipsis">
       Implementation Notes
@@ -1305,6 +1425,7 @@
 <p class="admonition-title">Warning</p>
 <p>Includes parameters cannot be injected from the graph.</p>
 </div>
+<p><a href="#binding-containers">Binding Containers</a> are a special type of <code>@Includes</code> type, see more in its section below.</p>
 <h3 id="extends">Extends<a class="headerlink" href="#extends" title="Permanent link">&para;</a></h3>
 <p><code>@Extends</code>-annotated parameters are for extending parent graphs. See <em>Graph Extensions</em> at the bottom of this doc for more information.</p>
 <h3 id="creating-factories">Creating factories<a class="headerlink" href="#creating-factories" title="Permanent link">&para;</a></h3>
@@ -1428,6 +1549,100 @@ interface AppGraph
 <p>Abstract factory classes cannot be used as graph contributions.</p>
 </div>
 <p>Contributed graphs may also be chained, but note that <code>@ContributesGraphExtension.isExtendable</code> must be true to do so!</p>
+<h2 id="binding-containers">Binding Containers<a class="headerlink" href="#binding-containers" title="Permanent link">&para;</a></h2>
+<p>Binding containers are classes or interfaces annotated with <code>@BindingContainer</code> that contain binding declarations (<code>@Provides</code> or <code>@Binds</code>) but are not themselves complete dependency graphs. They&rsquo;re analogous to Dagger&rsquo;s <code>@Module</code> annotation and can be used in cases where defining bindings in an (extended) interface is unwieldy or not helpful.</p>
+<p>Unlike graphs and other <code>@Includes</code> types, their public accessors are <em>not</em> read. Only <code>@Binds</code> and <code>@Provides</code> declarations are read.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Binding containers can be seen as partial graphs and are intended to be reusable, composable units that are <em>included</em> in a complete graph.</p>
+</div>
+<h3 id="including-via-includes-parameters">Including via <code>@Includes</code> Parameters<a class="headerlink" href="#including-via-includes-parameters" title="Permanent link">&para;</a></h3>
+<p>The most flexible way to include binding containers is via <code>@Includes</code>-annotated parameters on graph factories.</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@BindingContainer</span>
+<span class="kd">class</span><span class="w"> </span><span class="nc">NetworkBindings</span><span class="p">(</span><span class="kd">private</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="nv">baseUrl</span><span class="p">:</span><span class="w"> </span><span class="kt">String</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HttpClient</span><span class="p">(</span><span class="n">baseUrl</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="nd">@DependencyGraph</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">httpClient</span><span class="p">:</span><span class="w"> </span><span class="n">HttpClient</span>
+
+<span class="w">  </span><span class="nd">@DependencyGraph.Factory</span>
+<span class="w">  </span><span class="kd">interface</span><span class="w"> </span><span class="nc">Factory</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">fun</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="nd">@Includes</span><span class="w"> </span><span class="n">networkBindings</span><span class="p">:</span><span class="w"> </span><span class="n">NetworkBindings</span><span class="p">):</span><span class="w"> </span><span class="n">AppGraph</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>This allows you to bring any instance to the graph with its own internal logic.</p>
+<h3 id="including-via-dependencygraphbindingcontainers">Including via <code>@DependencyGraph.bindingContainers</code><a class="headerlink" href="#including-via-dependencygraphbindingcontainers" title="Permanent link">&para;</a></h3>
+<p>For simple binding containers, you can declare them directly in the graph annotation:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@BindingContainer</span>
+<span class="kd">object</span><span class="w"> </span><span class="nc">NetworkBindings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HttpClient</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">bindingContainers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">NetworkBindings</span><span class="o">::</span><span class="n">class</span><span class="o">]</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">httpClient</span><span class="p">:</span><span class="w"> </span><span class="n">HttpClient</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>This method works for:
+- <code>object</code> classes
+- <code>interface</code> or <code>abstract class</code> types with only <code>@Binds</code> providers or companion object <code>@Provides</code> providers
+- Simple classes with a public, no-arg constructor</p>
+<h3 id="chaining-binding-containers">Chaining Binding Containers<a class="headerlink" href="#chaining-binding-containers" title="Permanent link">&para;</a></h3>
+<p>Binding containers can include other binding containers using the <code>includes</code> parameter:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@BindingContainer</span>
+<span class="kd">object</span><span class="w"> </span><span class="nc">CacheBindings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpCache</span><span class="p">():</span><span class="w"> </span><span class="n">Cache</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Cache</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="nd">@BindingContainer</span><span class="p">(</span><span class="n">includes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">CacheBindings</span><span class="o">::</span><span class="n">class</span><span class="o">]</span><span class="p">)</span>
+<span class="kd">object</span><span class="w"> </span><span class="nc">NetworkBindings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">(</span><span class="n">cache</span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span><span class="p">):</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HttpClient</span><span class="p">(</span><span class="n">cache</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">bindingContainers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">NetworkBindings</span><span class="o">::</span><span class="n">class</span><span class="o">]</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">httpClient</span><span class="p">:</span><span class="w"> </span><span class="n">HttpClient</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>The transitive closure of all included binding containers will be included in the final consuming graph.</p>
+<h3 id="contributing-binding-containers">Contributing Binding Containers<a class="headerlink" href="#contributing-binding-containers" title="Permanent link">&para;</a></h3>
+<p>Binding containers can be contributed to scopes via <code>@ContributesTo</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@ContributesTo</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="nd">@BindingContainer</span>
+<span class="kd">object</span><span class="w"> </span><span class="nc">NetworkBindings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HttpClient</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">httpClient</span><span class="p">:</span><span class="w"> </span><span class="n">HttpClient</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>They can also replace other contributed binding containers:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// In a test variant</span>
+<span class="nd">@ContributesTo</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">replaces</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">NetworkBindings</span><span class="o">::</span><span class="n">class</span><span class="o">]</span><span class="p">)</span>
+<span class="nd">@BindingContainer</span>
+<span class="kd">object</span><span class="w"> </span><span class="nc">FakeNetworkBindings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideFakeHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FakeHttpClient</span><span class="p">()</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Graphs may exclude contributed containers:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">excludes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">NetworkBindings</span><span class="o">::</span><span class="n">class</span><span class="o">]</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">httpClient</span><span class="p">:</span><span class="w"> </span><span class="n">HttpClient</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Companion objects, annotation classes, and enum classes/entries cannot be annotated with <code>@BindingContainer</code></li>
+<li>Companion object providers within a binding container are automatically included</li>
+<li>Enclosing classes of <code>@Binds</code> or <code>@Provides</code> providers don&rsquo;t need to be annotated with <code>@BindingContainer</code> for Metro to process them - the annotation is primarily for reference to <code>@DependencyGraph.Factory</code> and the ability to use <code>includes</code></li>
+<li>Binding containers may also be <a href="../aggregation/#contributing-binding-containers">contributed</a>.</li>
+<li>See <a href="https://github.com/ZacSweers/metro/issues/172">#172</a> for more details.</li>
+</ul>
 <h2 id="implementation-notes">Implementation Notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
 <p>Dependency graph code gen is designed to largely match how Dagger components are generated.</p>
 <ul>

@@ -1047,7 +1047,11 @@
 <h1 id="differences-from-other-di-frameworks">Differences from other DI frameworks<a class="headerlink" href="#differences-from-other-di-frameworks" title="Permanent link">&para;</a></h1>
 <h4 id="from-dagger">…from Dagger<a class="headerlink" href="#from-dagger" title="Permanent link">&para;</a></h4>
 <ul>
-<li>There is no <code>@Module</code>. All providers run through graphs and their supertypes.</li>
+<li><code>@Binds</code> and <code>@Provides</code> declarations can be added directly within graphs and their supertypes.<ul>
+<li><code>@BindingContainer</code> is the Metro equivalent of a Dagger <code>@Module</code> but it should rarely be used.</li>
+<li><code>@BindingContainer</code> cannot declare graph extensions in the way <code>@Module</code> can declare subcomponents. Use <code>@ContributesGraphExtension</code>.</li>
+</ul>
+</li>
 <li>There is no Producers support.</li>
 <li>There is no Hilt support, though some features are similar in the same way that Anvil’s features are similar.</li>
 <li>There is no <code>@Reusable</code>.</li>
@@ -1059,6 +1063,8 @@
 <li>Metro does not process Java code.</li>
 <li><code>@Multibinds</code> declarations are implemented in Metro graphs to return the declared multibinding.</li>
 <li>Empty multibindings are an error by default in Metro. To allow a multibinding to be empty, it must be declared with <code>@Multibinds(allowEmpty = true)</code>.</li>
+<li>Metro graph classes may not directly extend other graph classes. You should use <code>@Extends</code> instead in Metro.</li>
+<li>Dagger technically allows this, but only accessors and injectors cross these boundaries.</li>
 </ul>
 <h4 id="from-kotlin-inject">…from Kotlin-Inject<a class="headerlink" href="#from-kotlin-inject" title="Permanent link">&para;</a></h4>
 <ul>
@@ -1070,6 +1076,7 @@
 <li>Metro can inject private properties and functions.</li>
 <li>When extending parent graphs, they must be annotated with <code>@Extends</code> in the child graph&rsquo;s creator.</li>
 <li>Metro does not process Java code.</li>
+<li>Metro does not support assisted parameters in <code>@Provides</code> functions.</li>
 </ul>
 <h4 id="from-anvil">…from Anvil<a class="headerlink" href="#from-anvil" title="Permanent link">&para;</a></h4>
 <ul>

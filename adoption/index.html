@@ -1153,24 +1153,13 @@
 <p>This option is good if you want to do a very simple introduction of Metro in one part of your codebase, such as a smaller modularized feature or library.</p>
 <h3 id="option-2-migrate-existing-usages-reuse-your-existing-annotations">Option 2 - Migrate existing usages + reuse your existing annotations<a class="headerlink" href="#option-2-migrate-existing-usages-reuse-your-existing-annotations" title="Permanent link">&para;</a></h3>
 <p>If you want the least amount of splash as possible, you can tell Metro to reuse your annotations from Dagger/Anvil. <a href="https://github.com/ZacSweers/metro/blob/main/samples/interop/customAnnotations-dagger/build.gradle.kts#L22-L27">Here</a> is an example for enabling that in Gradle.</p>
-<p>You will still possibly need to do some manual migrations, namely modules.</p>
+<p>You will still possibly need to do some manual migrations.</p>
 <ul>
-<li>All modules will need to be converted to interfaces and either contributed to or extended by your target graph (i.e. a component).</li>
-<li>If your module is an <code>object</code>, easiest way to change is to<ul>
-<li>Change it to an <code>interface</code></li>
-<li>Create a companion object in it</li>
-<li>Move all your provides declarations to within that companion object</li>
-</ul>
-</li>
 <li>If you use <code>@MergeComponent</code> + <code>@Component</code>, it&rsquo;ll be easier if you just migrate those interfaces to <code>@DependencyGraph</code> since they&rsquo;re combined in there now.</li>
 <li>Migrate <code>@BindsInstance</code> to <code>@Provides</code>. Metro consolidated these to just one annotation.</li>
 <li>If you use subcomponents, you&rsquo;ll have to switch to <a href="../dependency-graphs/#graph-extensions">Graph extensions</a>.</li>
 <li>Update references to generated <code>Dagger*Component</code> calls to use metro&rsquo;s <code>createGraph</code>/<code>createGraphFactory</code> APIs.</li>
 </ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If you use <code>@ContributesSubcomponent</code>, you&rsquo;ll have to either wait until they&rsquo;re implemented (see <a href="https://github.com/ZacSweers/metro/issues/166">#166</a>)</p>
-</div>
 <h3 id="option-3-full-migration">Option 3 - Full migration<a class="headerlink" href="#option-3-full-migration" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Remove the Dagger and anvil runtimes.</li>
@@ -1178,12 +1167,9 @@
 <li>If you use subcomponents, you&rsquo;ll have to switch to <a href="../dependency-graphs/#graph-extensions">Graph extensions</a>.</li>
 <li>Update references to generated <code>Dagger*Component</code> calls to use metro&rsquo;s <code>createGraph</code>/<code>createGraphFactory</code> APIs.</li>
 </ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If you use <code>@ContributesSubcomponent</code>, you&rsquo;ll have to either wait until they&rsquo;re implemented (see <a href="https://github.com/ZacSweers/metro/issues/166">#166</a></p>
-</div>
 <h2 id="into-a-kotlin-inject-codebase">Into a kotlin-inject codebase<a class="headerlink" href="#into-a-kotlin-inject-codebase" title="Permanent link">&para;</a></h2>
 <p>First, remove the kotlin-inject(-anvil) dependencies (but keep their runtime deps if you use option 1 below!).</p>
+<p>Second, migrate to <code>@AssistedFactory</code> if you haven&rsquo;t already.</p>
 <h3 id="option-1-interop-at-the-componentgraph-level_1">Option 1 - Interop at the component/graph level<a class="headerlink" href="#option-1-interop-at-the-componentgraph-level_1" title="Permanent link">&para;</a></h3>
 <p>This option is good if you only want to use Metro for <em>new</em> code. Metro graphs can depend on kotlin-inject components (as <code>@Includes</code> parameters) and vice versa. <a href="https://github.com/ZacSweers/metro/tree/main/samples/interop/dependencies-kotlinInject">Here</a> is an example project that does this.</p>
 <p>This option is good if you want to do a very simple introduction of Metro in one part of your codebase, such as a smaller modularized feature or library.</p>
@@ -1197,10 +1183,6 @@
 <li>If you use <code>@Component</code> parameters for graph extensions, you&rsquo;ll have to switch to <a href="../dependency-graphs/#graph-extensions">Graph extensions</a>. This will primarily entail annotating the parameter with <code>@Nested</code> and marking the parent graph as extendable.</li>
 <li>Update calls to generated <code>SomeComponent::class.create(...)</code> functions to use metro&rsquo;s <code>createGraph</code>/<code>createGraphFactory</code> APIs.</li>
 </ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If you use <code>@ContributesSubcomponent</code>, you&rsquo;ll have to either wait until they&rsquo;re implemented (see <a href="https://github.com/ZacSweers/metro/issues/166">#166</a>)</p>
-</div>
 <h3 id="option-3-full-migration_1">Option 3 - Full migration<a class="headerlink" href="#option-3-full-migration_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Remove the kotlin-inject and Anvil runtimes.</li>
@@ -1208,10 +1190,6 @@
 <li>If you use <code>@Component</code> parameters for graph extensions, you&rsquo;ll have to switch to <a href="../dependency-graphs/#graph-extensions">Graph extensions</a>. This will primarily entail annotating the parameter with <code>@Nested</code> and marking the parent graph as extendable.</li>
 <li>Update calls to generated <code>SomeComponent::class.create(...)</code> functions to use metro&rsquo;s <code>createGraph</code>/<code>createGraphFactory</code> APIs.</li>
 </ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If you use <code>@ContributesSubcomponent</code>, you&rsquo;ll have to either wait until they&rsquo;re implemented (see <a href="https://github.com/ZacSweers/metro/issues/166">#166</a>)</p>
-</div>
 
 
 

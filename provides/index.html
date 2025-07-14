@@ -1038,6 +1038,7 @@
 </code></pre></div>
 <p>Provider <em>functions</em> should be <code>private</code> by default and are <em>automatically</em> transformed to be private by the Metro compiler. This means you can write a provider function with no explicit (or public) visibility and it will be made private by Metro at compile-time.</p>
 <p>Provider <em>properties</em> cannot be private yet due to <a href="https://youtrack.jetbrains.com/issue/KT-76257/">KT-76257</a>, but may be supported in the future.</p>
+<p>Providers may also be declared in <a href="../dependency-graphs/#binding-containers">binding Containers</a>.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>It’s recommended to <em>not</em> call providers from each other.</p>

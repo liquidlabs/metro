@@ -1161,7 +1161,7 @@
 <span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">MessageImpl</span><span class="p">(</span><span class="kd">val</span><span class="w"> </span><span class="nv">text</span><span class="p">:</span><span class="w"> </span><span class="kt">String</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Message</span>
 </code></pre></div>
-<p>If you want to limit access to these from your API, you can make these declarations <code>private</code> and just return <code>this</code>. Note it’s still important to annotate them with <code>@Binds</code> so that the Metro compiler understands its intent! Otherwise, it’s an error to <em>implement</em> these declarations.</p>
+<p>If you want to limit access to these from your API, you can make these declarations <code>private</code> @Provides and just return <code>this</code>.</p>
 <p><code>@Binds</code> declarations can also declare multibinding annotations.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@DependencyGraph</span>
 <span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
@@ -1170,6 +1170,7 @@
 <span class="w">  </span><span class="nd">@Binds</span><span class="w"> </span><span class="nd">@IntoSet</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="nv">MessageImpl</span><span class="p">.</span><span class="na">bind</span><span class="p">:</span><span class="w"> </span><span class="n">Message</span>
 <span class="p">}</span>
 </code></pre></div>
+<p><code>@Binds</code> declarations may also be declared in <a href="../dependency-graphs/#binding-containers">binding Containers</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>In theory, you can implement a provider with a getter that replicates this (similar to how kotlin-inject uses <code>@get:Provider</code> + <code>this</code>), but this will be an error in FIR because Metro can generate more efficient code at compile-time if you use <code>@Binds</code>. This is because Metro can avoid calling the function entirely and just use this information at compile-time to optimize the generated code.</p>

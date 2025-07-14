@@ -648,6 +648,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#contributing-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributing Binding Containers
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contributing Binding Containers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#replacing-contributed-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replacing Contributed Binding Containers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#excluding-contributed-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Excluding Contributed Binding Containers
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#contributesgraphextension" class="md-nav__link">
     <span class="md-ellipsis">
       @ContributesGraphExtension
@@ -1026,6 +1059,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#contributing-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributing Binding Containers
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contributing Binding Containers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#replacing-contributed-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replacing Contributed Binding Containers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#excluding-contributed-binding-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Excluding Contributed Binding Containers
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#contributesgraphextension" class="md-nav__link">
     <span class="md-ellipsis">
       @ContributesGraphExtension
@@ -1188,6 +1254,52 @@
 <span class="kd">class</span><span class="w"> </span><span class="nc">CacheImpl</span><span class="p">(...)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>
 </code></pre></div>
 <p>This annotation is also repeatable and can be used to contribute to multiple scopes, multiple bound types, and multiple map keys.</p>
+<h2 id="contributing-binding-containers">Contributing Binding Containers<a class="headerlink" href="#contributing-binding-containers" title="Permanent link">&para;</a></h2>
+<p>Binding containers (see <a href="../dependency-graphs/#binding-containers">Binding Containers</a>) can also be contributed to scopes via <code>@ContributesTo</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@ContributesTo</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="nd">@BindingContainer</span>
+<span class="kd">object</span><span class="w"> </span><span class="nc">NetworkBindings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HttpClient</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">httpClient</span><span class="p">:</span><span class="w"> </span><span class="n">HttpClient</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="replacing-contributed-binding-containers">Replacing Contributed Binding Containers<a class="headerlink" href="#replacing-contributed-binding-containers" title="Permanent link">&para;</a></h3>
+<p>Similar to other contribution types, binding containers can replace other contributed binding containers:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// In production</span>
+<span class="nd">@ContributesTo</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="nd">@BindingContainer</span>
+<span class="kd">object</span><span class="w"> </span><span class="nc">NetworkBindings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HttpClient</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="c1">// In tests</span>
+<span class="nd">@ContributesTo</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">replaces</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">NetworkBindings</span><span class="o">::</span><span class="n">class</span><span class="o">]</span><span class="p">)</span>
+<span class="nd">@BindingContainer</span>
+<span class="kd">object</span><span class="w"> </span><span class="nc">FakeNetworkBindings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideFakeHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FakeHttpClient</span><span class="p">()</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="excluding-contributed-binding-containers">Excluding Contributed Binding Containers<a class="headerlink" href="#excluding-contributed-binding-containers" title="Permanent link">&para;</a></h3>
+<p>Graphs can exclude specific contributed binding containers:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@ContributesTo</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="nd">@BindingContainer</span>
+<span class="kd">object</span><span class="w"> </span><span class="nc">NetworkBindings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">HttpClient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HttpClient</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">excludes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">NetworkBindings</span><span class="o">::</span><span class="n">class</span><span class="o">]</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">TestAppGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// NetworkBindings will not be included</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Currently, contributed binding containers cannot replace non-contributed-container types (i.e. <code>@ContributesBinding</code> classes) yet.</p>
+</div>
 <h2 id="contributesgraphextension"><code>@ContributesGraphExtension</code><a class="headerlink" href="#contributesgraphextension" title="Permanent link">&para;</a></h2>
 <p>Not yet implemented. Please share design feedback in <a href="https://github.com/ZacSweers/metro/issues/165">#165</a>!</p>
 <h2 id="implementation-notes">Implementation notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
