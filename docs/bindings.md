@@ -48,7 +48,7 @@ interface AppGraph {
 class MessageImpl(val text: String) : Message
 ```
 
-If you want to limit access to these from your API, you can make these declarations `private` and just return `this`. Note it’s still important to annotate them with `@Binds` so that the Metro compiler understands its intent! Otherwise, it’s an error to *implement* these declarations.
+If you want to limit access to these from your API, you can make these declarations `private` @Provides and just return `this`.
 
 `@Binds` declarations can also declare multibinding annotations.
 
@@ -60,6 +60,8 @@ interface AppGraph {
   @Binds @IntoSet val MessageImpl.bind: Message
 }
 ```
+
+`@Binds` declarations may also be declared in [binding Containers](dependency-graphs.md#binding-containers).
 
 !!! note
     In theory, you can implement a provider with a getter that replicates this (similar to how kotlin-inject uses `@get:Provider` + `this`), but this will be an error in FIR because Metro can generate more efficient code at compile-time if you use `@Binds`. This is because Metro can avoid calling the function entirely and just use this information at compile-time to optimize the generated code.

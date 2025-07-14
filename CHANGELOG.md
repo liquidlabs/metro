@@ -4,6 +4,11 @@ Changelog
 **Unreleased**
 --------------
 
+0.5.0
+-----
+
+_2025-07-14_
+
 - **New:** Experimental support for "binding containers" via `@BindingContainer`. See [their docs](https://zacsweers.github.io/metro/dependency-graphs#binding-containers) for more details.
 - **New:** Add `keys-scopedProviderFields-*.txt` and `keys-providerFields-*.txt` reports to see generated field reports for graphs.
 - **Enhancement:** Remove `Any` constraint from `binding<T>()`, allowing bindings to satisfy nullable variants.
@@ -32,6 +37,8 @@ Changelog
 - **Fix:** Treat interop'd Dagger/Anvil/KI components as implicitly extendable.
 - **Fix:** Record lookups of `@Binds` declarations for IC.
 - **Fix:** Record lookups of generated class factories and their constructor signatures for IC.
+
+Special thanks to [@kevinguitar](https://github.com/kevinguitar), [@gabrielittner](https://github.com/gabrielittner), [@chrisbanes](https://github.com/chrisbanes), [@yschimke](https://github.com/yschimke), and [@ajarl](https://github.com/ajarl) for contributing to this release!
 
 0.4.0
 -----
