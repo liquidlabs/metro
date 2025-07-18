@@ -1175,10 +1175,6 @@
 <span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">TestHttpClient</span>
 <span class="p">}</span>
 </code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Multi-module aggregation only works in JVM and Android compilations at the moment. Follow <a href="https://github.com/ZacSweers/metro/issues/460">#460</a> for future support on other targets.</p>
-</div>
 <h2 id="contributesto">@ContributesTo<a class="headerlink" href="#contributesto" title="Permanent link">&para;</a></h2>
 <p>This annotation is used to contribute graph interfaces to the target scope to be merged in at graph-processing time to the final merged graph class as another supertype.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@ContributesTo</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>

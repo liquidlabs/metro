@@ -927,6 +927,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#051" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.5.1
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#050" class="md-nav__link">
     <span class="md-ellipsis">
       0.5.0
@@ -1127,6 +1136,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#051" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.5.1
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#050" class="md-nav__link">
     <span class="md-ellipsis">
       0.5.0
@@ -1282,9 +1300,19 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="051">0.5.1<a class="headerlink" href="#051" title="Permanent link">&para;</a></h2>
+<p><em>2025-07-18</em></p>
 <ul>
-<li><strong>Enhancement:</strong> Chunk field initializers and constructor statements across multiple init functions to avoid <code>MethodTooLargeException</code> in large graphs.</li>
+<li><strong>Breaking change:</strong> Rename the <code>generateHintProperties</code> Gradle DSL property to <code>generateContributionHints</code>.</li>
+<li><strong>Enhancement:</strong> Chunk field initializers and constructor statements across multiple init functions to avoid <code>MethodTooLargeException</code> in large graphs. This is currently experimental and gated behind the <code>chunkFieldInits()</code> Gradle DSL.</li>
+<li><strong>Enhancement:</strong> Mark generated factories and member injectors&rsquo; constructors as <code>private</code>, matching the same <a href="https://github.com/google/dagger/releases/tag/dagger-2.57">change in Dagger 2.57</a>.</li>
+<li><strong>Enhancement:</strong> Add a new Metro option <code>warnOnInjectAnnotationPlacement</code> to disable suggestion to lift @Inject to class when there is only one constructor, the warning applies to constructors with params too.</li>
+<li><strong>Fix:</strong> Fix <code>@Contributes*.replaces</code> not working if the contributed type is in the same compilation but a different file.</li>
+<li><strong>Fix:</strong> Fix generated <code>MembersInjector.create()</code> return types&rsquo; generic argument to use the target class.</li>
+<li><strong>Fix:</strong> Don&rsquo;t generated nested MetroContribution classes for binding containers.</li>
+<li><strong>Fix:</strong> Fix contributing binding containers across compilations.</li>
 </ul>
+<p>Special thanks to <a href="https://github.com/kevinguitar">@kevinguitar</a> and <a href="https://github.com/ChristianKatzmann">@ChristianKatzmann</a> for contributing to this release!</p>
 <h2 id="050">0.5.0<a class="headerlink" href="#050" title="Permanent link">&para;</a></h2>
 <p><em>2025-07-14</em></p>
 <ul>
