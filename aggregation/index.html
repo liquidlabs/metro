@@ -1198,10 +1198,6 @@
 <span class="w">  </span><span class="nd">@Provides</span><span class="w"> </span><span class="kd">fun</span><span class="w"> </span><span class="nf">provideHttpClient</span><span class="p">():</span><span class="w"> </span><span class="n">TestHttpClient</span>
 <span class="p">}</span>
 </code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><code>@Contributes*.replaces</code> cannot replace classes in the <em>same compilation</em> as the <em>graph that is merging them</em>.</p>
-</div>
 <h2 id="contributesbinding">@ContributesBinding<a class="headerlink" href="#contributesbinding" title="Permanent link">&para;</a></h2>
 <p>This annotation is used to contribute injected classes to a target scope as a given bound type.</p>
 <p>The below example will contribute the <code>CacheImpl</code> class as a <code>Cache</code> type to <code>AppScope</code>.</p>
@@ -1323,7 +1319,8 @@
 <p>Currently, contributed binding containers cannot replace non-contributed-container types (i.e. <code>@ContributesBinding</code> classes) yet.</p>
 </div>
 <h2 id="contributesgraphextension"><code>@ContributesGraphExtension</code><a class="headerlink" href="#contributesgraphextension" title="Permanent link">&para;</a></h2>
-<p>Not yet implemented. Please share design feedback in <a href="https://github.com/ZacSweers/metro/issues/165">#165</a>!</p>
+<p><code>@ContributesGraphExtension</code> is a specialized type of graph that is <em>contributed</em> to some parent scope. Its generation is deferred until the parent graph interface is merged.</p>
+<p>See <a href="../dependency-graphs/#contributed-graph-extensions">Dependency Graphs</a> for motivation and documentation.</p>
 <h2 id="implementation-notes">Implementation notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
 <p>This leans on Kotlin’s ability to put generic type parameters on annotations. That in turn allows for both generic bound types and to contribute map bindings to multiple map keys.</p>
 <p>Because it’s a first-party feature, there’s no need for intermediary “merged” components like kotlin-inject-anvil and anvil-ksp do.</p>

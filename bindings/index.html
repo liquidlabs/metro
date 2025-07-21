@@ -1233,7 +1233,7 @@
 <p>Alternatively, they can be declared with an <code>@Multibinds</code>-annotated accessor property/function in a component. This member will be implemented by the Metro compiler and is useful for scenarios where the multibinding may be empty.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@DependencyGraph</span>
 <span class="kd">interface</span><span class="w"> </span><span class="nc">MapMultibinding</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="nd">@Multibinding</span>
+<span class="w">  </span><span class="nd">@Multibinds</span>
 <span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">ints</span><span class="p">:</span><span class="w"> </span><span class="n">Map</span><span class="o">&lt;</span><span class="kt">Int</span><span class="p">,</span><span class="w"> </span><span class="kt">Int</span><span class="o">&gt;</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -1241,7 +1241,7 @@
 <p>Map multibindings support injecting <em>map providers</em>, where the value type can be wrapped in <code>Provider</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@DependencyGraph</span>
 <span class="kd">interface</span><span class="w"> </span><span class="nc">MapMultibinding</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="nd">@Multibinding</span>
+<span class="w">  </span><span class="nd">@Multibinds</span>
 <span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">ints</span><span class="p">:</span><span class="w"> </span><span class="n">Map</span><span class="o">&lt;</span><span class="kt">Int</span><span class="p">,</span><span class="w"> </span><span class="n">Provider</span><span class="o">&lt;</span><span class="kt">Int</span><span class="o">&gt;&gt;</span>
 <span class="p">}</span>
 </code></pre></div>
