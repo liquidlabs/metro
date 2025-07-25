@@ -13,13 +13,13 @@
       
       
       
-        <link rel="prev" href="../samples/">
+        <link rel="prev" href="../api/0.x/">
       
       
         <link rel="next" href="../contributing/">
       
       
-      <link rel="icon" href="../:metro:">
+      <link rel="icon" href="../site-assets/img/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
     
     
@@ -823,7 +823,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/0.x/index.html" class="md-nav__link">
+      <a href="../api/0.x/" class="md-nav__link">
         
   
   
@@ -1339,6 +1339,18 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Enhancement:</strong> Generate synthetic <code>$$BindsMirror</code> classes to&hellip;<ul>
+<li>support full IC compatibility with changing annotations and return types on <code>@Binds</code> and <code>@Multibinds</code> declarations</li>
+<li>allow these declarations to be <code>private</code></li>
+</ul>
+</li>
+<li><strong>Enhancement:</strong> Allow <code>@Binds</code> and <code>@Multibinds</code> functions to be private.</li>
+<li><strong>Fix:</strong> When recording IC lookups of overridable declarations, only record the original declaration and not fake overrides.</li>
+<li><strong>Fix:</strong> Record IC lookups to <code>@Multibinds</code> declarations.</li>
+<li><strong>Fix:</strong> Write <code>@Multibinds</code> information to metro metadata.</li>
+<li><strong>Fix:</strong> Always write metro metadata to <code>@BindingContainer</code> classes, even if empty.</li>
+</ul>
 <h2 id="052">0.5.2<a class="headerlink" href="#052" title="Permanent link">&para;</a></h2>
 <p><em>2025-07-21</em></p>
 <ul>
