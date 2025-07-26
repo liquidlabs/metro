@@ -222,6 +222,12 @@ public class BoxTestGenerated extends AbstractBoxTest {
     }
 
     @Test
+    @TestMetadata("IncludedGraphsCanStillUseNonGraphs.kt")
+    public void testIncludedGraphsCanStillUseNonGraphs() {
+      runTest("compiler-tests/src/test/data/box/dependencygraph/IncludedGraphsCanStillUseNonGraphs.kt");
+    }
+
+    @Test
     @TestMetadata("IncludesDeepInheritedInterfacesWork.kt")
     public void testIncludesDeepInheritedInterfacesWork() {
       runTest("compiler-tests/src/test/data/box/dependencygraph/IncludesDeepInheritedInterfacesWork.kt");
@@ -273,6 +279,18 @@ public class BoxTestGenerated extends AbstractBoxTest {
     @TestMetadata("QualifiersWithEnumsWork.kt")
     public void testQualifiersWithEnumsWork() {
       runTest("compiler-tests/src/test/data/box/dependencygraph/QualifiersWithEnumsWork.kt");
+    }
+
+    @Test
+    @TestMetadata("StaticGraphCompanions.kt")
+    public void testStaticGraphCompanions() {
+      runTest("compiler-tests/src/test/data/box/dependencygraph/StaticGraphCompanions.kt");
+    }
+
+    @Test
+    @TestMetadata("StaticGraphCompanionsSeparateModules.kt")
+    public void testStaticGraphCompanionsSeparateModules() {
+      runTest("compiler-tests/src/test/data/box/dependencygraph/StaticGraphCompanionsSeparateModules.kt");
     }
 
     @Nested
