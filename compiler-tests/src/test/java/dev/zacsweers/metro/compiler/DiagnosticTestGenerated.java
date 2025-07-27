@@ -128,6 +128,18 @@ public class DiagnosticTestGenerated extends AbstractDiagnosticTest {
     }
 
     @Test
+    @TestMetadata("AsContributionCannotWorkOnContributedExtensions.kt")
+    public void testAsContributionCannotWorkOnContributedExtensions() {
+      runTest("compiler-tests/src/test/data/diagnostic/dependencygraph/AsContributionCannotWorkOnContributedExtensions.kt");
+    }
+
+    @Test
+    @TestMetadata("AsContributionCannotWorkOnContributedExtensionsMultiModule.kt")
+    public void testAsContributionCannotWorkOnContributedExtensionsMultiModule() {
+      runTest("compiler-tests/src/test/data/diagnostic/dependencygraph/AsContributionCannotWorkOnContributedExtensionsMultiModule.kt");
+    }
+
+    @Test
     @TestMetadata("GraphsCannotDirectlyExtendOtherGraphs.kt")
     public void testGraphsCannotDirectlyExtendOtherGraphs() {
       runTest("compiler-tests/src/test/data/diagnostic/dependencygraph/GraphsCannotDirectlyExtendOtherGraphs.kt");
