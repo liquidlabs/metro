@@ -32,6 +32,12 @@ public class BoxTestGenerated extends AbstractBoxTest {
     }
 
     @Test
+    @TestMetadata("ComputedPropertiesIntoSet.kt")
+    public void testComputedPropertiesIntoSet() {
+      runTest("compiler-tests/src/test/data/box/aggregation/ComputedPropertiesIntoSet.kt");
+    }
+
+    @Test
     @TestMetadata("ContributedBindingContainerExclusions.kt")
     public void testContributedBindingContainerExclusions() {
       runTest("compiler-tests/src/test/data/box/aggregation/ContributedBindingContainerExclusions.kt");
@@ -659,6 +665,12 @@ public class BoxTestGenerated extends AbstractBoxTest {
     @TestMetadata("ProvidesParametersCanHaveDefaults.kt")
     public void testProvidesParametersCanHaveDefaults() {
       runTest("compiler-tests/src/test/data/box/provides/ProvidesParametersCanHaveDefaults.kt");
+    }
+
+    @Test
+    @TestMetadata("QualifiersOnDifferentAnnotationSites.kt")
+    public void testQualifiersOnDifferentAnnotationSites() {
+      runTest("compiler-tests/src/test/data/box/provides/QualifiersOnDifferentAnnotationSites.kt");
     }
 
     @Test
