@@ -20,7 +20,7 @@ body:
       description: Describe the high level request.
     validations:
       required: true
-  - type: input
+  - type: textarea
     id: alternatives
     attributes:
       label: Alternatives/workarounds
