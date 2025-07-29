@@ -40,7 +40,7 @@ _2025-07-28_
 - Add a `ViewModel` assisted injection example to `compose-navigation-app` sample.
 - Small improvements to the doc site (404 page, favicon, etc.)
 
-Special thanks to [@hossain-khan](https://github.com/hossain-khan), [@bnorm](https://github.com/bnorm), [@yschimke](https://github.com/yschimke), and [@JoelWilcox](https://github.com/JoelWilcox) for contributing to this release!
+Special thanks to [@hossain-khan](https://github.com/hossain-khan), [@bnorm](https://github.com/bnorm), [@yschimke](https://github.com/yschimke), [@kevinguitar](https://github.com/kevinguitar), and [@JoelWilcox](https://github.com/JoelWilcox) for contributing to this release!
 
 0.5.2
 -----
