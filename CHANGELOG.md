@@ -4,6 +4,11 @@ Changelog
 **Unreleased**
 --------------
 
+0.5.4
+-----
+
+_2025-08-01_
+
 - **Enhancement**: Support `excludes`, `bindingContainers`, and `additionalScopes` in `@ContributesGraphExtension`.
 - **Enhancement**: Allow binding containers and regular contributed classes to replace each other in contribution merging.
 - **Enhancement**: Allow `@ElementsIntoSet` on properties.
@@ -20,6 +25,8 @@ Changelog
 - **Fix**: Add a checker for `@Provides` constructor parameters in binding containers.
 - **Fix**: Fix reading repeated external contributed annotations.
 - **Fix**: Filter by matching scopes when merging contributed types with repeated annotations.
+
+Special thanks to [@hossain-khan](https://github.com/hossain-khan), [@gabrielittner](https://github.com/gabrielittner), [@kevinguitar](https://github.com/kevinguitar), [@JoelWilcox](https://github.com/JoelWilcox), and [@martinbonnin](https://github.com/martinbonnin) for contributing to this release!
 
 0.5.3
 -----
