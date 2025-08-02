@@ -3,6 +3,7 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 
 plugins {
   alias(libs.plugins.kotlin.multiplatform)
@@ -99,9 +100,11 @@ tasks.withType<Test>().configureEach {
   maxParallelForks = Runtime.getRuntime().availableProcessors() * 2
 }
 
-// See https://github.com/GradleUp/shadow/issues/1540
-configurations.configureEach {
-  if (name.startsWith("kotlinCompilerPluginClasspath")) {
-    attributes { attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.SHADOWED)) }
+// There don't seem to be tests for these, only WASM
+tasks
+  .withType<KotlinJsTest>()
+  .named {
+    // Keep the wasm test
+    it != "wasmJsBrowserTest"
   }
-}
+  .configureEach { enabled = false }
