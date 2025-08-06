@@ -117,6 +117,7 @@ import org.jetbrains.kotlin.ir.util.companionObject
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.copyTo
 import org.jetbrains.kotlin.ir.util.deepCopyWithSymbols
+import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import org.jetbrains.kotlin.ir.util.fileOrNull
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
@@ -1367,6 +1368,23 @@ internal fun IrConstructorCall.isExtendable(): Boolean {
   }
 }
 
+internal fun IrConstructorCall.rankValue(): Long {
+  // Although the parameter is defined as an Int, the value we receive here may end up being
+  // an Int or a Long so we need to handle both
+  return getValueArgument(Symbols.Names.rank)?.let { arg ->
+    when (arg) {
+      is IrConst -> {
+        when (val value = arg.value) {
+          is Long -> value
+          is Int -> value.toLong()
+          else -> Long.MIN_VALUE
+        }
+      }
+      else -> Long.MIN_VALUE
+    }
+  } ?: Long.MIN_VALUE
+}
+
 context(context: IrMetroContext)
 internal fun IrProperty?.qualifierAnnotation(): IrAnnotation? {
   if (this == null) return null
@@ -1452,4 +1470,39 @@ internal fun IrAnnotation.allowEmpty(): Boolean {
 context(scope: IrBuilderWithScope)
 internal fun Collection<IrClassReference>.copyToIrVararg() = ifNotEmpty {
   scope.irVararg(first().type, map { value -> value.deepCopyWithSymbols() })
+}
+
+context(scope: IrBuilderWithScope)
+internal fun Collection<IrClass>.toIrVararg() = ifNotEmpty {
+  scope.irVararg(first().defaultType, map { value -> scope.kClassReference(value.symbol) })
+}
+
+context(context: IrPluginContext)
+internal fun IrClass.implicitBoundTypeOrNull(): IrType? {
+  return superTypes
+    .filterNot { it.rawType().classId == context.irBuiltIns.anyClass.owner.classId }
+    .singleOrNull()
+}
+
+// Also check ignoreQualifier for interop after entering interop block to prevent unnecessary
+// checks for non-interop
+context(context: IrPluginContext)
+internal fun IrConstructorCall.bindingTypeOrNull(): Pair<IrType?, Boolean> {
+  // Return a binding defined using Metro's API
+  getValueArgument(Symbols.Names.binding)?.expectAsOrNull<IrConstructorCall>()?.let { bindingType ->
+    // bindingType is actually an annotation
+    return bindingType.typeArguments.getOrNull(0)?.takeUnless {
+      it == context.irBuiltIns.nothingType
+    } to false
+  }
+  // Return a boundType defined using anvil KClass
+  return anvilKClassBoundTypeArgument() to anvilIgnoreQualifier()
+}
+
+internal fun IrConstructorCall.anvilKClassBoundTypeArgument(): IrType? {
+  return getValueArgument(Symbols.Names.boundType)?.expectAsOrNull<IrClassReference>()?.classType
+}
+
+internal fun IrConstructorCall.anvilIgnoreQualifier(): Boolean {
+  return getConstBooleanArgumentOrNull(Symbols.Names.ignoreQualifier) ?: false
 }

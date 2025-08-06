@@ -347,7 +347,7 @@ internal class ContributedInterfaceSupertypeGenerator(session: FirSession) :
 
     if (session.metroFirBuiltIns.options.enableDaggerAnvilInterop) {
       val unmatchedRankReplacements = mutableSetOf<ClassId>()
-      val pendingRankReplacements = processRankBasedReplacements(contributions, typeResolver)
+      val pendingRankReplacements = processRankBasedReplacements(scopes, contributions, typeResolver)
 
       pendingRankReplacements.distinct().forEach { replacedClassId ->
         val removed = contributions.remove(replacedClassId)
@@ -371,13 +371,14 @@ internal class ContributedInterfaceSupertypeGenerator(session: FirSession) :
   }
 
   /**
-   * This provides ContributesBinding.rank interop for users migrating from Dagger-Anvil to make the
-   * migration to Metro more feasible.
+   * This provides `ContributesBinding.rank` interop for users migrating from Dagger-Anvil to make
+   * the migration to Metro more feasible.
    *
    * @return The bindings which have been outranked and should not be included in the merged graph.
    */
   private fun processRankBasedReplacements(
-    contributions: TreeMap<ClassId, ConeKotlinType>,
+    allScopes: Set<ClassId>,
+    contributions: Map<ClassId, ConeKotlinType>,
     typeResolver: TypeResolveService,
   ): Set<ClassId> {
     val pendingRankReplacements = mutableSetOf<ClassId>()
@@ -389,9 +390,11 @@ internal class ContributedInterfaceSupertypeGenerator(session: FirSession) :
         .flatMap { contributingType ->
           contributingType
             .annotationsIn(session, session.classIds.contributesBindingAnnotations)
-            // TODO Can enforce non-null boundTypes here once type arguments are saved to metadata
-            // https://youtrack.jetbrains.com/issue/KT-76954/Some-type-arguments-are-not-saved-to-metadata-in-FIR
             .mapNotNull { annotation ->
+
+              val scope = annotation.resolvedScopeClassId(typeResolver) ?: return@mapNotNull null
+              if (scope !in allScopes) return@mapNotNull null
+
               val explicitBindingMissingMetadata =
                 annotation.argumentAsOrNull<FirAnnotation>(Symbols.Names.binding, index = 1)
 
@@ -413,16 +416,18 @@ internal class ContributedInterfaceSupertypeGenerator(session: FirSession) :
                   } ?: contributingType.implicitBoundType(typeResolver)
 
                 ContributedBinding(
-                  contributingType,
-                  FirTypeKey(
-                    boundType,
-                    contributingType.qualifierAnnotation(session, typeResolver),
-                  ),
-                  annotation.rankValue(),
+                  contributingType = contributingType,
+                  typeKey =
+                    FirTypeKey(
+                      boundType,
+                      contributingType.qualifierAnnotation(session, typeResolver),
+                    ),
+                  rank = annotation.rankValue(),
                 )
               }
             }
         }
+
     val bindingGroups =
       rankedBindings
         .groupBy { binding -> binding.typeKey }
