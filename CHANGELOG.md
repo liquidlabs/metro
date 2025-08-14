@@ -6,7 +6,7 @@ Changelog
 
 ### Graph extensions are no longer detached.
 
-**TL;DR: Metro graph extensions are now wired similar to Dagger subcomponents and use a new `@GraphExtension` annotation. `@Extends`, `isExtendable`, and `enableScopedInjectClassHints()` are now deleted.**
+**TL;DR: Metro graph extensions are now wired similar to Dagger subcomponents and use a new `@GraphExtension` annotation. `@Extends` and `isExtendable` are now deleted and `enableScopedInjectClassHints()` is deprecated.**
 
 Up to this point, Metro's graph extensions have been _detached_. This meant that extensions could simply depend on a parent graph via `@Extends` and parent graphs had to mark themselves as extendable via `isExtendable = true`. This approach mirrored kotlin-inject's approach and was convenient in its flexibility. However, it's proven too problematic in practice for a few reasons:
 
