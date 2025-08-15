@@ -4,6 +4,11 @@ Changelog
 **Unreleased**
 --------------
 
+0.6.0
+-----
+
+_2025-08-15_
+
 ### Graph extensions are no longer detached.
 
 **TL;DR: Metro graph extensions are now wired similar to Dagger subcomponents and use a new `@GraphExtension` annotation. `@Extends` and `isExtendable` are now deleted, `@ContributesGraphExtension` and `enableScopedInjectClassHints()` are deprecated.**
@@ -139,6 +144,9 @@ To create graph extensions, you now _must_ do so via a parent graph (using one o
 - **Fix**: Fix support for generic private injected constructors.
 - [internal change] Simplify metadata and just use accessor annotations.
 - [internal change] Graph extension impls are now generated as nested classes within the generated metro graph that they are contributed to.
+- Update to Kotlin `2.2.10`.
+
+Special thanks to [@hossain-khan](https://github.com/hossain-khan), [@Egorand](https://github.com/Egorand), [@kevinguitar](https://github.com/kevinguitar), [@jonapoul](https://github.com/jonapoul), and [@martinbonnin](https://github.com/martinbonnin) for contributing to this release!
 
 0.5.5
 -----
