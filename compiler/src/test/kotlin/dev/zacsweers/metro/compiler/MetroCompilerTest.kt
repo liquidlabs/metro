@@ -172,11 +172,11 @@ abstract class MetroCompilerTest {
                   customElementsIntoSetAnnotations.joinToString(":"),
                 )
               }
-              MetroOption.CUSTOM_GRAPH -> {
+              MetroOption.CUSTOM_DEPENDENCY_GRAPH -> {
                 if (customGraphAnnotations.isEmpty()) continue
                 processor.option(entry.raw.cliOption, customGraphAnnotations.joinToString(":"))
               }
-              MetroOption.CUSTOM_GRAPH_FACTORY -> {
+              MetroOption.CUSTOM_DEPENDENCY_GRAPH_FACTORY -> {
                 if (customGraphFactoryAnnotations.isEmpty()) continue
                 processor.option(
                   entry.raw.cliOption,
@@ -226,21 +226,6 @@ abstract class MetroCompilerTest {
                   customContributesIntoSetAnnotations.joinToString(":"),
                 )
               }
-              MetroOption.CUSTOM_CONTRIBUTES_GRAPH_EXTENSION -> {
-                if (customContributesGraphExtensionAnnotations.isEmpty()) continue
-                processor.option(
-                  entry.raw.cliOption,
-                  customContributesGraphExtensionAnnotations.joinToString(":"),
-                )
-              }
-              MetroOption.CUSTOM_CONTRIBUTES_GRAPH_EXTENSION_FACTORY -> {
-                if (customContributesGraphExtensionFactoryAnnotations.isEmpty()) continue
-                processor.option(
-                  entry.raw.cliOption,
-                  customContributesGraphExtensionFactoryAnnotations.joinToString(":"),
-                )
-              }
-
               MetroOption.CUSTOM_GRAPH_EXTENSION -> {
                 if (customGraphExtensionAnnotations.isEmpty()) continue
                 processor.option(

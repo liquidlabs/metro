@@ -132,24 +132,13 @@ class MetroExtensionRegistrarConfigurator(testServices: TestServices) :
               add(ClassId.fromString("com/squareup/anvil/annotations/ContributesMultibinding"))
             }
           },
-        customContributesGraphExtensionAnnotations =
-          buildSet {
-            if (MetroDirectives.WITH_ANVIL in module.directives) {
-              add(ClassId.fromString("com/squareup/anvil/annotations/ContributesSubcomponent"))
-            }
-          },
-        customContributesGraphExtensionFactoryAnnotations =
-          buildSet {
-            if (MetroDirectives.WITH_ANVIL in module.directives) {
-              add(
-                ClassId.fromString("com/squareup/anvil/annotations/ContributesSubcomponent.Factory")
-              )
-            }
-          },
         customGraphExtensionAnnotations =
           buildSet {
             if (MetroDirectives.ENABLE_DAGGER_INTEROP in module.directives) {
               add(ClassId.fromString("dagger/Subcomponent"))
+            }
+            if (MetroDirectives.WITH_ANVIL in module.directives) {
+              add(ClassId.fromString("com/squareup/anvil/annotations/ContributesSubcomponent"))
             }
           },
         customGraphExtensionFactoryAnnotations =

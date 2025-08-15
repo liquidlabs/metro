@@ -30,7 +30,11 @@ public class MetroGradleSubplugin : KotlinCompilerPluginSupportPlugin {
 
   override fun getPluginArtifact(): SubpluginArtifact {
     val version = System.getProperty("metro.compilerVersionOverride", VERSION)
-    return SubpluginArtifact(groupId = "dev.zacsweers.metro", artifactId = "compiler", version = version)
+    return SubpluginArtifact(
+      groupId = "dev.zacsweers.metro",
+      artifactId = "compiler",
+      version = version,
+    )
   }
 
   override fun isApplicable(kotlinCompilation: KotlinCompilation<*>): Boolean {
@@ -199,21 +203,16 @@ public class MetroGradleSubplugin : KotlinCompilerPluginSupportPlugin {
             .takeUnless { it.isEmpty() }
             ?.let { SubpluginOption("custom-contributes-into-set", value = it.joinToString(":")) }
             ?.let(::add)
-          contributesGraphExtension
+          graphExtension
             .getOrElse(emptySet())
             .takeUnless { it.isEmpty() }
-            ?.let {
-              SubpluginOption("custom-contributes-graph-extension", value = it.joinToString(":"))
-            }
+            ?.let { SubpluginOption("custom-graph-extension", value = it.joinToString(":")) }
             ?.let(::add)
-          contributesGraphExtensionFactory
+          graphExtensionFactory
             .getOrElse(emptySet())
             .takeUnless { it.isEmpty() }
             ?.let {
-              SubpluginOption(
-                "custom-contributes-graph-extension-factory",
-                value = it.joinToString(":"),
-              )
+              SubpluginOption("custom-graph-extension-factory", value = it.joinToString(":"))
             }
             ?.let(::add)
           elementsIntoSet
@@ -221,15 +220,17 @@ public class MetroGradleSubplugin : KotlinCompilerPluginSupportPlugin {
             .takeUnless { it.isEmpty() }
             ?.let { SubpluginOption("custom-elements-into-set", value = it.joinToString(":")) }
             ?.let(::add)
-          graph
+          dependencyGraph
             .getOrElse(emptySet())
             .takeUnless { it.isEmpty() }
-            ?.let { SubpluginOption("custom-graph", value = it.joinToString(":")) }
+            ?.let { SubpluginOption("custom-dependency-graph", value = it.joinToString(":")) }
             ?.let(::add)
-          graphFactory
+          dependencyGraphFactory
             .getOrElse(emptySet())
             .takeUnless { it.isEmpty() }
-            ?.let { SubpluginOption("custom-graph-factory", value = it.joinToString(":")) }
+            ?.let {
+              SubpluginOption("custom-dependency-graph-factory", value = it.joinToString(":"))
+            }
             ?.let(::add)
           inject
             .getOrElse(emptySet())
