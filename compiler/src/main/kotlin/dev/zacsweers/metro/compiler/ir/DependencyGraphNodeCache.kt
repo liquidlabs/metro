@@ -16,6 +16,7 @@ import dev.zacsweers.metro.compiler.ir.transformers.BindingContainer
 import dev.zacsweers.metro.compiler.ir.transformers.BindingContainerTransformer
 import dev.zacsweers.metro.compiler.mapNotNullToSet
 import dev.zacsweers.metro.compiler.memoized
+import dev.zacsweers.metro.compiler.reportCompilerBug
 import dev.zacsweers.metro.compiler.tracing.Tracer
 import dev.zacsweers.metro.compiler.tracing.traceNested
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
@@ -32,7 +33,6 @@ import org.jetbrains.kotlin.ir.expressions.IrVararg
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.types.classOrFail
 import org.jetbrains.kotlin.ir.types.classOrNull
-import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.classId
@@ -41,6 +41,7 @@ import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.getValueArgument
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.nestedClasses
+import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.ClassId
@@ -65,6 +66,19 @@ internal class DependencyGraphNodeCache(
     metroGraph: IrClass? = null,
     dependencyGraphAnno: IrConstructorCall? = null,
   ): DependencyGraphNode {
+    if (graphDeclaration.origin != Origins.GeneratedGraphExtension) {
+      val sourceGraph = graphDeclaration.sourceGraphIfMetroGraph
+      if (sourceGraph != graphDeclaration) {
+        return getOrComputeDependencyGraphNode(
+          sourceGraph,
+          bindingStack,
+          parentTracer,
+          metroGraph,
+          dependencyGraphAnno
+        )
+      }
+    }
+
     val graphClassId = graphDeclaration.classIdOrFail
 
     return dependencyGraphNodesByClass.getOrPut(graphClassId) {
@@ -93,7 +107,7 @@ internal class DependencyGraphNodeCache(
     private val scopes = mutableSetOf<IrAnnotation>()
     private val providerFactories = mutableListOf<Pair<IrTypeKey, ProviderFactory>>()
     private val extendedGraphNodes = mutableMapOf<IrTypeKey, DependencyGraphNode>()
-    private val graphExtensions = mutableListOf<Pair<IrTypeKey, MetroSimpleFunction>>()
+    private val graphExtensions = mutableMapOf<IrTypeKey, MutableList<MetroSimpleFunction>>()
     private val injectors = mutableListOf<Pair<MetroSimpleFunction, IrContextualTypeKey>>()
     private val includedGraphNodes = mutableMapOf<IrTypeKey, DependencyGraphNode>()
     private val graphTypeKey = IrTypeKey(graphDeclaration.typeWith())
@@ -218,7 +232,7 @@ internal class DependencyGraphNodeCache(
           // It's a graph-like
           val node =
             bindingStack.withEntry(
-              IrBindingStack.Entry.requestedAt(graphContextKey, nonNullCreator.function)
+              IrBindingStack.Entry.injectedAt(graphContextKey, nonNullCreator.function)
             ) {
               val nodeKey =
                 if (klass.origin == Origins.GeneratedGraphExtension) {
@@ -233,8 +247,7 @@ internal class DependencyGraphNodeCache(
           if (parameter.isIncludes) {
             includedGraphNodes[parameter.typeKey] = node
           } else {
-            // TODO implicitly extended graph, but we should eliminate this parameter
-            extendedGraphNodes[parameter.typeKey] = node
+            reportCompilerBug("Unexpected parameter type for graph: $parameter")
           }
         }
       }
@@ -344,7 +357,7 @@ internal class DependencyGraphNodeCache(
                 } else {
                   IrContextualTypeKey.from(declaration)
                 }
-              graphExtensions += (contextKey.typeKey to metroFunction)
+              graphExtensions.getOrPut(contextKey.typeKey, ::mutableListOf) += metroFunction
               hasGraphExtensions = true
             } else if (isInjector) {
               // It's an injector
@@ -423,7 +436,7 @@ internal class DependencyGraphNodeCache(
                 } else {
                   contextKey
                 }
-              graphExtensions += (contextKey.typeKey to metroFunction)
+              graphExtensions.getOrPut(contextKey.typeKey, ::mutableListOf) += metroFunction
               hasGraphExtensions = true
             } else {
               val collection =
@@ -467,6 +480,25 @@ internal class DependencyGraphNodeCache(
       }
 
       val creator = buildCreator()
+
+      // Add extended node if it's a generated graph extension
+      if (graphDeclaration.origin == Origins.GeneratedGraphExtension) {
+        val parentGraph = graphDeclaration.parentAsClass
+        val graphTypeKey = graphDeclaration.generatedGraphExtensionData!!.typeKey
+        checkGraphSelfCycle(graphDeclaration, graphTypeKey, bindingStack)
+
+        // Add its parent node
+        val node =
+          bindingStack.withEntry(
+            IrBindingStack.Entry.generatedExtensionAt(
+              IrContextualTypeKey(graphTypeKey),
+              parentGraph.kotlinFqName.asString(),
+            )
+          ) {
+            nodeCache.getOrComputeDependencyGraphNode(parentGraph, bindingStack, parentTracer)
+          }
+        extendedGraphNodes[node.typeKey] = node
+      }
 
       val managedBindingContainers = mutableSetOf<IrClass>()
       bindingContainers +=
@@ -686,7 +718,7 @@ internal class DependencyGraphNodeCache(
           proto = null,
           extendedGraphNodes = extendedGraphNodes,
           // Following aren't necessary to see in external graphs
-          graphExtensions = emptyList(),
+          graphExtensions = emptyMap(),
           injectors = emptyList(),
           creator = null,
           bindingContainers = emptySet(),

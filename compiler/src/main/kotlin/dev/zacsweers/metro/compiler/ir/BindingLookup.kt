@@ -37,6 +37,9 @@ internal class BindingLookup(
 
   private val parentGraphDepCache = mutableMapOf<ParentGraphDepKey, IrBinding.GraphDependency>()
 
+  // Lazy parent key bindings - only created when actually accessed
+  private val lazyParentKeys = mutableMapOf<IrTypeKey, Lazy<IrBinding.GraphDependency>>()
+
   /** Returns all static bindings for similarity checking. */
   fun getAvailableStaticBindings(): Map<IrTypeKey, IrBinding.StaticBinding> {
     return buildMap(providedBindingsCache.size + aliasBindingsCache.size) {
@@ -63,6 +66,10 @@ internal class BindingLookup(
 
   fun removeAliasBinding(typeKey: IrTypeKey) {
     aliasBindingsCache.remove(typeKey)
+  }
+
+  fun addLazyParentKey(typeKey: IrTypeKey, bindingFactory: () -> IrBinding.GraphDependency) {
+    lazyParentKeys[typeKey] = unsafeLazy(bindingFactory)
   }
 
   context(context: IrMetroContext)
@@ -106,8 +113,8 @@ internal class BindingLookup(
       providedBindingsCache[key]?.let { providedBinding ->
         // Check if this is available from parent and is scoped
         if (providedBinding.scope != null && parentContext?.contains(key) == true) {
-          parentContext.mark(key, providedBinding.scope!!)
-          return setOf(createParentGraphDependency(key))
+          val fieldAccess = parentContext.mark(key, providedBinding.scope!!)
+          return setOf(createParentGraphDependency(key, fieldAccess!!))
         }
         return setOf(providedBinding)
       }
@@ -116,6 +123,11 @@ internal class BindingLookup(
       // TODO if @Binds from a parent matches a parent accessor, which one wins?
       aliasBindingsCache[key]?.let {
         return setOf(it)
+      }
+
+      // Check for lazy parent keys
+      lazyParentKeys[key]?.let { lazyBinding ->
+        return setOf(lazyBinding.value)
       }
 
       // Finally, fall back to class-based lookup and cache the result
@@ -132,8 +144,8 @@ internal class BindingLookup(
                 // Discovered here but unused in the parents, mark it anyway so they include it
                 parentContext.containsScope(scope)
             if (scopeInParent) {
-              parentContext.mark(key, scope)
-              remappedBindings += createParentGraphDependency(key)
+              val fieldAccess = parentContext.mark(key, scope)
+              remappedBindings += createParentGraphDependency(key, fieldAccess!!)
               continue
             }
           }
@@ -146,18 +158,16 @@ internal class BindingLookup(
     }
 
   context(context: IrMetroContext)
-  private fun createParentGraphDependency(key: IrTypeKey): IrBinding.GraphDependency {
+  private fun createParentGraphDependency(key: IrTypeKey, fieldAccess: ParentContext.FieldAccess): IrBinding.GraphDependency {
     val parentGraph = parentContext!!.currentParentGraph
     val cacheKey = ParentGraphDepKey(parentGraph, key)
     return parentGraphDepCache.getOrPut(cacheKey) {
       val parentTypeKey = IrTypeKey(parentGraph.typeWith())
-      val accessorFunction = key.toAccessorFunctionIn(parentGraph, wrapInProvider = true)
 
       IrBinding.GraphDependency(
         ownerKey = parentTypeKey,
         graph = sourceGraph,
-        getter = accessorFunction,
-        isProviderFieldAccessor = true,
+        fieldAccess = fieldAccess,
         typeKey = key,
       )
     }
