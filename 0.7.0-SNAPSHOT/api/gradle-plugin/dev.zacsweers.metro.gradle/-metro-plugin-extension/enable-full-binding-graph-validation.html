@@ -2,7 +2,7 @@
 <html class="no-js">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
-    <title>enableStrictValidation</title>
+    <title>enableFullBindingGraphValidation</title>
 <link href="../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../";</script>
     <script>document.documentElement.classList.replace("no-js","js");</script>
     <script>const storage = localStorage.getItem("dokka-dark-mode")
@@ -90,12 +90,12 @@
                 </div>
             </div>
             <div id="main">
-<div class="main-content" data-page-type="member" id="content" pageids="gradle-plugin::dev.zacsweers.metro.gradle/MetroPluginExtension/enableStrictValidation/#/PointingToDeclaration//-937474457">
-  <div class="breadcrumbs"><a href="../../index.html">gradle-plugin</a><span class="delimiter">/</span><a href="../index.html">dev.zacsweers.metro.gradle</a><span class="delimiter">/</span><a href="index.html">MetroPluginExtension</a><span class="delimiter">/</span><span class="current">enableStrictValidation</span></div>
+<div class="main-content" data-page-type="member" id="content" pageids="gradle-plugin::dev.zacsweers.metro.gradle/MetroPluginExtension/enableFullBindingGraphValidation/#/PointingToDeclaration//-937474457">
+  <div class="breadcrumbs"><a href="../../index.html">gradle-plugin</a><span class="delimiter">/</span><a href="../index.html">dev.zacsweers.metro.gradle</a><span class="delimiter">/</span><a href="index.html">MetroPluginExtension</a><span class="delimiter">/</span><span class="current">enableFullBindingGraphValidation</span></div>
   <div class="cover ">
-    <h1 class="cover"><span>enable</span><wbr><span>Strict</span><wbr><span><span>Validation</span></span></h1>
+    <h1 class="cover"><span>enable</span><wbr><span>Full</span><wbr><span>Binding</span><wbr><span>Graph</span><wbr><span><span>Validation</span></span></h1>
   </div>
-  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":gradle-plugin/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="enable-strict-validation.html">enableStrictValidation</a><span class="token operator">: </span><span data-unresolved-link="org.gradle.api.provider/Property///PointingToDeclaration/">Property</span><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span><span class="clearfix"><span class="floating-right">(<a href="https://github.com/ZacSweers/metro//tree/main/gradle-plugin/src/main/kotlin/dev/zacsweers/metro/gradle/MetroPluginExtension.kt#L79">source</a>)</span></span></div><p class="paragraph">Enable/disable strict validation of bindings. If enabled, <i>all</i> declared <code class="lang-kotlin">@Provides</code> and <code class="lang-kotlin">@Binds</code> bindings will be validated even if they are not used by the graph. Disabled by default.</p></div></div>
+  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":gradle-plugin/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="enable-full-binding-graph-validation.html">enableFullBindingGraphValidation</a><span class="token operator">: </span><span data-unresolved-link="org.gradle.api.provider/Property///PointingToDeclaration/">Property</span><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span><span class="clearfix"><span class="floating-right">(<a href="https://github.com/ZacSweers/metro//tree/main/gradle-plugin/src/main/kotlin/dev/zacsweers/metro/gradle/MetroPluginExtension.kt#L81">source</a>)</span></span></div><p class="paragraph">Enable/disable full validation of bindings. If enabled, <i>all</i> declared <code class="lang-kotlin">@Provides</code> and <code class="lang-kotlin">@Binds</code> bindings will be validated even if they are not used by the graph. Disabled by default.</p><p class="paragraph">This is equivalent to Dagger's <code class="lang-kotlin">-Adagger.fullBindingGraphValidation</code> option, though there are no controls for diagnostic severity.</p></div></div>
 </div>
     <div class="footer">
         <a href="#content" id="go-to-top-link" class="footer--button footer--button_go-to-top"></a>
