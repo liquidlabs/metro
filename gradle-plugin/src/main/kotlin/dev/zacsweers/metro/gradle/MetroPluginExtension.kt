@@ -72,10 +72,16 @@ constructor(layout: ProjectLayout, objects: ObjectFactory, providers: ProviderFa
     objects.property(Boolean::class.javaObjectType).convention(false)
 
   /**
-   * Enable/disable strict validation of bindings. If enabled, _all_ declared `@Provides` and
-   * `@Binds` bindings will be validated even if they are not used by the graph. Disabled by
-   * default.
+   * Enable/disable full validation of bindings. If enabled, _all_ declared `@Provides` and `@Binds`
+   * bindings will be validated even if they are not used by the graph. Disabled by default.
+   *
+   * This is equivalent to Dagger's `-Adagger.fullBindingGraphValidation` option, though there are
+   * no controls for diagnostic severity.
    */
+  public val enableFullBindingGraphValidation: Property<Boolean> =
+    objects.property(Boolean::class.javaObjectType).convention(false)
+
+  @Deprecated("Use enableFullBindingGraphValidation", ReplaceWith("enableFullBindingGraphValidation"))
   public val enableStrictValidation: Property<Boolean> =
     objects.property(Boolean::class.javaObjectType).convention(false)
 

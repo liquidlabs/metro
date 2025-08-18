@@ -9,6 +9,8 @@ Changelog
 * **Enhancement**: Allow graph extensions to depend on other graph extensions within the context of their parent graph.
 * **Fix**: Don't override graph extension factories' default functions.
 * **Fix**: Fix Kotlin internal error overriding Metro error when there's a missing factory for a Java `@Inject` class.
+* Deprecate the `enableStrictValidation` Gradle property in favor of `enableFullBindingGraphValidation`, which aligns with [Dagger's (better) name for the same functionality](https://dagger.dev/dev-guide/compiler-options#full-binding-graph-validation).
+* Update Wire to `5.3.11`.
 
 0.6.0
 -----
