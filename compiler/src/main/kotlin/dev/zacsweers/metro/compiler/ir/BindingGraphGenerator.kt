@@ -12,6 +12,7 @@ import dev.zacsweers.metro.compiler.ir.parameters.parameters
 import dev.zacsweers.metro.compiler.ir.transformers.InjectConstructorTransformer
 import dev.zacsweers.metro.compiler.ir.transformers.MembersInjectorTransformer
 import dev.zacsweers.metro.compiler.reportCompilerBug
+import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.typeOrFail
@@ -459,8 +460,23 @@ internal class BindingGraphGenerator(
       }
     }
 
-    // GraphExtension bindings are added later in DependencyGraphTransformer after usedKeys are
-    // determined
+    for ((key, accessors) in node.graphExtensions) {
+      for (accessor in accessors) {
+        if (accessor.isFactory && accessor.key.typeKey.classId !in node.supertypeClassIds) {
+          graph.addBinding(
+            accessor.key.typeKey,
+            IrBinding.GraphExtensionFactory(
+              typeKey = accessor.key.typeKey,
+              extensionTypeKey = key,
+              parent = node.metroGraph!!,
+              parentKey = node.typeKey,
+              accessor = accessor.accessor.ir,
+            ),
+            bindingStack
+          )
+        }
+      }
+    }
 
     // Add bindings from graph dependencies
     // TODO dedupe this allDependencies iteration with graph gen
@@ -522,36 +538,40 @@ internal class BindingGraphGenerator(
       if (parentContext == null) {
         reportCompilerBug("No parent bindings found for graph extension ${node.sourceGraph.name}")
       }
-      val directParent = node.extendedGraphNodes.values.first()
-      val directParentClass =
-        if (directParent.sourceGraph.origin == Origins.GeneratedGraphExtension) {
-          // Parent is also a contributed graph, so the class itself is the parent
-          directParent.sourceGraph
-        } else {
-          directParent.metroGraph
-        }
 
-      // Add bindings for the parent itself as a field reference
-      val paramTypeKey = directParent.typeKey
-      graph.addBinding(
-        paramTypeKey,
-        IrBinding.BoundInstance(
-          paramTypeKey,
-          "parent",
-          directParent.sourceGraph,
-          classReceiverParameter = directParentClass!!.thisReceiver,
-        ),
-        bindingStack,
-      )
-      // Add the original type too as an alias
-      val regularGraph = directParent.sourceGraph.sourceGraphIfMetroGraph
-      if (regularGraph != directParent.sourceGraph) {
-        val keyType =
-          regularGraph.typeWith(
-            directParent.typeKey.type.expectAs<IrSimpleType>().arguments.map { it.typeOrFail }
-          )
-        val typeKey = IrTypeKey(keyType)
-        superTypeToAlias.putIfAbsent(typeKey, paramTypeKey)
+      val parentKeysByClass = mutableMapOf<IrClass, IrTypeKey>()
+      for ((parentKey, parentNode) in node.allExtendedNodes) {
+        val parentNodeClass =
+          if (parentNode.sourceGraph.origin == Origins.GeneratedGraphExtension) {
+            // Parent is also a contributed graph, so the class itself is the parent
+            parentNode.sourceGraph
+          } else {
+            parentNode.metroGraph!!
+          }
+
+        parentKeysByClass[parentNodeClass] = parentKey
+
+        // Add bindings for the parent itself as a field reference
+        graph.addBinding(
+          parentKey,
+          IrBinding.BoundInstance(
+            parentKey,
+            "parent",
+            parentNode.sourceGraph,
+            classReceiverParameter = parentNodeClass!!.thisReceiver,
+          ),
+          bindingStack,
+        )
+        // Add the original type too as an alias
+        val regularGraph = parentNode.sourceGraph.sourceGraphIfMetroGraph
+        if (regularGraph != parentNode.sourceGraph) {
+          val keyType =
+            regularGraph.typeWith(
+              parentNode.typeKey.type.expectAs<IrSimpleType>().arguments.map { it.typeOrFail }
+            )
+          val typeKey = IrTypeKey(keyType)
+          superTypeToAlias.putIfAbsent(typeKey, parentKey)
+        }
       }
 
       for (key in parentContext.availableKeys()) {
@@ -568,18 +588,18 @@ internal class BindingGraphGenerator(
 
         // Register a lazy parent key that will only call mark() when actually used
         bindingLookup.addLazyParentKey(key) {
-          val fieldAccess = parentContext.mark(key)
-            ?: reportCompilerBug("Missing parent key $key")
+          val fieldAccess = parentContext.mark(key) ?: reportCompilerBug("Missing parent key $key")
 
           // Record a lookup for IC when the binding is actually created
+          val fieldParentClass = fieldAccess.field.parentAsClass
           trackMemberDeclarationCall(
             node.sourceGraph,
-            directParentClass.kotlinFqName,
+            fieldParentClass.kotlinFqName,
             fieldAccess.field.name.asString(),
           )
 
           IrBinding.GraphDependency(
-            ownerKey = directParent.typeKey,
+            ownerKey = parentKeysByClass.getValue(fieldParentClass),
             graph = node.sourceGraph,
             fieldAccess = fieldAccess,
             typeKey = key,

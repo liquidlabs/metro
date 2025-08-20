@@ -509,6 +509,12 @@ public class BoxTestGenerated extends AbstractBoxTest {
       }
 
       @Test
+      @TestMetadata("FactoriesCanBeOnTheGraph.kt")
+      public void testFactoriesCanBeOnTheGraph() {
+        runTest("compiler-tests/src/test/data/box/dependencygraph/extensions/FactoriesCanBeOnTheGraph.kt");
+      }
+
+      @Test
       @TestMetadata("FactoryIsAccessibleThroughInterop.kt")
       public void testFactoryIsAccessibleThroughInterop() {
         runTest("compiler-tests/src/test/data/box/dependencygraph/extensions/FactoryIsAccessibleThroughInterop.kt");
@@ -524,6 +530,12 @@ public class BoxTestGenerated extends AbstractBoxTest {
       @TestMetadata("MatchingParentBindingsAreSuperseded.kt")
       public void testMatchingParentBindingsAreSuperseded() {
         runTest("compiler-tests/src/test/data/box/dependencygraph/extensions/MatchingParentBindingsAreSuperseded.kt");
+      }
+
+      @Test
+      @TestMetadata("MultiLevelEmptyExtensions.kt")
+      public void testMultiLevelEmptyExtensions() {
+        runTest("compiler-tests/src/test/data/box/dependencygraph/extensions/MultiLevelEmptyExtensions.kt");
       }
 
       @Test
