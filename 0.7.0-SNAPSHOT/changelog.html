@@ -956,6 +956,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#061" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.6.1
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#060" class="md-nav__link">
     <span class="md-ellipsis">
       0.6.0
@@ -1280,6 +1289,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#061" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.6.1
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#060" class="md-nav__link">
     <span class="md-ellipsis">
       0.6.0
@@ -1537,6 +1555,8 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="061">0.6.1<a class="headerlink" href="#061" title="Permanent link">&para;</a></h2>
+<p><em>2025-08-20</em></p>
 <ul>
 <li><strong>New</strong>: Add a diagnostic to report parent keys used by graph extensions <code>parent-keys-used-*.txt</code>.</li>
 <li><strong>Enhancement</strong>: Graph extensions are now generated as <code>inner</code> classes, reducing much of the necessary generated code in parent graphs and allowing them to access parent binding fields directly.</li>
@@ -1546,9 +1566,14 @@
 <li><strong>Enhancement</strong>: Improve error message location accuracy for missing bindings when reporting from a <code>@Binds</code> declaration.</li>
 <li><strong>Fix</strong>: Don&rsquo;t override graph extension factories&rsquo; default functions.</li>
 <li><strong>Fix</strong>: Fix Kotlin internal error overriding Metro error when there&rsquo;s a missing factory for a Java <code>@Inject</code> class.</li>
+<li>[Docs] The project website is now versioned. This means you can read the documentation at different versions:</li>
+<li>Latest release: <a href="https://zacsweers.github.io/metro/latest/">https://zacsweers.github.io/metro/latest/</a></li>
+<li>Snapshots (example): <a href="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/">https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/</a></li>
+<li>Past release (example): <a href="https://zacsweers.github.io/metro/0.6.0/">https://zacsweers.github.io/metro/0.6.0/</a></li>
 <li>Deprecate the <code>enableStrictValidation</code> Gradle property in favor of <code>enableFullBindingGraphValidation</code>, which aligns with <a href="https://dagger.dev/dev-guide/compiler-options#full-binding-graph-validation">Dagger&rsquo;s (better) name for the same functionality</a>.</li>
 <li>Update Wire to <code>5.3.11</code>.</li>
 </ul>
+<p>Special thanks to <a href="https://github.com/hossain-khan">@hossain-khan</a> and <a href="https://github.com/JoelWilcox">@JoelWilcox</a> for contributing to this release!</p>
 <h2 id="060">0.6.0<a class="headerlink" href="#060" title="Permanent link">&para;</a></h2>
 <p><em>2025-08-15</em></p>
 <h3 id="graph-extensions-are-no-longer-detached">Graph extensions are no longer detached.<a class="headerlink" href="#graph-extensions-are-no-longer-detached" title="Permanent link">&para;</a></h3>
