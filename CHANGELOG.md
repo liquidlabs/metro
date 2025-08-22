@@ -14,7 +14,7 @@ _2025-08-22_
 * **Fix**: Don't allocate new fields for deferred bindings reserved by extension graphs.
 * **Fix**: Allow graph extensions to expose their own factories if inherited from parents.
 
-Special thanks to [@KevinGuitar](https://github.com/KevinGuitar), [@@hossain-khan](https://github.com/@hossain-khan) and [@ChrisBanes](https://github.com/ChrisBanes) for contributing to this release!
+Special thanks to [@KevinGuitar](https://github.com/KevinGuitar), [@hossain-khan](https://github.com/@hossain-khan) and [@ChrisBanes](https://github.com/ChrisBanes) for contributing to this release!
 
 0.6.1
 -----
