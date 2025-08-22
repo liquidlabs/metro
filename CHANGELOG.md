@@ -4,10 +4,17 @@ Changelog
 **Unreleased**
 --------------
 
+0.6.2
+-----
+
+_2025-08-22_
+
 * **Enhancement**: Add diagnostic for contributed binding containers with no (visible) no-arg constructor.
 * **Enhancement**: Add hint for missing bindings if the binding appears to be contributed by an `internal` type in another, non-friend module.
 * **Fix**: Don't allocate new fields for deferred bindings reserved by extension graphs.
 * **Fix**: Allow graph extensions to expose their own factories if inherited from parents.
+
+Special thanks to [@KevinGuitar](https://github.com/KevinGuitar) and [@ChrisBanes](https://github.com/ChrisBanes) for contributing to this release!
 
 0.6.1
 -----
