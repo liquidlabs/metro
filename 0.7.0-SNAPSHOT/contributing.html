@@ -1185,6 +1185,7 @@
 <p>Metro welcomes contributions! Small contributions like documentation improvements, small obvious fixes, etc are always good and don&rsquo;t need prior discussion. I liberally leave TODO comments in code that don&rsquo;t quite meet the standard of an issue but are still things worth improving :). For larger functionality changes or features, please raise a discussion or issue first before starting work.</p>
 <h2 id="development">Development<a class="headerlink" href="#development" title="Permanent link">&para;</a></h2>
 <p>Local development with Metro is fairly straightforward. You should be able to clone the repo and open it in IntelliJ as a standard Gradle project.</p>
+<p>Note: This project uses a specific JDK (see the <code>jdk</code> version in <code>libs.versions.toml</code>). If you don&rsquo;t have that JDK installed, you can likely change it to whatever JDK suits your needs as long as it&rsquo;s compatible with the <code>jvmTarget</code> version defined in <code>libs.versions.toml</code>.</p>
 <p>There are a few primary subprojects to consider.</p>
 <ol>
 <li><code>:compiler</code> — Metro&rsquo;s compiler plugin implementation lives. This includes compiler-supported interop features too.</li>
