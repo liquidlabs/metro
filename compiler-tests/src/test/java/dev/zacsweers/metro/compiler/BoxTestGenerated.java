@@ -839,6 +839,12 @@ public class BoxTestGenerated extends AbstractBoxTest {
       }
 
       @Test
+      @TestMetadata("IncludesContainersCanTransitivelyIncludeOthers.kt")
+      public void testIncludesContainersCanTransitivelyIncludeOthers() {
+        runTest("compiler-tests/src/test/data/box/interop/dagger/IncludesContainersCanTransitivelyIncludeOthers.kt");
+      }
+
+      @Test
       @TestMetadata("InjectedDaggerLazyInteropWorks.kt")
       public void testInjectedDaggerLazyInteropWorks() {
         runTest("compiler-tests/src/test/data/box/interop/dagger/InjectedDaggerLazyInteropWorks.kt");
