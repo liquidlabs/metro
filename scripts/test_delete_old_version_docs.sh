@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # test_delete_old_version_docs.sh
 #
@@ -8,6 +8,8 @@
 # Usage: ./test_delete_old_version_docs.sh
 
 # Hardcoded test versions - modify this list to test different scenarios
+# 
+# Test scenario 1: Mixed versions (some cleanup needed)
 test_versions=(
     "0.7.3"
     "0.7.2-SNAPSHOT [snapshot]"
@@ -24,6 +26,14 @@ test_versions=(
     "0.5.1"
     "0.5.0"
 )
+
+# Test scenario 2: No cleanup needed (only latest versions)
+# Uncomment to test the "no cleanup required" scenario:
+# test_versions=(
+#     "0.7.3 [latest]"
+#     "0.6.2"
+#     "0.5.5 [snapshot]"
+# )
 
 echo "=== Testing with versions ==="
 for v in "${test_versions[@]}"; do
@@ -80,10 +90,15 @@ for v in "${to_keep[@]}"; do
 done
 echo
 
-echo "=== WOULD DELETE ==="
-for v in "${to_delete[@]}"; do
-  echo "  ✗ $v"
-done
+if [[ ${#to_delete[@]} -eq 0 ]]; then
+  echo "=== NO CLEANUP REQUIRED ==="
+  echo "All versions are already the latest for their respective series"
+else
+  echo "=== WOULD DELETE ==="
+  for v in "${to_delete[@]}"; do
+    echo "  ✗ $v"
+  done
+fi
 echo
 
 echo "Summary: ${#to_keep[@]} versions kept, ${#to_delete[@]} versions would be deleted"
