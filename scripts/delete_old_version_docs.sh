@@ -48,7 +48,11 @@ for v in "${versions[@]}"; do
   fi
 done
 
-for v in "${to_delete[@]}"; do
-  echo "Cleaning up old versioned site - deleting $v"
-  mike delete "$v" --push
-done
+if [[ ${#to_delete[@]} -eq 0 ]]; then
+  echo "No cleanup required - all versions are already the latest for their respective series"
+else
+  for v in "${to_delete[@]}"; do
+    echo "Cleaning up old versioned site - deleting $v"
+    mike delete "$v" --push
+  done
+fi
