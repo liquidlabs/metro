@@ -50,5 +50,5 @@ done
 
 for v in "${to_delete[@]}"; do
   echo "Cleaning up old versioned site - deleting $v"
-  #mike delete "$v" --push
+  mike delete "$v" --push
 done
