@@ -127,7 +127,7 @@ jobs:
       - name: Delete old doc versions
         run: |
           git fetch origin gh-pages --depth=1
-          zsh ./scripts/delete_old_version_docs.sh
+          ./scripts/delete_old_version_docs.sh
 
   # Docs dry run job for PRs that change requirements.txt
   docs-dry-run:
