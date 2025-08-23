@@ -4,13 +4,13 @@
 # patch version for each major.minor series. 
 #
 # Example cleanup given the following versioned sites:
-# - 0.7.0-SNAPSHOT [snapshot] <-- keep ✅
-# - 0.6.2 [latest] <-- keep ✅
-# - 0.6.1 <-- deleted ❌
-# - 0.6.0 <-- deleted ❌
-# - 0.6.0-SNAPSHOT <-- deleted ❌
-# - 0.5.5 <-- keep ✅
-# - 0.5.4 <-- deleted ❌
+# - "0.7.0-SNAPSHOT [snapshot]" <-- keep ✅
+# - "0.6.2 [latest]" <-- keep ✅
+# - "0.6.1" <-- deleted ❌
+# - "0.6.0" <-- deleted ❌
+# - "0.6.0-SNAPSHOT" <-- deleted ❌
+# - "0.5.5" <-- keep ✅
+# - "0.5.4" <-- deleted ❌
 #
 # Note: This script is adapted from `https://github.com/chrisbanes/haze` repository
 
@@ -49,6 +49,6 @@ for v in "${versions[@]}"; do
 done
 
 for v in "${to_delete[@]}"; do
-  echo "Deleting $v"
+  echo "Cleaning up old versioned site - deleting $v"
   #mike delete "$v" --push
 done
