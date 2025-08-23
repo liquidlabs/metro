@@ -1345,7 +1345,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <h3 id="automatic-assisted-factory-generation">Automatic Assisted Factory Generation<a class="headerlink" href="#automatic-assisted-factory-generation" title="Permanent link">&para;</a></h3>
-<p>Metro supports automatic generation of assisted factories via opt-in compiler option. If enabled,
+<p>Metro supports automatic generation of assisted factories via opt-in compiler option. If enabled,<br />
 Metro will automatically generate a default factory as a nested class within the injected type.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@Inject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">HttpClient</span><span class="p">(</span>
@@ -1361,7 +1361,7 @@ Metro will automatically generate a default factory as a nested class within the
 </code></pre></div>
 <p>If a nested class called <code>Factory</code> is already present, Metro will do nothing.</p>
 <h3 id="why-opt-in">Why opt-in?<a class="headerlink" href="#why-opt-in" title="Permanent link">&para;</a></h3>
-<p>The main reason this is behind an opt-in option at the moment is because compiler plugin IDE
+<p>The main reason this is behind an opt-in option at the moment is because compiler plugin IDE<br />
 support is rudimentary at best and currently requires enabling a custom registry flag. See <a href="installation.html#ide-support">the docs for how to enable IDE support</a>.</p>
 <p>Because of this, it&rsquo;s likely better for now to just hand-write the equivalent class that Metro generates. If you still wish to proceed with using this, it can be enabled via the Gradle DSL.</p>
 <div class="highlight"><pre><span></span><code>metro {
@@ -1531,9 +1531,9 @@ support is rudimentary at best and currently requires enabling a custom registry
 <h3 id="why-opt-in_1">Why opt-in?<a class="headerlink" href="#why-opt-in_1" title="Permanent link">&para;</a></h3>
 <p>There are two reasons this is behind an opt-in option at the moment.</p>
 <ol>
-<li>Generating top-level declarations in Kotlin compiler plugins (in FIR specifically) is not
+<li>Generating top-level declarations in Kotlin compiler plugins (in FIR specifically) is not<br />
    currently compatible with incremental compilation.</li>
-<li>IDE support is rudimentary at best and currently requires enabling a custom registry flag.
+<li>IDE support is rudimentary at best and currently requires enabling a custom registry flag.<br />
    See <a href="installation.html#ide-support">the docs for how to enable IDE support</a>.</li>
 </ol>
 <p>Because of this, it&rsquo;s likely better for now to just hand-write the equivalent class that Metro generates. If you still wish to proceed with using this, it can be enabled via the Gradle DSL.</p>

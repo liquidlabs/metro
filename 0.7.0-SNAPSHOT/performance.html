@@ -1232,10 +1232,10 @@
 <h1 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h1>
 <p>Metro strives to be a performant solution with minimal overhead at build-time and generating fast, efficient code at runtime. As build performance is the primary consideration for most developers considering this, most of this doc will be focused on that.</p>
 <h2 id="build-performance">Build Performance<a class="headerlink" href="#build-performance" title="Permanent link">&para;</a></h2>
-<p>Metro&rsquo;s compiler plugin is designed to be <em>fast</em>. Running as a compiler plugin allows it to:
-- Avoid generating new sources that need to be compiled
-- Avoid running KSP/KAPT
-- Generate IR that lowers directly into target platforms
+<p>Metro&rsquo;s compiler plugin is designed to be <em>fast</em>. Running as a compiler plugin allows it to:<br />
+- Avoid generating new sources that need to be compiled<br />
+- Avoid running KSP/KAPT<br />
+- Generate IR that lowers directly into target platforms<br />
 - Hook directly into kotlinc&rsquo;s IC APIs.</p>
 <p><strong>In a straightforward migration, it improves ABI-changing build performance from 30-70%.</strong></p>
 <h3 id="benchmarking">Benchmarking<a class="headerlink" href="#benchmarking" title="Permanent link">&para;</a></h3>
