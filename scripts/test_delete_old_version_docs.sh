@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # test_delete_old_version_docs.sh
 #

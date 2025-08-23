@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # This script cleans up old versioned mkdocs site by keeping only the latest
 # patch version for each major.minor series. 
