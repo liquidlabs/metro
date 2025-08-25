@@ -541,15 +541,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#extends" class="md-nav__link">
-    <span class="md-ellipsis">
-      Extends
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#creating-factories" class="md-nav__link">
     <span class="md-ellipsis">
       Creating factories
@@ -1286,15 +1277,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#extends" class="md-nav__link">
-    <span class="md-ellipsis">
-      Extends
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#creating-factories" class="md-nav__link">
     <span class="md-ellipsis">
       Creating factories
@@ -1532,7 +1514,7 @@
 </code></pre></div>
 <p>Graphs are relatively cheap and should be used freely.</p>
 <h2 id="inputs">Inputs<a class="headerlink" href="#inputs" title="Permanent link">&para;</a></h2>
-<p>Runtime inputs can be provided via a <code>@DependencyGraph.Factory</code> interface that returns the target graph. These parameters must be annotated with exactly one of <code>@Provides</code>, <code>@Includes</code>, or <code>@Extends</code>.</p>
+<p>Runtime inputs can be provided via a <code>@DependencyGraph.Factory</code> interface that returns the target graph. These parameters must be annotated with either <code>@Provides</code> or <code>@Includes</code>.</p>
 <h3 id="provides">Provides<a class="headerlink" href="#provides" title="Permanent link">&para;</a></h3>
 <p>The simplest input is an instance parameter annotated with <code>@Provides</code>. This provides this instance as an available binding on the graph.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@DependencyGraph</span>
@@ -1589,8 +1571,6 @@
 <p>Includes parameters cannot be injected from the graph.</p>
 </div>
 <p><a href="#binding-containers">Binding Containers</a> are a special type of <code>@Includes</code> type, see more in its section below.</p>
-<h3 id="extends">Extends<a class="headerlink" href="#extends" title="Permanent link">&para;</a></h3>
-<p><code>@Extends</code>-annotated parameters are for extending parent graphs. See <em>Graph Extensions</em> at the bottom of this doc for more information.</p>
 <h3 id="creating-factories">Creating factories<a class="headerlink" href="#creating-factories" title="Permanent link">&para;</a></h3>
 <p>Graph factories can be created with the <code>createGraphFactory()</code> intrinsic.</p>
 <div class="highlight"><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="nv">messageGraph</span><span class="w"> </span><span class="o">=</span>
