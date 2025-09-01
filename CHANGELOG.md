@@ -17,7 +17,7 @@ _2025-09-01_
 * **Fix**: Report diagnostic errors if accessors or injectors have conflicting qualifiers in overridden functions.
 * **Fix**: Report diagnostic errors if an injector function does not return `Unit`.
 
-Special thanks to [@joelwilcox](https://github.com/joelwilcox), [@vRallev](https://github.com/vRallev),  [@kevinguitar](https://github.com/kevinguitar), and [@erawhctim](https://github.com/erawhctim) for contributing to this release!
+Special thanks to [@joelwilcox](https://github.com/joelwilcox), [@vRallev](https://github.com/vRallev), [@kevinguitar](https://github.com/kevinguitar), and [@erawhctim](https://github.com/erawhctim) for contributing to this release!
 
 0.6.3
 -----
