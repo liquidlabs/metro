@@ -4,6 +4,12 @@ Changelog
 **Unreleased**
 --------------
 
+0.6.6
+-----
+
+_2025-09-11_
+
+- **Enhancement:** Optimize annotation lookups in some places in IR.
 - **Fix:** If a graph declares an overridable declaration that matches one of a contributed supertype, transform it to add the requisite `override` modifier.
     - All that is to say, this code now works
       ```kotlin
