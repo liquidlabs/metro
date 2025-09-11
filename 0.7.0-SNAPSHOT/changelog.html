@@ -1627,6 +1627,23 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Fix:</strong> If a graph declares an overridable declaration that matches one of a contributed supertype, transform it to add the requisite <code>override</code> modifier.<ul>
+<li>All that is to say, this code now works<br />
+  <div class="highlight"><pre><span></span><code><span class="nd">@ContributesTo</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">StringRequester</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">string</span><span class="p">:</span><span class="w"> </span><span class="kt">String</span>
+<span class="p">}</span>
+
+<span class="nd">@DependencyGraph</span><span class="p">(</span><span class="n">AppScope</span><span class="o">::</span><span class="n">class</span><span class="p">)</span>
+<span class="kd">interface</span><span class="w"> </span><span class="nc">AppGraph</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">string</span><span class="p">:</span><span class="w"> </span><span class="kt">String</span><span class="w"> </span><span class="c1">// &lt;-- previously failed to compile due to missing override</span>
+<span class="p">}</span>
+</code></pre></div></li>
+</ul>
+</li>
+<li>Update to Kotlin <code>2.2.20</code>. This release requires <code>2.2.20</code> or later. See the compatibility <a href="https://zacsweers.github.io/metro/latest/compatibility">docs</a>.</li>
+</ul>
 <h2 id="065">0.6.5<a class="headerlink" href="#065" title="Permanent link">&para;</a></h2>
 <p><em>2025-09-11</em></p>
 <ul>
