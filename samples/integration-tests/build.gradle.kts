@@ -60,8 +60,6 @@ kotlin {
   }
 }
 
-metro { debug.set(false) }
-
 tasks.withType<Test>().configureEach {
   maxParallelForks = Runtime.getRuntime().availableProcessors() * 2
 }
