@@ -25,6 +25,8 @@ _2025-09-11_
       ```
 - Update to Kotlin `2.2.20`. This release requires `2.2.20` or later. See the compatibility [docs](https://zacsweers.github.io/metro/latest/compatibility).
 
+Special thanks to [@kevinguitar](https://github.com/kevinguitar) for contributing to this release!
+
 0.6.5
 -----
 
