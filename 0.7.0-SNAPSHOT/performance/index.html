@@ -12,26 +12,28 @@
         <meta name="author" content="Zac Sweers">
       
       
-        <link rel="canonical" href="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/">
+        <link rel="canonical" href="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/performance/">
       
       
+        <link rel="prev" href="../generating-metro-code/">
       
-        <link rel="next" href="features/">
+      
+        <link rel="next" href="../debugging/">
       
       
-      <link rel="icon" href="site-assets/img/favicon.ico">
+      <link rel="icon" href="../site-assets/img/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.20">
     
     
       
-        <title>Metro</title>
+        <title>Performance - Metro</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.e53b48f4.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.e53b48f4.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -50,7 +52,7 @@
       
     
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -59,11 +61,11 @@
       
         <meta  property="og:type"  content="website" >
       
-        <meta  property="og:title"  content="Metro" >
+        <meta  property="og:title"  content="Performance - Metro" >
       
         <meta  property="og:description"  content="A multiplatform dependency injection framework for Kotlin" >
       
-        <meta  property="og:image"  content="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/assets/images/social/index.png" >
+        <meta  property="og:image"  content="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/assets/images/social/performance.png" >
       
         <meta  property="og:image:type"  content="image/png" >
       
@@ -71,15 +73,15 @@
       
         <meta  property="og:image:height"  content="630" >
       
-        <meta  property="og:url"  content="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/" >
+        <meta  property="og:url"  content="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/performance/" >
       
         <meta  name="twitter:card"  content="summary_large_image" >
       
-        <meta  name="twitter:title"  content="Metro" >
+        <meta  name="twitter:title"  content="Performance - Metro" >
       
         <meta  name="twitter:description"  content="A multiplatform dependency injection framework for Kotlin" >
       
-        <meta  name="twitter:image"  content="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/assets/images/social/index.png" >
+        <meta  name="twitter:image"  content="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/assets/images/social/performance.png" >
       
     
     
@@ -102,7 +104,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#metro" class="md-skip">
+        <a href="#performance" class="md-skip">
           Skip to content
         </a>
       
@@ -122,9 +124,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="Metro" class="md-header__button md-logo" aria-label="Metro" data-md-component="logo">
+    <a href=".." title="Metro" class="md-header__button md-logo" aria-label="Metro" data-md-component="logo">
       
-  <img src="site-assets/img/metro-icon.svg" alt="logo">
+  <img src="../site-assets/img/metro-icon.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -141,7 +143,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Introduction
+              Performance
             
           </span>
         </div>
@@ -257,9 +259,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="Metro" class="md-nav__button md-logo" aria-label="Metro" data-md-component="logo">
+    <a href=".." title="Metro" class="md-nav__button md-logo" aria-label="Metro" data-md-component="logo">
       
-  <img src="site-assets/img/metro-icon.svg" alt="logo">
+  <img src="../site-assets/img/metro-icon.svg" alt="logo">
 
     </a>
     Metro
@@ -283,19 +285,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="." class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -306,7 +299,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -356,7 +348,7 @@
   
   
     <li class="md-nav__item">
-      <a href="features/" class="md-nav__link">
+      <a href="../features/" class="md-nav__link">
         
   
   
@@ -379,7 +371,7 @@
   
   
     <li class="md-nav__item">
-      <a href="differences/" class="md-nav__link">
+      <a href="../differences/" class="md-nav__link">
         
   
   
@@ -409,7 +401,7 @@
   
   
     <li class="md-nav__item">
-      <a href="installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -469,7 +461,7 @@
   
   
     <li class="md-nav__item">
-      <a href="dependency-graphs/" class="md-nav__link">
+      <a href="../dependency-graphs/" class="md-nav__link">
         
   
   
@@ -492,7 +484,7 @@
   
   
     <li class="md-nav__item">
-      <a href="provides/" class="md-nav__link">
+      <a href="../provides/" class="md-nav__link">
         
   
   
@@ -515,7 +507,7 @@
   
   
     <li class="md-nav__item">
-      <a href="injection-types/" class="md-nav__link">
+      <a href="../injection-types/" class="md-nav__link">
         
   
   
@@ -538,7 +530,7 @@
   
   
     <li class="md-nav__item">
-      <a href="scopes/" class="md-nav__link">
+      <a href="../scopes/" class="md-nav__link">
         
   
   
@@ -561,7 +553,7 @@
   
   
     <li class="md-nav__item">
-      <a href="metro-intrinsics/" class="md-nav__link">
+      <a href="../metro-intrinsics/" class="md-nav__link">
         
   
   
@@ -584,7 +576,7 @@
   
   
     <li class="md-nav__item">
-      <a href="bindings/" class="md-nav__link">
+      <a href="../bindings/" class="md-nav__link">
         
   
   
@@ -607,7 +599,7 @@
   
   
     <li class="md-nav__item">
-      <a href="aggregation/" class="md-nav__link">
+      <a href="../aggregation/" class="md-nav__link">
         
   
   
@@ -630,7 +622,7 @@
   
   
     <li class="md-nav__item">
-      <a href="multiplatform/" class="md-nav__link">
+      <a href="../multiplatform/" class="md-nav__link">
         
   
   
@@ -653,7 +645,7 @@
   
   
     <li class="md-nav__item">
-      <a href="validation-and-error-reporting/" class="md-nav__link">
+      <a href="../validation-and-error-reporting/" class="md-nav__link">
         
   
   
@@ -676,7 +668,7 @@
   
   
     <li class="md-nav__item">
-      <a href="interop/" class="md-nav__link">
+      <a href="../interop/" class="md-nav__link">
         
   
   
@@ -699,7 +691,7 @@
   
   
     <li class="md-nav__item">
-      <a href="generating-metro-code/" class="md-nav__link">
+      <a href="../generating-metro-code/" class="md-nav__link">
         
   
   
@@ -726,10 +718,32 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="performance/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Performance
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -740,6 +754,119 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#build-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Build Performance
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Build Performance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benchmarking
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmarking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Modes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#abi-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      ABI Change
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-abi-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-ABI Change
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#raw-graphcomponent-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Raw Graph/Component Processing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#real-world-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Real-World Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reporting
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Runtime Performance
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -751,7 +878,7 @@
   
   
     <li class="md-nav__item">
-      <a href="debugging/" class="md-nav__link">
+      <a href="../debugging/" class="md-nav__link">
         
   
   
@@ -773,7 +900,7 @@
   
   
     <li class="md-nav__item">
-      <a href="compatibility/" class="md-nav__link">
+      <a href="../compatibility/" class="md-nav__link">
         
   
   
@@ -795,7 +922,7 @@
   
   
     <li class="md-nav__item">
-      <a href="adoption/" class="md-nav__link">
+      <a href="../adoption/" class="md-nav__link">
         
   
   
@@ -817,7 +944,7 @@
   
   
     <li class="md-nav__item">
-      <a href="faq/" class="md-nav__link">
+      <a href="../faq/" class="md-nav__link">
         
   
   
@@ -839,7 +966,7 @@
   
   
     <li class="md-nav__item">
-      <a href="samples/" class="md-nav__link">
+      <a href="../samples/" class="md-nav__link">
         
   
   
@@ -861,7 +988,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/" class="md-nav__link">
+      <a href="../api/" class="md-nav__link">
         
   
   
@@ -905,7 +1032,7 @@
   
   
     <li class="md-nav__item">
-      <a href="changelog/" class="md-nav__link">
+      <a href="../changelog/" class="md-nav__link">
         
   
   
@@ -927,7 +1054,7 @@
   
   
     <li class="md-nav__item">
-      <a href="contributing/" class="md-nav__link">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -949,7 +1076,7 @@
   
   
     <li class="md-nav__item">
-      <a href="code-of-conduct/" class="md-nav__link">
+      <a href="../code-of-conduct/" class="md-nav__link">
         
   
   
@@ -984,6 +1111,107 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#build-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Build Performance
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Build Performance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benchmarking
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmarking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Modes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#abi-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      ABI Change
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-abi-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-ABI Change
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#raw-graphcomponent-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Raw Graph/Component Processing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#real-world-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Real-World Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reporting
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Runtime Performance
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1001,71 +1229,196 @@
   
 
 
-<h1 id="metro">🚇 Metro<a class="headerlink" href="#metro" title="Permanent link">&para;</a></h1>
-<h1 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h1>
-<p>Metro is a compile-time dependency injection framework that draws heavy inspiration from <a href="https://github.com/google/dagger">Dagger</a>, <a href="https://github.com/square/anvil">Anvil</a>, and <a href="https://github.com/evant/kotlin-inject">Kotlin-Inject</a>. It seeks to unify their best features under one, cohesive solution while adding a few new features and implemented as a compiler plugin.</p>
-<h3 id="why-another-di-framework">Why another DI framework?<a class="headerlink" href="#why-another-di-framework" title="Permanent link">&para;</a></h3>
-<p>It’s felt for some time like the Kotlin community has been waiting for a library at the intersection of these different tools and features. Different tools exist for parts of these, but there’s not yet been a unified solution that checks all these boxes, leaves behind some of these tools’ limitations, and embraces newer features that native compiler plugins offer.</p>
-<p>In short, Metro stands on the shoulders of giants. It doesn’t try to reinvent the wheel, it does try to make those wheels work better together.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><em>I’m aware of the <a href="https://xkcd.com/927/">XKCD comic</a> 🙂, I think Metro offers a compelling feature set with interop hooks that make it easy to integrate with an existing codebase.</em></p>
+<h1 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h1>
+<p>Metro strives to be a performant solution with minimal overhead at build-time and generating fast, efficient code at runtime. As build performance is the primary consideration for most developers considering this, most of this doc will be focused on that.</p>
+<h2 id="build-performance">Build Performance<a class="headerlink" href="#build-performance" title="Permanent link">&para;</a></h2>
+<p>Metro&rsquo;s compiler plugin is designed to be <em>fast</em>. Running as a compiler plugin allows it to:<br />
+- Avoid generating new sources that need to be compiled<br />
+- Avoid running KSP/KAPT<br />
+- Generate IR that lowers directly into target platforms<br />
+- Hook directly into kotlinc&rsquo;s IC APIs.</p>
+<p><strong>In a straightforward migration, it improves ABI-changing build performance from 30-70%.</strong></p>
+<h3 id="benchmarking">Benchmarking<a class="headerlink" href="#benchmarking" title="Permanent link">&para;</a></h3>
+<p>To benchmark against Anvil-KSP, Dagger (KSP or KAPT), and Kotlin-Inject (+ Anvil), there is a <a href="https://github.com/ZacSweers/metro/tree/main/benchmark">benchmark</a> directory with a generator script. There are more details in its README, but in short it generates a nontrivial multi-module project (default is 500 modules but is configurable) and benchmarks with gradle-profiler.</p>
+<div class="admonition tip">
+<p class="admonition-title">Summary</p>
+<p>Results as of Metro <code>0.3.7</code>, Anvil-KSP <code>0.4.1</code>, Dagger <code>2.56.2</code>, and Kotlin-Inject <code>0.8.0</code> with kotlin-inject-anvil <code>0.1.6</code> are as follows.</p>
+<p><em>(Median times in seconds)</em></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Metro</th>
+<th>Anvil KSP</th>
+<th>Anvil Kapt</th>
+<th>Kotlin-Inject</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ABI</strong></td>
+<td>5.3s</td>
+<td>40.5s (+663%)</td>
+<td>25.3s (+377%)</td>
+<td>10.3s (+94%)</td>
+</tr>
+<tr>
+<td><strong>Non-ABI</strong></td>
+<td>2.6s</td>
+<td>3.8s (+45%)</td>
+<td>7.1s (+171%)</td>
+<td>3.3s (+26%)</td>
+</tr>
+<tr>
+<td><strong>Graph processing</strong></td>
+<td>6.9s</td>
+<td>28.9s (+318%)</td>
+<td>8.7s (+25%)</td>
+<td>11s (+59%)</td>
+</tr>
+</tbody>
+</table>
 </div>
-<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<p>Apply the gradle plugin.</p>
-<div class="highlight"><pre><span></span><code><span class="n">plugins</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="n">id</span><span class="p">(</span><span class="s">&quot;dev.zacsweers.metro&quot;</span><span class="p">)</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="s">&quot;x.y.z&quot;</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>And that&rsquo;s it! The default configuration will add the multiplatform <code>runtime</code> artifact (which has annotations you can use) and wire it all automatically.</p>
-<p>You can configure custom behaviors with APIs on the <code>metro</code> DSL extension.</p>
+<h4 id="modes">Modes<a class="headerlink" href="#modes" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Metro: Purely running metro</li>
+<li>Anvil KSP: Running dagger-ksp with anvil-ksp for contribution merging.</li>
+<li>Anvil KAPT: Running dagger with kapt with anvil-ksp for contribution merging.</li>
+<li>Kotlin Inject: Running kotlin-inject + kotlin-inject-anvil for contribution merging.</li>
+</ul>
+<h4 id="abi-change">ABI Change<a class="headerlink" href="#abi-change" title="Permanent link">&para;</a></h4>
+<p>This benchmark makes ABI-breaking source changes in a lower level module. This is where Metro shines the most.</p>
+<p><img alt="" src="../benchmark_images/benchmark_abi.png" /></p>
+<h4 id="non-abi-change">Non-ABI Change<a class="headerlink" href="#non-abi-change" title="Permanent link">&para;</a></h4>
+<p>This benchmark makes non-ABI-breaking source changes in a lower level module. The differences are less significant here as KSP is quite good at compilation avoidance now too. The outlier here is KAPT, which still has to run stub gen + apt and cannot fully avoid it.</p>
+<p><img alt="" src="../benchmark_images/benchmark_noabi.png" /></p>
+<h4 id="raw-graphcomponent-processing">Raw Graph/Component Processing<a class="headerlink" href="#raw-graphcomponent-processing" title="Permanent link">&para;</a></h4>
+<p>This benchmark reruns the top-level merging graph/component where all the downstream contributions are merged. This also builds the full dependency graph and any contributed graph extensions/subcomponents.</p>
+<p>Metro again shines here. Dagger-KSP seems to have a bottleneck that disproportionately affects it here too.</p>
+<p><img alt="" src="../benchmark_images/benchmark_graph_component.png" /></p>
+<h3 id="real-world-results">Real-World Results<a class="headerlink" href="#real-world-results" title="Permanent link">&para;</a></h3>
+<p>Below are some results from real-world projects, shared with the developers&rsquo; permission.</p>
+<div class="admonition note">
+<p class="admonition-title">Gabriel Ittner from Freeletics</p>
+<p>I&rsquo;ve got Metro working on our code base now using the Kotlin 2.2.0 preview</p>
+<p>Background numbers</p>
+<ul>
+<li>551 modules total</li>
+<li>105 modules using Anvil KSP ➡️ migrated to pure Metro</li>
+<li>154 modules using Anvil KSP + other KSP processor ➡️ Metro + other KSP processor</li>
+<li>1 module using Dagger KAPT ➡️ migrated to pure Metro</li>
+</ul>
+<p>Build performance</p>
+<ul>
+<li>Clean builds without build cache are 12 percentage points faster</li>
+<li>Any app module change ~50% faster (this is the one place that had kapt and it&rsquo;s mostly empty other than generating graphs/components)</li>
+<li>ABI changes in other modules ~ 40% - 55% faster</li>
+<li>non ABI changes in other modules unchanged or minimally faster</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Madis Pink from emulator.wtf</p>
+<p>I got our monorepo migrated over from anvil, it sliced off one third of our Gradle tasks and <code>./gradlew classes</code> from clean is ~4x faster</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Kevin Chiu from BandLab</p>
+<p>We migrated our main project at BandLab to metro, finally!</p>
+<p>Some context about our project:</p>
+<ul>
+<li>We use Dagger + Anvil KSP</li>
+<li>929 modules, 89 of them are running Dagger compiler (KAPT) to process components</li>
+<li>7 KSP processors</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Build</th>
+<th>Dagger + Anvil KSP</th>
+<th>Metro (Δ)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UiKit ABI change (Incremental)</td>
+<td>59.7 s</td>
+<td>26.9 s (55% faster)</td>
+</tr>
+<tr>
+<td>Root ABI change (Incremental)</td>
+<td>95.7 s</td>
+<td>48.1 s (49.8% faster)</td>
+</tr>
+<tr>
+<td>Root non-ABI change (Incremental)</td>
+<td>70.9 s</td>
+<td>38.9 s (45.2% faster)</td>
+</tr>
+<tr>
+<td>Clean build</td>
+<td>327 s</td>
+<td>288 s (11.7% faster)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="reporting">Reporting<a class="headerlink" href="#reporting" title="Permanent link">&para;</a></h3>
+<p>If you want to investigate the performance of different stages of Metro&rsquo;s compiler pipeline, you can enable reporting in the Gradle DSL.</p>
 <div class="highlight"><pre><span></span><code><span class="n">metro</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="c1">// Defines whether or not metro is enabled. Useful if you want to gate this behind a dynamic</span>
-<span class="w">  </span><span class="c1">// build configuration.</span>
-<span class="w">  </span><span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="c1">// Default</span>
-
-<span class="w">  </span><span class="c1">// Enable (extremely) verbose debug logging</span>
-<span class="w">  </span><span class="n">debug</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="c1">// Default</span>
-
-<span class="w">  </span><span class="c1">// See the kdoc on MetroPluginExtension for full details</span>
+<span class="w">  </span><span class="n">reportsDestination</span><span class="p">.</span><span class="na">set</span><span class="p">(</span><span class="n">layout</span><span class="p">.</span><span class="na">buildDirectory</span><span class="p">.</span><span class="na">dir</span><span class="p">(</span><span class="s">&quot;metro/reports&quot;</span><span class="p">))</span>
 <span class="p">}</span>
 </code></pre></div>
-<p>Snapshots of the development version are available in <a href="https://central.sonatype.com/repository/maven-snapshots/">Sonatype&rsquo;s <code>snapshots</code> repository</a>.</p>
-<h2 id="supported-platforms">Supported platforms<a class="headerlink" href="#supported-platforms" title="Permanent link">&para;</a></h2>
-<p>The compiler plugin itself supports all multiplatform project types. The first-party annotations artifact is also multiplatform and supports all common JVM, JS, and native targets.</p>
-<p>Contribution hint generation is <em>not</em> currently supported on native or Wasm targets until <a href="https://youtrack.jetbrains.com/issue/KT-58886">KT-58886</a> is resolved. They do work within the same compilation though.</p>
-<h2 id="caveats">Caveats<a class="headerlink" href="#caveats" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Kotlin compiler plugins are not a stable API! Compiled outputs from this plugin <em>should</em> be stable, but usage in newer versions of kotlinc are not guaranteed to be stable. That said, Metro will strive to make matching releases available quickly and test against Kotlin prereleases eagerly.</li>
-</ul>
-<h2 id="acknowledgements">Acknowledgements<a class="headerlink" href="#acknowledgements" title="Permanent link">&para;</a></h2>
-<p>Special thanks to the many people that helped advise and offer feedback on Metro&rsquo;s design and implementation.</p>
-<ul>
-<li>Brian Norman</li>
-<li>Ralf Wondratschek</li>
-<li>Jesse Wilson</li>
-<li>Dany Santiago</li>
-<li>Eva Tatarka</li>
-<li>Bill Phillips</li>
-<li>Bryan Stern</li>
-<li>James Barr</li>
-<li>and many more!</li>
-</ul>
-<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>Copyright (C) 2025 Zac Sweers
-
-Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-   https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+<p>Among the reports written there, there will also be a trace log that dumps a simple trace of the different stages.</p>
+<div class="highlight"><pre><span></span><code>[ExampleGraph] ▶ Transform dependency graph
+  ▶ Build DependencyGraphNode
+  ◀ Build DependencyGraphNode (xx ms)
+  ▶ Implement creator functions
+  ◀ Implement creator functions (xx ms)
+  ▶ Build binding graph
+  ◀ Build binding graph (xx ms)
+  ▶ Validate binding graph
+    ▶ Check self-cycles
+    ◀ Check self-cycles (xx ms)
+    ▶ Validate graph
+      ▶ seal graph
+        ▶ Populate bindings
+        ◀ Populate bindings (xx ms)
+        ▶ Build adjacency list
+        ◀ Build adjacency list (xx ms)
+        ▶ Sort and validate
+          ▶ Topo sort
+            ▶ Compute SCCs
+            ◀ Compute SCCs (xx ms)
+            ▶ Check for cycles
+            ◀ Check for cycles (xx ms)
+            ▶ Build component DAG
+            ◀ Build component DAG (xx ms)
+            ▶ Topo sort component DAG
+            ◀ Topo sort component DAG (xx ms)
+            ▶ Expand components
+            ◀ Expand components (xx ms)
+          ◀ Topo sort (xx ms)
+        ◀ Sort and validate (xx ms)
+        ▶ Compute binding indices
+        ◀ Compute binding indices (xx ms)
+      ◀ seal graph (xx ms)
+      ▶ check empty multibindings
+      ◀ check empty multibindings (xx ms)
+      ▶ check for absent bindings
+      ◀ check for absent bindings (xx ms)
+    ◀ Validate graph (xx ms)
+  ◀ Validate binding graph (xx ms)
+  ▶ Transform metro graph
+    ▶ Collect bindings
+    ◀ Collect bindings (xx ms)
+    ▶ Implement overrides
+    ◀ Implement overrides (xx ms)
+  ◀ Transform metro graph (xx ms)
+[ExampleGraph] ◀ Transform dependency graph (xx ms)
 </code></pre></div>
+<h2 id="runtime-performance">Runtime Performance<a class="headerlink" href="#runtime-performance" title="Permanent link">&para;</a></h2>
+<p>Metro’s compiler generates Dagger-style factory classes for every injection site.</p>
+<p>The same factory classes are reused across modules and downstream builds, so there’s no duplicated glue code or runtime discovery cost.</p>
+<p>Because the full dependency graph is wired at compile-time, each binding is accessed through a direct field reference in the generated code. No reflection, no hashmap lookups, no runtime service locator hops, etc.</p>
 
 
 
@@ -1121,10 +1474,10 @@ limitations under the License.
     
     
       
-      <script id="__config" type="application/json">{"base": ".", "features": ["content.code.copy", "content.code.select"], "search": "assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "..", "features": ["content.code.copy", "content.code.select"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="assets/javascripts/bundle.f55a23d4.min.js"></script>
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
       
     
   </body>

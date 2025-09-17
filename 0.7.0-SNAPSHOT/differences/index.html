@@ -12,22 +12,28 @@
         <meta name="author" content="Zac Sweers">
       
       
+        <link rel="canonical" href="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/differences/">
       
       
+        <link rel="prev" href="../features/">
       
-      <link rel="icon" href="/metro/0.7.0-SNAPSHOT/site-assets/img/favicon.ico">
+      
+        <link rel="next" href="../installation/">
+      
+      
+      <link rel="icon" href="../site-assets/img/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.20">
     
     
       
-        <title>Metro</title>
+        <title>Differences - Metro</title>
       
     
     
-      <link rel="stylesheet" href="/metro/0.7.0-SNAPSHOT/assets/stylesheets/main.e53b48f4.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.e53b48f4.min.css">
       
         
-        <link rel="stylesheet" href="/metro/0.7.0-SNAPSHOT/assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -46,11 +52,37 @@
       
     
     
-    <script>__md_scope=new URL("/metro/0.7.0-SNAPSHOT",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
     
+    
+      
+        <meta  property="og:type"  content="website" >
+      
+        <meta  property="og:title"  content="Differences - Metro" >
+      
+        <meta  property="og:description"  content="A multiplatform dependency injection framework for Kotlin" >
+      
+        <meta  property="og:image"  content="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/assets/images/social/differences.png" >
+      
+        <meta  property="og:image:type"  content="image/png" >
+      
+        <meta  property="og:image:width"  content="1200" >
+      
+        <meta  property="og:image:height"  content="630" >
+      
+        <meta  property="og:url"  content="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/differences/" >
+      
+        <meta  name="twitter:card"  content="summary_large_image" >
+      
+        <meta  name="twitter:title"  content="Differences - Metro" >
+      
+        <meta  name="twitter:description"  content="A multiplatform dependency injection framework for Kotlin" >
+      
+        <meta  name="twitter:image"  content="https://zacsweers.github.io/metro/0.7.0-SNAPSHOT/assets/images/social/differences.png" >
+      
     
     
   </head>
@@ -71,6 +103,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#differences-from-other-di-frameworks" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -87,9 +124,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/metro/0.7.0-SNAPSHOT/." title="Metro" class="md-header__button md-logo" aria-label="Metro" data-md-component="logo">
+    <a href=".." title="Metro" class="md-header__button md-logo" aria-label="Metro" data-md-component="logo">
       
-  <img src="/metro/0.7.0-SNAPSHOT/site-assets/img/metro-icon.svg" alt="logo">
+  <img src="../site-assets/img/metro-icon.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -106,7 +143,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              Differences
             
           </span>
         </div>
@@ -222,9 +259,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/metro/0.7.0-SNAPSHOT/." title="Metro" class="md-nav__button md-logo" aria-label="Metro" data-md-component="logo">
+    <a href=".." title="Metro" class="md-nav__button md-logo" aria-label="Metro" data-md-component="logo">
       
-  <img src="/metro/0.7.0-SNAPSHOT/site-assets/img/metro-icon.svg" alt="logo">
+  <img src="../site-assets/img/metro-icon.svg" alt="logo">
 
     </a>
     Metro
@@ -251,7 +288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -270,18 +307,20 @@
       
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
           <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
@@ -297,7 +336,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             Overview
@@ -311,7 +350,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/features/" class="md-nav__link">
+      <a href="../features/" class="md-nav__link">
         
   
   
@@ -331,10 +370,19 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/differences/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -345,6 +393,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -364,7 +413,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -424,7 +473,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/dependency-graphs/" class="md-nav__link">
+      <a href="../dependency-graphs/" class="md-nav__link">
         
   
   
@@ -447,7 +496,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/provides/" class="md-nav__link">
+      <a href="../provides/" class="md-nav__link">
         
   
   
@@ -470,7 +519,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/injection-types/" class="md-nav__link">
+      <a href="../injection-types/" class="md-nav__link">
         
   
   
@@ -493,7 +542,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/scopes/" class="md-nav__link">
+      <a href="../scopes/" class="md-nav__link">
         
   
   
@@ -516,7 +565,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/metro-intrinsics/" class="md-nav__link">
+      <a href="../metro-intrinsics/" class="md-nav__link">
         
   
   
@@ -539,7 +588,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/bindings/" class="md-nav__link">
+      <a href="../bindings/" class="md-nav__link">
         
   
   
@@ -562,7 +611,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/aggregation/" class="md-nav__link">
+      <a href="../aggregation/" class="md-nav__link">
         
   
   
@@ -585,7 +634,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/multiplatform/" class="md-nav__link">
+      <a href="../multiplatform/" class="md-nav__link">
         
   
   
@@ -608,7 +657,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/validation-and-error-reporting/" class="md-nav__link">
+      <a href="../validation-and-error-reporting/" class="md-nav__link">
         
   
   
@@ -631,7 +680,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/interop/" class="md-nav__link">
+      <a href="../interop/" class="md-nav__link">
         
   
   
@@ -654,7 +703,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/generating-metro-code/" class="md-nav__link">
+      <a href="../generating-metro-code/" class="md-nav__link">
         
   
   
@@ -684,7 +733,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/performance/" class="md-nav__link">
+      <a href="../performance/" class="md-nav__link">
         
   
   
@@ -706,7 +755,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/debugging/" class="md-nav__link">
+      <a href="../debugging/" class="md-nav__link">
         
   
   
@@ -728,7 +777,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/compatibility/" class="md-nav__link">
+      <a href="../compatibility/" class="md-nav__link">
         
   
   
@@ -750,7 +799,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/adoption/" class="md-nav__link">
+      <a href="../adoption/" class="md-nav__link">
         
   
   
@@ -772,7 +821,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/faq/" class="md-nav__link">
+      <a href="../faq/" class="md-nav__link">
         
   
   
@@ -794,7 +843,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/samples/" class="md-nav__link">
+      <a href="../samples/" class="md-nav__link">
         
   
   
@@ -816,7 +865,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/api/" class="md-nav__link">
+      <a href="../api/" class="md-nav__link">
         
   
   
@@ -860,7 +909,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/changelog/" class="md-nav__link">
+      <a href="../changelog/" class="md-nav__link">
         
   
   
@@ -882,7 +931,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/contributing/" class="md-nav__link">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -904,7 +953,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/metro/0.7.0-SNAPSHOT/code-of-conduct/" class="md-nav__link">
+      <a href="../code-of-conduct/" class="md-nav__link">
         
   
   
@@ -936,6 +985,8 @@
   
   
   
+    
+  
   
 </nav>
                   </div>
@@ -947,21 +998,95 @@
             <div class="md-content" data-md-component="content">
               <article class="md-content__inner md-typeset">
                 
-
-<!--
-Custom 404 - Not found page
-===========================
-Provides a friendly message when a user tries to access a page that doesn't exist or has moved.
--->
-
-<h1 id="404-page-not-found">404 - Not found</h1>
-<p><strong>ℹ️ The document you're looking for doesn't exist or has been moved.</strong></p>
-
-<p style="line-height: 2;">Try using the 🔍 <a href="?q=" data-toggle="modal">search</a> feature to find the document.
-If the content can't be found, feel free to <a href="https://github.com/ZacSweers/metro/issues">report</a> the issue.</p>
-<p>Alternatively, you can return to the <a href="/metro/0.7.0-SNAPSHOT">🚇 Metro home</a>.</p>
+                  
 
 
+  
+  
+
+
+<h1 id="differences-from-other-di-frameworks">Differences from other DI frameworks<a class="headerlink" href="#differences-from-other-di-frameworks" title="Permanent link">&para;</a></h1>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Dagger</label><label for="__tabbed_1_2">Kotlin-Inject</label><label for="__tabbed_1_3">Anvil</label><label for="__tabbed_1_4">kotlin-inject-anvil</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<ul>
+<li><code>@Binds</code> and <code>@Provides</code> declarations can be added directly within graphs and their supertypes.<ul>
+<li><code>@BindingContainer</code> is the Metro equivalent of a Dagger <code>@Module</code> but it should rarely be used.</li>
+<li><code>@BindingContainer</code> cannot declare graph extensions in the way <code>@Module</code> can declare subcomponents. Use contributed graph extensions.</li>
+</ul>
+</li>
+<li>There is no Producers support.</li>
+<li>There is no Hilt support, though some features are similar in the same way that Anvil’s features are similar.</li>
+<li>There is no <code>@Reusable</code>.</li>
+<li>There is no <code>@BindsOptionalOf</code>. Instead, Metro supports default <a href="../bindings/#optional-dependencies">optional dependencies</a>.</li>
+<li>Metro can inject private properties, functions, and constructors.</li>
+<li>There is no <code>@BindsInstance</code>. Use <code>@Provides</code> on <code>@DependencyGraph.Factory</code> function parameters instead</li>
+<li>Component dependencies must be annotated with <code>@Includes</code>.</li>
+<li>Metro does not process Java code.</li>
+<li><code>@Multibinds</code> declarations are implemented in Metro graphs to return the declared multibinding.</li>
+<li>Empty multibindings are an error by default in Metro. To allow a multibinding to be empty, it must be declared with <code>@Multibinds(allowEmpty = true)</code>.</li>
+<li>Metro graph classes may not directly extend other graph classes. You should use <a href="../dependency-graphs/#graph-extensions">graph extensions</a> instead in Metro.</li>
+<li>Dagger technically allows this, but only accessors and injectors cross these boundaries.</li>
+<li>Metro prohibits scopes on <code>@Binds</code> declarations. Either use <code>@Provides</code> or move the scope to the source class type.</li>
+</ul>
+</div>
+<div class="tabbed-block">
+<ul>
+<li>typealiases are not treated as implicit qualifiers.</li>
+<li>Dependency graph classes cannot have primary constructors, their parameters must be defined as <code>@Provides</code> or graph parameters on a <code>@DependencyGraph.Factory</code> function like Dagger.</li>
+<li>Higher order functions cannot be used. Instead, use <code>Provider</code> and declared <code>@AssistedFactory</code>-annotated types.</li>
+<li>No need for use-site targets for most annotations.</li>
+<li>No need for <code>@get:Provides Impl.bind: Type get() = this</code> to achieve type bindings. See the docs on <code>@Binds</code>.</li>
+<li>Metro can inject private properties and functions.</li>
+<li>Metro does not support detached graph extensions the way kotlin-inject does. Instead, use <a href="../dependency-graphs/#graph-extensions">graph extensions</a>.</li>
+<li>Metro does not process Java code.</li>
+<li>Metro does not support assisted parameters in <code>@Provides</code> functions.</li>
+<li>Metro map multibindings use static <a href="../bindings/#multibindings">map keys</a> rather than aggregating via <code>Pair</code> contributions. More details on why can be found <a href="https://github.com/ZacSweers/metro/discussions/770#discussioncomment-13852087">here</a>.</li>
+</ul>
+</div>
+<div class="tabbed-block">
+<ul>
+<li>There is no <code>rank</code> in Metro&rsquo;s <code>@Contributes*</code> annotations.<ul>
+<li>Note that if Anvil interop is enabled, <em>its</em> <code>rank</code> properties are supported in interop.</li>
+</ul>
+</li>
+<li>There is no <code>ignoreQualifier</code> in Metro&rsquo;s <code>@Contributes*</code> annotations.<ul>
+<li>Note that if Anvil interop is enabled, <em>its</em> <code>ignoreQualifier</code> properties are supported in interop.</li>
+</ul>
+</li>
+<li><code>@ContributesBinding</code> uses a <code>binding</code> API to support generic bound types. See the <a href="../aggregation/">aggregation docs</a> for more info.<ul>
+<li>Note that if Anvil interop is enabled, <em>its</em> <code>boundType</code> properties are supported in interop.</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="tabbed-block">
+<ul>
+<li>There is no need for <code>@CreateComponent</code> or <code>expect fun createComponent()</code> functions.</li>
+<li><code>@ContributesBinding</code> uses a <code>binding</code> API to support generic bound types. See the <a href="../aggregation/">aggregation docs</a> for more info.<ul>
+<li>Note that if Anvil interop is enabled, <em>its</em> <code>boundType</code> properties are supported in interop.</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -1001,10 +1126,10 @@ If the content can't be found, feel free to <a href="https://github.com/ZacSweer
     
     
       
-      <script id="__config" type="application/json">{"base": "/metro/0.7.0-SNAPSHOT", "features": ["content.code.copy", "content.code.select"], "search": "/metro/0.7.0-SNAPSHOT/assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "..", "features": ["content.code.copy", "content.code.select"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="/metro/0.7.0-SNAPSHOT/assets/javascripts/bundle.f55a23d4.min.js"></script>
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
       
     
   </body>
