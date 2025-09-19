@@ -3,7 +3,7 @@ Changelog
 
 **Unreleased**
 --------------
-- TBA
+- New test release for smart redirect.
 
 0.6.7
 -----
