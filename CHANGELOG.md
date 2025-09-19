@@ -11,6 +11,7 @@ Changelog
 - **Enhancement**: Simplify assisted factory impl class generation by moving it entirely to IR.
 - **Fix**: Register `MetroDiagnostics` in FIR.
 - **Fix**: When transforming FIR override statuses, check all supertypes and not just immediate supertype.
+- **Test**: Docs config validation, happy path
 
 0.6.6
 -----
