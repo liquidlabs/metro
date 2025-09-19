@@ -3,6 +3,10 @@ Changelog
 
 **Unreleased**
 --------------
+- TBA
+
+0.6.7
+-----
 
 - **Enhancement**: Always check for available assisted factories when reporting `InvalidBinding` errors about misused assisted injects.
 - **Enhancement**: Always specifically report mismatched assisted parameter mismatches.
@@ -12,6 +16,7 @@ Changelog
 - **Fix**: Register `MetroDiagnostics` in FIR.
 - **Fix**: When transforming FIR override statuses, check all supertypes and not just immediate supertype.
 - **Test**: Docs config validation, happy path
+- **Release**: `0.6.7` for new versioned site and test redirect
 
 0.6.6
 -----
