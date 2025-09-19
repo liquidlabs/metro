@@ -16,8 +16,6 @@ site_description: "A multiplatform dependency injection framework for Kotlin"
 site_author: Zac Sweers
 remote_branch: gh-pages
 
-use_directory_urls: false
-
 copyright: 'Copyright &copy; 2025 Zac Sweers'
 
 theme:
