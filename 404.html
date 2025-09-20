@@ -131,6 +131,22 @@
         const [, requestedVersion, pagePath] = pathMatch;
         console.log(`📍 Requested: ${requestedVersion}/${pagePath}`);
 
+        // Normalize HTML-based URLs to directory-based URLs
+        // e.g., "compatibility.html" -> "compatibility/"
+        let normalizedPagePath = pagePath;
+        if (pagePath.endsWith('.html')) {
+          // Remove .html extension and add trailing slash for directory-style URLs
+          const pathWithoutExtension = pagePath.slice(0, -5); // Remove '.html'
+          if (pathWithoutExtension && pathWithoutExtension !== 'index') {
+            normalizedPagePath = pathWithoutExtension + '/';
+            console.log(`🔄 Normalized HTML URL: ${pagePath} -> ${normalizedPagePath}`);
+          } else if (pathWithoutExtension === 'index') {
+            // index.html maps to root directory
+            normalizedPagePath = '';
+            console.log(`🔄 Normalized index.html to root directory`);
+          }
+        }
+
         // Fetch versions.json to get current version information
         const versionsFetchStart = performance.now();
         console.log('📡 Fetching versions.json...');
@@ -162,8 +178,8 @@
           return;
         }
 
-        // Construct the target URL with the latest version
-        const targetUrl = `${METRO_CONFIG.latestUrl}/${pagePath}`;
+        // Construct the target URL with the latest version and normalized path
+        const targetUrl = `${METRO_CONFIG.latestUrl}/${normalizedPagePath}`;
         console.log(`🔍 Checking if page exists: ${targetUrl}`);
 
         // Check if the page exists in the latest version
@@ -178,7 +194,13 @@
           const totalTime = performance.now() - startTime;
           console.log(`✅ Redirecting from ${currentPath} to ${targetUrl}`);
           console.log(`⏱️ Total redirect process took ${totalTime.toFixed(2)}ms`);
-          updateMessage(`Found page in latest version. Redirecting to ${targetUrl.split('/').pop()}...`);
+          
+          // Show appropriate message based on whether we normalized the URL
+          const targetPageName = normalizedPagePath ? 
+            (normalizedPagePath === pagePath ? normalizedPagePath.split('/').filter(p => p).pop() : `${normalizedPagePath.split('/').filter(p => p).pop()} (updated URL format)`) : 
+            'home page';
+          updateMessage(`Found page in latest version. Redirecting to ${targetPageName}...`);
+          
           setTimeout(() => {
             hideLoading();
             window.location.replace(targetUrl);
@@ -186,7 +208,7 @@
         } else {
           // Page doesn't exist in latest version, fallback to home
           const totalTime = performance.now() - startTime;
-          console.log(`❌ Page ${pagePath} not found in latest version, redirecting to home`);
+          console.log(`❌ Page ${normalizedPagePath || pagePath} not found in latest version, redirecting to home`);
           console.log(`⏱️ Total process took ${totalTime.toFixed(2)}ms before fallback`);
           updateMessage('Page not found in latest version. Redirecting to home page...');
           setTimeout(() => {
