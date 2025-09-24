@@ -1310,8 +1310,8 @@
 </code></pre></div>
 <p>Constructor-injected classes can be instantiated+managed entirely by Metro and encourages immutability.</p>
 <h2 id="assisted-injection">Assisted Injection<a class="headerlink" href="#assisted-injection" title="Permanent link">&para;</a></h2>
-<p>For types that require dynamic dependencies at instantiation, assisted injection can be used to supply these inputs. In this case - an injected constructor (or class with one constructor) must be annotated with <code>@Inject</code>, assisted parameters annotated with <code>@Assisted</code>, and a factory interface or abstract class with one single abstract function that accepts these assisted parameters and returns the target class.</p>
-<div class="highlight"><pre><span></span><code><span class="nd">@Inject</span>
+<p>For types that require dynamic dependencies at instantiation, assisted injection can be used to supply these inputs. In this case - an injected constructor (or class with one constructor) must be annotated with <code>@AssistedInject</code>, assisted parameters annotated with <code>@Assisted</code>, and a factory interface or abstract class with one single abstract function that accepts these assisted parameters and returns the target class.</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@AssistedInject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">HttpClient</span><span class="p">(</span>
 <span class="w">  </span><span class="nd">@Assisted</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="nv">timeout</span><span class="p">:</span><span class="w"> </span><span class="n">Duration</span><span class="p">,</span>
 <span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="nv">cache</span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span>
@@ -1329,7 +1329,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>Like Dagger, the <code>@Assisted</code> parameters can take optional <code>value</code> keys to disambiguate matching types.</p>
-<div class="highlight"><pre><span></span><code><span class="nd">@Inject</span>
+<div class="highlight"><pre><span></span><code><span class="nd">@AssistedInject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">HttpClient</span><span class="p">(</span>
 <span class="w">  </span><span class="nd">@Assisted</span><span class="p">(</span><span class="s">&quot;connect&quot;</span><span class="p">)</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="nv">connectTimeout</span><span class="p">:</span><span class="w"> </span><span class="n">Duration</span><span class="p">,</span>
 <span class="w">  </span><span class="nd">@Assisted</span><span class="p">(</span><span class="s">&quot;request&quot;</span><span class="p">)</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="nv">requestTimeout</span><span class="p">:</span><span class="w"> </span><span class="n">Duration</span><span class="p">,</span>
@@ -1347,7 +1347,7 @@
 <h3 id="automatic-assisted-factory-generation">Automatic Assisted Factory Generation<a class="headerlink" href="#automatic-assisted-factory-generation" title="Permanent link">&para;</a></h3>
 <p>Metro supports automatic generation of assisted factories via opt-in compiler option. If enabled,<br />
 Metro will automatically generate a default factory as a nested class within the injected type.</p>
-<div class="highlight"><pre><span></span><code><span class="nd">@Inject</span>
+<div class="highlight"><pre><span></span><code><span class="nd">@AssistedInject</span>
 <span class="kd">class</span><span class="w"> </span><span class="nc">HttpClient</span><span class="p">(</span>
 <span class="w">  </span><span class="nd">@Assisted</span><span class="w"> </span><span class="n">timeoutDuration</span><span class="p">:</span><span class="w"> </span><span class="n">Duration</span><span class="p">,</span>
 <span class="w">  </span><span class="n">cache</span><span class="p">:</span><span class="w"> </span><span class="n">Cache</span><span class="p">,</span>

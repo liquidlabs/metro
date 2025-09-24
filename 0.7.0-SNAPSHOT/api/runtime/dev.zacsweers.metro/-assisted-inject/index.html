@@ -2,7 +2,7 @@
 <html class="no-js" lang="en">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
-    <title>chunkFieldInits</title>
+    <title>AssistedInject</title>
 <link href="../../../images/logo-icon.svg" rel="icon" type="image/svg"><script>var pathToRoot = "../../../";</script>
     <script>document.documentElement.classList.replace("no-js", "js");</script>
     <script>const storage = localStorage.getItem("dokka-dark-mode")
@@ -43,7 +43,7 @@
         </div>
         <div class="navigation-controls">
         <ul class="filter-section filter-section_loading" id="filter-section" aria-label="Target filter">
-                <button class="platform-tag platform-selector jvm-like" data-active="" aria-pressed="true" data-filter=":gradle-plugin/main">jvm</button>
+                <button class="platform-tag platform-selector common-like" data-active="" aria-pressed="true" data-filter=":runtime/commonMain">common</button>
             <div class="dropdown filter-section--dropdown" data-role="dropdown" id="filter-section-dropdown">
                 <button class="button button_dropdown filter-section--dropdown-toggle" role="combobox" data-role="dropdown-toggle" aria-controls="platform-tags-listbox" aria-haspopup="listbox" aria-expanded="false" aria-label="Toggle source sets"></button>
                 <ul role="listbox" id="platform-tags-listbox" class="dropdown--list" data-role="dropdown-listbox" aria-label="Target filter">
@@ -52,11 +52,11 @@
                             <i class="ui-kit-icon ui-kit-icon_cross"></i>
                         </button>
                     </div>
-                        <li role="option" class="dropdown--option platform-selector-option jvm-like" tabindex="0">
+                        <li role="option" class="dropdown--option platform-selector-option common-like" tabindex="0">
                             <label class="checkbox">
-                                <input type="checkbox" class="checkbox--input" id=":gradle-plugin/main" data-filter=":gradle-plugin/main">
+                                <input type="checkbox" class="checkbox--input" id=":runtime/commonMain" data-filter=":runtime/commonMain">
                                 <span class="checkbox--icon"></span>
-                                jvm
+                                common
                             </label>
                         </li>
                 </ul>
@@ -90,12 +90,16 @@
         </nav>
         <div id="resizer" class="resizer" data-item-type="BAR"></div>
         <div id="main" data-item-type="SECTION" role="main">
-<div class="main-content" data-page-type="member" id="content" pageids="gradle-plugin::dev.zacsweers.metro.gradle/MetroPluginExtension/chunkFieldInits/#/PointingToDeclaration//-937474457">
-  <div class="breadcrumbs"><a href="../../index.html">gradle-plugin</a><span class="delimiter">/</span><a href="../index.html">dev.zacsweers.metro.gradle</a><span class="delimiter">/</span><a href="index.html">MetroPluginExtension</a><span class="delimiter">/</span><span class="current">chunkFieldInits</span></div>
+<div class="main-content" data-page-type="classlike" id="content" pageids="runtime::dev.zacsweers.metro/AssistedInject///PointingToDeclaration//673331665">
+  <div class="breadcrumbs"><a href="../../index.html">runtime</a><span class="delimiter">/</span><a href="../index.html">dev.zacsweers.metro</a><span class="delimiter">/</span><span class="current">AssistedInject</span></div>
   <div class="cover ">
-    <h1 class="cover"><span>chunk</span><wbr><span>Field</span><wbr><span><span>Inits</span></span></h1>
+    <h1 class="cover"><span>Assisted</span><wbr><span><span>Inject</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":runtime/commonMain"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.annotation/-target/index.html"><span class="token annotation builtin">Target</span></a><span class="token punctuation">(</span><span>allowedTargets<span class="token operator"> = </span><span class="token punctuation">[</span><span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.annotation/-annotation-target/-c-l-a-s-s/index.html">AnnotationTarget.CLASS</a><span class="token punctuation">, </span></span><wbr><span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.annotation/-annotation-target/-c-o-n-s-t-r-u-c-t-o-r/index.html">AnnotationTarget.CONSTRUCTOR</a></span><wbr><span class="token punctuation">]</span></span><wbr><span class="token punctuation">)</span></div></div><span class="token keyword">annotation class </span><a href="index.html">AssistedInject</a><span class="source-link-wrapper"><span class="source-link" data-element-type="source-link">(<a href="https://github.com/ZacSweers/metro//tree/main/runtime/src/commonMain/kotlin/dev/zacsweers/metro/AssistedInject.kt#L64">source</a>)</span></span></div><p class="paragraph">Assisted injection is a type of injection where some dependencies may be fulfilled by the host dependency graph but some others may be <i>assisted</i> at runtime during instantiation. This is useful for deferring some inputs to dynamic values supplied at runtime.</p><p class="paragraph">For example, an <code class="lang-kotlin">HttpClient</code> may accept a user-preferenced timeout duration.</p><div class="sample-container"><pre><code class="block lang-kotlin" theme="idea">@AssistedInject<br>class HttpClient(<br>  @Assisted timeoutDuration: Duration,<br>  cache: Cache,<br>)</code></pre><span class="copy-tooltip"><div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div><span class="copy-icon"></span></span></div><p class="paragraph">In this scenario, you would then also define a <a href="../-assisted-factory/index.html">AssistedFactory</a>-annotated type (usually a nested class) to create this. This factory's requirements are defined on the <a href="../-assisted-factory/index.html">AssistedFactory</a> kdoc.</p><div class="sample-container"><pre><code class="block lang-kotlin" theme="idea">@AssistedInject<br>class HttpClient(<br>  @Assisted timeoutDuration: Duration,<br>  cache: Cache,<br>) {<br>  @AssistedFactory<br>  fun interface Factory {<br>    fun create(timeoutDuration: Duration): HttpClient<br>  }<br>}</code></pre><span class="copy-tooltip"><div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div><span class="copy-icon"></span></span></div><p class="paragraph">This factory can then be requested as a dependency from the graph and used to instantiate new <code class="lang-kotlin">HttpClient</code> instances.</p><div class="sample-container"><pre><code class="block lang-kotlin" theme="idea">@DependencyGraph<br>interface AppGraph {<br>  val httpClientFactory: HttpClient.Factory<br>}<br><br>fun main() {<br>  val httpClientFactory = createGraph&lt;AppGraph&gt;().httpClientFactory<br>  val httpClient = httpClientFactory.create(userPrefs.requestTimeoutDuration)<br>}</code></pre><span class="copy-tooltip"><div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div><span class="copy-icon"></span></span></div><p class="paragraph">You can (and usually would!) access this dependency in any other injection site too.</p><p class="paragraph"><strong>Note</strong>: Assisted injected types cannot be scoped and can only be instantiated by associated <a href="../-assisted-factory/index.html">AssistedFactory</a> types.</p><p class="paragraph">See the docs on <a href="../-assisted/index.html">Assisted</a> and <a href="../-assisted-factory/index.html">AssistedFactory</a> for more details on their use.</p><h2 class="">Top-Level Function Injection</h2><p class="paragraph">Assisted injection is supported in top-level function injection, no need to use <code class="lang-kotlin">@AssistedInject</code> annotation. See <a href="../-inject/index.html">Inject</a> for more details.</p></div></div>
   </div>
-  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":gradle-plugin/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="chunk-field-inits.html">chunkFieldInits</a><span class="token operator">: </span><span data-unresolved-link="org.gradle.api.provider/Property///PointingToDeclaration/">Property</span><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span><span class="source-link-wrapper"><span class="source-link" data-element-type="source-link">(<a href="https://github.com/ZacSweers/metro//tree/main/gradle-plugin/src/main/kotlin/dev/zacsweers/metro/gradle/MetroPluginExtension.kt#L96">source</a>)</span></span></div><p class="paragraph">Enable/disable chunking of field initializers. Enabled by default.</p></div></div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"></div>
+    <div class="tabs-section-body"></div>
+  </div>
 </div>
     <div class="footer">
         <div class="footer--container">

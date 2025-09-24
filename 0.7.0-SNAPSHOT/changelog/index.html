@@ -953,6 +953,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#new-assistedinject-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      New @AssistedInject annotation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Other changes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1053,7 +1077,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#other-changes" class="md-nav__link">
+  <a href="#other-changes_1" class="md-nav__link">
     <span class="md-ellipsis">
       Other changes
     </span>
@@ -1331,6 +1355,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#new-assistedinject-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      New @AssistedInject annotation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Other changes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1431,7 +1479,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#other-changes" class="md-nav__link">
+  <a href="#other-changes_1" class="md-nav__link">
     <span class="md-ellipsis">
       Other changes
     </span>
@@ -1645,6 +1693,14 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="new-assistedinject-annotation">New <code>@AssistedInject</code> annotation<a class="headerlink" href="#new-assistedinject-annotation" title="Permanent link">&para;</a></h3>
+<p>Assisted-injected classes must now use <code>@AssistedInject</code> instead of <code>@Inject</code>.</p>
+<p>This is for multiple reasons:<br />
+  - It&rsquo;s more explicit at the source declaration site that this uses assisted injection and cannot be requested directly on the DI graph. This is particularly useful for scenarios where there no assisted parameters but you still want to use assisted injection.<br />
+  - This will allow adding more granular checks at compile-time to validate use-sites.<br />
+  - Will simplify some of Metro&rsquo;s internal logic.</p>
+<p>Note that not all internal changes are implemented yet to allow for a migration period. In this release, use of <code>@Inject</code> with <code>@Assisted</code> parameters is a compiler <em>warning</em> and will become an error in the future. This diagnostic is configurable via the <code>assistedInjectMigrationSeverity</code> Gradle DSL option.</p>
+<h3 id="other-changes">Other changes<a class="headerlink" href="#other-changes" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Enhancement</strong>: Always check for available assisted factories when reporting <code>InvalidBinding</code> errors about misused assisted injects.</li>
 <li><strong>Enhancement</strong>: Always specifically report mismatched assisted parameter mismatches.</li>
@@ -1819,7 +1875,7 @@
 <li>Graph extensions may no longer have multiple direct parents.</li>
 </ul>
 <p>To create graph extensions, you now <em>must</em> do so via a parent graph (using one of the above connecting mechanisms).</p>
-<h3 id="other-changes">Other changes<a class="headerlink" href="#other-changes" title="Permanent link">&para;</a></h3>
+<h3 id="other-changes_1">Other changes<a class="headerlink" href="#other-changes_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Breaking change</strong>: Rename <code>custom-graph</code> compiler option to <code>custom-dependency-graph</code>.</li>
 <li><strong>Breaking change</strong>: Rename <code>custom-dependency-graph-factory</code> compiler option to <code>custom-dependency-graph-factory</code>.</li>
