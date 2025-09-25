@@ -1702,13 +1702,18 @@
 <p>Note that not all internal changes are implemented yet to allow for a migration period. In this release, use of <code>@Inject</code> with <code>@Assisted</code> parameters is a compiler <em>warning</em> and will become an error in the future. This diagnostic is configurable via the <code>assistedInjectMigrationSeverity</code> Gradle DSL option.</p>
 <h3 id="other-changes">Other changes<a class="headerlink" href="#other-changes" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>New</strong>: Support for interop with externally generated Dagger modules.</li>
 <li><strong>Enhancement</strong>: Always check for available assisted factories when reporting <code>InvalidBinding</code> errors about misused assisted injects.</li>
 <li><strong>Enhancement</strong>: Always specifically report mismatched assisted parameter mismatches.</li>
 <li><strong>Enhancement</strong>: Validate <code>Lazy</code> assisted factory injections in more places.</li>
 <li><strong>Enhancement</strong>: Allow private <code>@Binds</code> properties.</li>
+<li><strong>Enhancement</strong>: Better canonicalize flexible mutability from Dagger interop in collections and flexible nullability.</li>
+<li><strong>Enhancement</strong>: Better canonicalize flexible nullability from Dagger interop in generic type arguments.</li>
 <li><strong>Enhancement</strong>: Simplify assisted factory impl class generation by moving it entirely to IR.</li>
 <li><strong>Fix</strong>: Register <code>MetroDiagnostics</code> in FIR.</li>
+<li><strong>Fix</strong>: Use correct severity when reporting warnings to <code>MessageCollector</code> from newer IR diagnostics factories.</li>
 <li><strong>Fix</strong>: When transforming FIR override statuses, check all supertypes and not just immediate supertype.</li>
+<li>Dagger runtime interop is enabled, do not run status transformation on <code>@Provides</code> declarations in dagger modules.</li>
 </ul>
 <h2 id="066">0.6.6<a class="headerlink" href="#066" title="Permanent link">&para;</a></h2>
 <p><em>2025-09-11</em></p>

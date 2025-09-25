@@ -1205,7 +1205,7 @@
 <p>This specifically enables two features.</p>
 <ol>
 <li>Interop with Dagger/Javax/Jakarta&rsquo;s <code>Provider</code> and <code>Lazy</code> runtime intrinsics.</li>
-<li>Interop with generated Dagger factories for constructor-injected and assisted-injected classes. This means that an upstream class that was processed with the dagger compiler and has a generated Java <em>factory</em> class for a constructor injected class can be reused by Metro natively.</li>
+<li>Interop with generated Dagger factories for constructor-injected classes, assisted-injected classes, and Dagger modules. This means that an upstream class or module that was processed with the dagger compiler and has a generated Java <em>factory</em> class can be natively reused by Metro.</li>
 </ol>
 <p>Note this also automatically adds an extra <code>interop-dagger</code> dependency to support this scenario.</p>
 
