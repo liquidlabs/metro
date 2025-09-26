@@ -4,6 +4,11 @@ Changelog
 **Unreleased**
 --------------
 
+0.6.7
+-----
+
+_2025-09-25_
+
 ### New `@AssistedInject` annotation
 
 Assisted-injected classes must now use `@AssistedInject` instead of `@Inject`.
@@ -32,6 +37,8 @@ Note that not all internal changes are implemented yet to allow for a migration 
 - **Fix**: When transforming FIR override statuses, check all supertypes and not just immediate supertype.
 - **Fix**: Carry qualifiers over from Dagger inject constructors when interoping with dagger factories.
 - Dagger runtime interop is enabled, do not run status transformation on `@Provides` declarations in dagger modules.
+
+Special thanks to [@kevinguitar](https://github.com/kevinguitar), [@ChristianKatzmann](https://github.com/ChristianKatzmann), and [@hossain-khan](https://github.com/hossain-khan) for contributing to this release!
 
 0.6.6
 -----
