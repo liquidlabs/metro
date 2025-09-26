@@ -953,7 +953,16 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#067" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.6.7
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0.6.7">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1355,7 +1364,16 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#067" class="md-nav__link">
+    <span class="md-ellipsis">
+      0.6.7
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0.6.7">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1693,6 +1711,8 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased"><strong>Unreleased</strong><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="067">0.6.7<a class="headerlink" href="#067" title="Permanent link">&para;</a></h2>
+<p><em>2025-09-25</em></p>
 <h3 id="new-assistedinject-annotation">New <code>@AssistedInject</code> annotation<a class="headerlink" href="#new-assistedinject-annotation" title="Permanent link">&para;</a></h3>
 <p>Assisted-injected classes must now use <code>@AssistedInject</code> instead of <code>@Inject</code>.</p>
 <p>This is for multiple reasons:<br />
@@ -1716,8 +1736,9 @@
 <li><strong>Fix</strong>: Use correct severity when reporting warnings to <code>MessageCollector</code> from newer IR diagnostics factories.</li>
 <li><strong>Fix</strong>: When transforming FIR override statuses, check all supertypes and not just immediate supertype.</li>
 <li><strong>Fix</strong>: Carry qualifiers over from Dagger inject constructors when interoping with dagger factories.</li>
-<li>Dagger runtime interop is enabled, do not run status transformation on <code>@Provides</code> declarations in dagger modules.</li>
+<li>If Dagger runtime interop is enabled, do not run status transformation on <code>@Provides</code> declarations in dagger modules.</li>
 </ul>
+<p>Special thanks to <a href="https://github.com/kevinguitar">@kevinguitar</a>, <a href="https://github.com/ChristianKatzmann">@ChristianKatzmann</a>, and <a href="https://github.com/hossain-khan">@hossain-khan</a> for contributing to this release!</p>
 <h2 id="066">0.6.6<a class="headerlink" href="#066" title="Permanent link">&para;</a></h2>
 <p><em>2025-09-11</em></p>
 <ul>
