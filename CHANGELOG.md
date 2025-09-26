@@ -36,7 +36,7 @@ Note that not all internal changes are implemented yet to allow for a migration 
 - **Fix**: Use correct severity when reporting warnings to `MessageCollector` from newer IR diagnostics factories.
 - **Fix**: When transforming FIR override statuses, check all supertypes and not just immediate supertype.
 - **Fix**: Carry qualifiers over from Dagger inject constructors when interoping with dagger factories.
-- Dagger runtime interop is enabled, do not run status transformation on `@Provides` declarations in dagger modules.
+- If Dagger runtime interop is enabled, do not run status transformation on `@Provides` declarations in dagger modules.
 
 Special thanks to [@kevinguitar](https://github.com/kevinguitar), [@ChristianKatzmann](https://github.com/ChristianKatzmann), and [@hossain-khan](https://github.com/hossain-khan) for contributing to this release!
 
